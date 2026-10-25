@@ -37,7 +37,7 @@ jobs:
       - name: Bygg APK
         run: |
           set +e
-          gradle assembleDebug --no-daemon --console=plain > build.log 2>&1
+          gradle assembleDebug --no-daemon --console=plain -Pkotlin.compiler.execution.strategy=in-process > build.log 2>&1
           code=$?
           if [ $code -ne 0 ]; then
             msg=$(grep -E "^e: |error:|What went wrong|Execution failed|Could not|Unresolved|SDK|^> " build.log | head -25 | sed ':a;N;$!ba;s/\n/%0A/g')
