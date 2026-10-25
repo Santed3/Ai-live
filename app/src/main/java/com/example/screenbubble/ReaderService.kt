@@ -177,15 +177,11 @@ class ReaderService : AccessibilityService() {
         worker.execute {
             try {
                 val screenText = readScreenText()
-                val shot = if (screenText.length < 40) takeShot() else null
+                val shot = takeShot()
                 if (screenText.isBlank() && shot == null) {
                     throw RuntimeException("Kunde inte läsa skärmen (skyddad skärm?)")
                 }
-                val prompt = buildString {
-                    append("Vilket är rätt svar? Endast svaret.\n")
-                    if (screenText.isNotBlank()) append("Text på skärmen:\n").append(screenText)
-                }
-                val answer = OpenAiClient(key).askOnce(prompt, shot)
+                val answer = OpenAiClient(key).askOnce(screenText, shot)
                 main.post { if (id == requestId && !closing) showAnswer(answer, x, y) }
             } catch (e: Exception) {
                 saveError(e.message ?: "Okänt fel")
@@ -210,14 +206,14 @@ class ReaderService : AccessibilityService() {
         hideDot()
         val tv = TextView(this).apply {
             text = msg.replace("**", "").trim()
-            textSize = 12f
-            setTextColor(0xFFB0B0B0.toInt())
+            textSize = 13f
+            setTextColor(0xFFC8C8C8.toInt())
             setPadding(dp(6), dp(3), dp(6), dp(3))
             background = GradientDrawable().apply {
                 setColor(0xE6000000.toInt())
                 cornerRadius = dp(6).toFloat()
             }
-            maxWidth = (screenW * 0.6f).toInt()
+            maxWidth = (screenW * 0.7f).toInt()
             setOnClickListener { finishAnswer() }
         }
         tv.measure(
@@ -241,7 +237,8 @@ class ReaderService : AccessibilityService() {
         wm.addView(tv, lp)
         answerView = tv
         main.removeCallbacks(answerTimeout)
-        main.postDelayed(answerTimeout, ANSWER_MS)
+        val lines = msg.trim().lines().size
+        main.postDelayed(answerTimeout, min(ANSWER_MAX_MS, ANSWER_MS + (lines - 1) * 1000L))
     }
 
     private fun removeAnswer() {
@@ -315,23 +312,24 @@ class ReaderService : AccessibilityService() {
                 }
             }
         )
-        latch.await(4, TimeUnit.SECONDS)
+        latch.await(5, TimeUnit.SECONDS)
         return out
     }
 
     private fun encode(bmp: Bitmap): String {
-        val scale = min(1f, 1280f / max(bmp.width, bmp.height))
+        val scale = min(1f, 1800f / max(bmp.width, bmp.height))
         val scaled = if (scale < 1f) {
             Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt(), (bmp.height * scale).toInt(), true)
         } else bmp
         val out = ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, 70, out)
+        scaled.compress(Bitmap.CompressFormat.JPEG, 82, out)
         return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
     }
 
     companion object {
         /** How long the answer stays visible. */
         const val ANSWER_MS = 2000L
+        const val ANSWER_MAX_MS = 6000L
         const val DOUBLE_TAP_MS = 350L
 
         @Volatile

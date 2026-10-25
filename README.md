@@ -13,8 +13,8 @@ https://github.com/Santed3/Ai-live/releases/latest/download/ScreenBubble.apk
 5. Pricken dyker upp. Dra den dit du vill, tryck på den för ett svar.
 
 ## Hur det funkar
-- Läser texten i det aktiva fönstret via tillgänglighetstjänsten. Har skärmen nästan ingen text tas en tyst skärmbild som reserv.
-- Ett tryck = svar bredvid pricken i `ANSWER_MS` (2 s). Dubbeltryck = pricken försvinner och tjänsten stängs av.
+- Läser texten i det aktiva fönstret via tillgänglighetstjänsten. Skickar både skärmens text och en tyst skärmbild, så bilder och bildalternativ tolkas. Svaret visas som "1: B – Paris".
+- Ett tryck = svar bredvid pricken i 2 s (+1 s per extra fråga, max 6 s). Dubbeltryck = pricken försvinner och tjänsten stängs av.
 - Appar som skyddar sin skärm kan inte läsas.
 
 ## Bygget
