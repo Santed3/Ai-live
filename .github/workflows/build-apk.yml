@@ -29,9 +29,9 @@ jobs:
         run: |
           if [ -n "$OPENAI_API_KEY" ]; then
             sed -i "s|__OPENAI_KEY__|$OPENAI_API_KEY|" app/src/main/java/com/example/screenbubble/Config.kt
-            echo "Nyckel inbyggd i APK"
+            echo "::notice title=Nyckel::Nyckel inbyggd i APK"
           else
-            echo "Ingen secret satt: appen frågar efter nyckeln vid första start"
+            echo "::warning title=Nyckel::Ingen secret satt, appen frågar efter nyckeln"
           fi
 
       - name: Bygg APK
