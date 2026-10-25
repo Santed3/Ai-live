@@ -1,17 +1,22 @@
 # ScreenBubble
 
-Flytande AI-bubbla för Android som ser din skärm (OpenAI `gpt-4o`).
+En liten svart prick över alla Android-appar. Tryck på den så läses skärmens text (utan skärmdelning), och bara rätt svar visas en kort stund.
 
 ## Ladda ner
-Senaste APK: https://github.com/Santed3/ai-live/releases/latest/download/ScreenBubble.apk
+https://github.com/Santed3/Ai-live/releases/latest/download/ScreenBubble.apk
 
-Installera på en Android-telefon (Android 11 eller nyare) och tillåt installation från okänd källa när Android frågar.
+## Komma igång
+1. Installera APK-filen (Android 11 eller nyare).
+2. Klistra in din OpenAI API-nyckel i appen.
+3. Android 13+: appinfo → ⋮ → "Tillåt begränsade inställningar".
+4. Inställningar → Tillgänglighet → ScreenBubble → På.
+5. Pricken dyker upp. Dra den dit du vill, tryck på den för ett svar.
 
-## Använda
-- Tryck på bubblan: chatt. Håll in bubblan: snabbsvar på frågor och quiz på skärmen.
-- Första gången: klistra in din OpenAI API-nyckel, ge "Visa över andra appar" och välj "Hela skärmen" vid skärmdelning.
+## Hur det funkar
+- Läser texten i det aktiva fönstret via tillgänglighetstjänsten. Har skärmen nästan ingen text tas en tyst skärmbild som reserv.
+- Ett tryck = svar bredvid pricken i `ANSWER_MS` (2 s). Dubbeltryck = pricken försvinner och tjänsten stängs av.
+- Appar som skyddar sin skärm kan inte läsas.
 
 ## Bygget
-Varje push till `main` bygger en ny APK (GitHub Actions) och lägger den under Releases.
-Valfritt: lägg en secret `OPENAI_API_KEY` under Settings → Secrets and variables → Actions för att bygga in nyckeln i APK:n.
-Obs: en inbyggd nyckel kan plockas ut av den som laddar ner appen, så sätt en månadsgräns hos OpenAI.
+Varje push till `main` bygger en APK (GitHub Actions) och lägger den under Releases.
+Valfritt: secret `OPENAI_API_KEY` bygger in nyckeln i APK:n (kan då plockas ut av den som laddar ner appen).

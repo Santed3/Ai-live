@@ -21,22 +21,10 @@ class OpenAiClient(
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    // Text-only history (screenshots are not stored, to save tokens).
-    private val history = JSONArray().apply { put(system(CHAT_SYSTEM)) }
-
-    /** Normal chat turn with memory of earlier turns. */
-    fun ask(question: String, screenshotBase64: String?): String {
-        val answer = complete(history, userMessage(question, screenshotBase64), 800)
-        history.put(JSONObject().put("role", "user").put("content", question))
-        history.put(JSONObject().put("role", "assistant").put("content", answer))
-        while (history.length() > 11) history.remove(1)
-        return answer
-    }
-
     /** Stateless one-shot request used for quick answers. */
     fun askOnce(prompt: String, screenshotBase64: String?): String {
         val base = JSONArray().put(system(QUICK_SYSTEM))
-        return complete(base, userMessage(prompt, screenshotBase64), 400)
+        return complete(base, userMessage(prompt, screenshotBase64), 120)
     }
 
     private fun system(text: String) = JSONObject().put("role", "system").put("content", text)
@@ -93,19 +81,12 @@ class OpenAiClient(
     }
 
     companion object {
-        private const val CHAT_SYSTEM =
-            "Du är en hjälpsam AI-assistent som ligger som en flytande bubbla ovanpå användarens skärm. " +
-                "När en skärmbild följer med, titta på den och svara på användarens fråga om det som syns. " +
-                "Svara kort och tydligt, på samma språk som användaren skriver. Använd ingen markdown."
-
         private const val QUICK_SYSTEM =
-            "Du får en skärmbild. Din uppgift är att snabbt och korrekt besvara frågor som syns på den. " +
-                "Om skärmbilden innehåller en eller flera frågor, uppgifter eller flervalsfrågor/quiz: " +
-                "svara med enbart rätt svar för varje fråga, så kort som möjligt, " +
-                "till exempel '1. B – Paris' eller '2. 42'. Behåll frågornas numrering. " +
-                "Lägg bara till en kort förklaring (max en mening) om frågan är öppen eller svaret annars blir otydligt. " +
-                "Räkna noggrant på matte- och logikfrågor innan du svarar. " +
-                "Om ingen fråga syns, beskriv med en mening vad som visas. " +
-                "Svara på samma språk som frågorna. Använd ingen markdown."
+            "Du får text från en skärm (ibland även en bild). Hitta frågan eller frågorna och svara med ENDAST rätt svar, så kort som möjligt. " +
+                "Flervalsfråga: bara siffran eller bokstaven som anges i alternativen, till exempel 'B' eller '3'. " +
+                "Flera frågor: 'a) C b) A' eller '1B 2D 3A' i samma format som frågorna. " +
+                "Om alternativen saknar bokstav/siffra: skriv alternativets text. " +
+                "Fyll-i/matte: bara resultatet. Aldrig förklaring, aldrig hela meningar, ingen markdown. " +
+                "Tänk noggrant innan du svarar. Om ingen fråga syns, svara '–'."
     }
 }

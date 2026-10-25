@@ -1,12 +1,9 @@
 package com.example.screenbubble
 
-import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
-import android.media.projection.MediaProjectionManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.InputType
@@ -19,6 +16,7 @@ import android.widget.Toast
 class MainActivity : Activity() {
 
     private var keyInput: EditText? = null
+    private lateinit var status: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,11 +33,12 @@ class MainActivity : Activity() {
             textSize = 28f
             setTextColor(Color.BLACK)
         })
-        root.addView(TextView(this).apply {
-            text = "En flytande AI-bubbla som ser din skärm."
-            textSize = 15f
-            setPadding(0, pad / 2, 0, pad)
-        })
+
+        status = TextView(this).apply {
+            textSize = 14f
+            setPadding(0, pad / 2, 0, pad / 2)
+        }
+        root.addView(status)
 
         if (Config.embeddedKey().isEmpty()) {
             val et = EditText(this).apply {
@@ -52,80 +51,63 @@ class MainActivity : Activity() {
         }
 
         root.addView(Button(this).apply {
-            text = "Starta bubblan"
-            setOnClickListener { startBubble() }
+            text = "1. Tillåt begränsade inställningar (appinfo)"
+            setOnClickListener {
+                startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+                )
+            }
         })
         root.addView(Button(this).apply {
-            text = "Stoppa bubblan"
+            text = "2. Slå på ScreenBubble i Tillgänglighet"
             setOnClickListener {
-                stopService(Intent(this@MainActivity, OverlayService::class.java))
+                saveKey()
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             }
+        })
+        root.addView(Button(this).apply {
+            text = "Visa knappen"
+            setOnClickListener { saveKey(); ReaderService.instance?.setDotVisible(true) }
+        })
+        root.addView(Button(this).apply {
+            text = "Dölj knappen"
+            setOnClickListener { ReaderService.instance?.setDotVisible(false) }
         })
 
         root.addView(TextView(this).apply {
-            text = "Så använder du den\n\n" +
-                "• Tryck på bubblan: öppnar chatten (med \"Se skärmen\" ser AI:n det du har framför dig).\n" +
-                "• Håll in bubblan: snabbsvar. AI:n läser frågor och quiz på skärmen och visar bara rätt svar i en liten ruta som försvinner av sig själv. Tryck på rutan för att stänga den direkt.\n" +
-                "• Dra bubblan dit du vill ha den.\n\n" +
-                "Första gången frågar Android om tillåtelse att visa över andra appar och om skärmdelning. Välj \"Hela skärmen\". " +
-                "Skärmbilder skickas till OpenAI när funktionen används."
+            text = "Så funkar det\n\n" +
+                "• En liten svart prick ligger över alla appar. Dra den dit du vill ha den.\n" +
+                "• Ett tryck: skärmens text läses (ingen skärmdelning) och bara rätt svar visas bredvid pricken i 2 sekunder.\n" +
+                "• Dubbeltryck: pricken försvinner och tjänsten stängs av. Slå på igen i Tillgänglighet.\n\n" +
+                "Android 13 och nyare: tryck ⋮ i appinfo och välj \"Tillåt begränsade inställningar\" först (steg 1)."
             textSize = 14f
             setPadding(0, pad, 0, 0)
         })
 
         setContentView(root)
-
-        if (Build.VERSION.SDK_INT >= 33) {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-        }
     }
 
-    private fun startBubble() {
-        val et = keyInput
-        if (et != null) {
-            val key = et.text.toString().trim()
-            if (key.isEmpty()) {
-                Toast.makeText(this, "Ange din OpenAI API-nyckel först", Toast.LENGTH_SHORT).show()
-                return
-            }
-            getSharedPreferences("prefs", MODE_PRIVATE).edit().putString("api_key", key).apply()
-        }
-        if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(
-                this,
-                "Slå på \"Visa över andra appar\" för ScreenBubble och kom sedan tillbaka",
-                Toast.LENGTH_LONG
-            ).show()
-            startActivity(
-                Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:$packageName")
-                )
-            )
-            return
-        }
-        val mpm = getSystemService(MediaProjectionManager::class.java)
-        @Suppress("DEPRECATION")
-        startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CAPTURE)
+    override fun onResume() {
+        super.onResume()
+        refreshStatus()
     }
 
-    @Suppress("DEPRECATION")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQ_CAPTURE) {
-            if (resultCode == RESULT_OK && data != null) {
-                val intent = Intent(this, OverlayService::class.java)
-                    .putExtra(OverlayService.EXTRA_CODE, resultCode)
-                    .putExtra(OverlayService.EXTRA_DATA, data)
-                startForegroundService(intent)
-                moveTaskToBack(true)
-            } else {
-                Toast.makeText(this, "Skärmdelning nekades", Toast.LENGTH_SHORT).show()
-            }
-        }
+    override fun onPause() {
+        saveKey()
+        super.onPause()
     }
 
-    companion object {
-        private const val REQ_CAPTURE = 100
+    private fun saveKey() {
+        val et = keyInput ?: return
+        getSharedPreferences("prefs", MODE_PRIVATE).edit()
+            .putString("api_key", et.text.toString().trim()).apply()
+    }
+
+    private fun refreshStatus() {
+        val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
+        val on = ReaderService.instance != null
+        val err = prefs.getString("last_error", "").orEmpty()
+        status.text = (if (on) "Status: på (pricken visas)" else "Status: av (slå på i Tillgänglighet)") +
+            (if (err.isNotEmpty()) "\nSenaste fel: $err" else "")
     }
 }
