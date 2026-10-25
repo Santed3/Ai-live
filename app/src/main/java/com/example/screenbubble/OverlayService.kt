@@ -289,7 +289,7 @@ class OverlayService : Service() {
         screenSwitch = sw
 
         root.addView(Button(this).apply {
-            text = "Svara på frågorna på skärmen"
+            this.text = "Svara på frågorna på skärmen"
             setOnClickListener { quickAnswer() }
         })
 
