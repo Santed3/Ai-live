@@ -14,7 +14,7 @@ https://github.com/Santed3/Ai-live/releases/latest/download/ScreenBubble.apk
 
 ## Hur det funkar
 - Läser texten i det aktiva fönstret via tillgänglighetstjänsten. Skickar både skärmens text och en tyst skärmbild, så bilder och bildalternativ tolkas. Svaret visas som "1: B – Paris".
-- Ett tryck = svar bredvid pricken i 2 s (+1 s per extra fråga, max 6 s). Dubbeltryck = pricken försvinner och tjänsten stängs av.
+- Ett tryck = svar bredvid pricken i 5 s (+1,5 s per extra fråga, max 10 s). Dubbeltryck = pricken försvinner och tjänsten stängs av.
 - Appar som skyddar sin skärm kan inte läsas.
 
 ## Bygget

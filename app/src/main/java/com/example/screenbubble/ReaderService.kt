@@ -238,7 +238,7 @@ class ReaderService : AccessibilityService() {
         answerView = tv
         main.removeCallbacks(answerTimeout)
         val lines = msg.trim().lines().size
-        main.postDelayed(answerTimeout, min(ANSWER_MAX_MS, ANSWER_MS + (lines - 1) * 1000L))
+        main.postDelayed(answerTimeout, min(ANSWER_MAX_MS, ANSWER_MS + (lines - 1) * 1500L))
     }
 
     private fun removeAnswer() {
@@ -328,8 +328,8 @@ class ReaderService : AccessibilityService() {
 
     companion object {
         /** How long the answer stays visible. */
-        const val ANSWER_MS = 2000L
-        const val ANSWER_MAX_MS = 6000L
+        const val ANSWER_MS = 5000L
+        const val ANSWER_MAX_MS = 10000L
         const val DOUBLE_TAP_MS = 350L
 
         @Volatile

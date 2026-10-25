@@ -77,7 +77,7 @@ class MainActivity : Activity() {
         root.addView(TextView(this).apply {
             text = "Så funkar det\n\n" +
                 "• En liten svart prick ligger över alla appar. Dra den dit du vill ha den.\n" +
-                "• Ett tryck: skärmens text läses (ingen skärmdelning) och bara rätt svar visas bredvid pricken i 2 sekunder.\n" +
+                "• Ett tryck: skärmens text läses (ingen skärmdelning) och bara rätt svar visas bredvid pricken i några sekunder.\n" +
                 "• Dubbeltryck: pricken försvinner och tjänsten stängs av. Slå på igen i Tillgänglighet.\n\n" +
                 "Android 13 och nyare: tryck ⋮ i appinfo och välj \"Tillåt begränsade inställningar\" först (steg 1)."
             textSize = 14f
