@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="a11y_description">Visar en liten knapp. När du trycker på den läser ScreenBubble texten på skärmen (och tar vid behov en bild) och skickar den till OpenAI för att få ett kort svar.</string>
+    <string name="a11y_description">Visar en sidopanel med en AI-assistent. Assistenten läser texten och bilden på skärmen när du ber om det och kan, efter din bekräftelse, öppna appar, trycka, skriva och föreslå svar. Innehållet skickas till OpenAI för att få svar.</string>
 </resources>

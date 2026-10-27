@@ -1,12 +1,19 @@
 package com.example.screenbubble
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.provider.AlarmClock
 import android.util.Base64
 import android.view.Display
 import android.view.Gravity
@@ -15,6 +22,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.FrameLayout
 import android.widget.TextView
 import java.io.ByteArrayOutputStream
@@ -26,77 +34,147 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Accessibility service that shows one tiny black dot over all apps.
- * One tap: reads the text on screen (no screen sharing), asks OpenAI, shows only the short answer
- * next to the dot for ANSWER_MS. Double tap: removes the dot and switches the service off.
+ * Host service. Two modes:
+ *  - PANEL: a side panel (chat, shortcuts, voice, phone control).
+ *  - HIDE: only a tiny black dot. Tap = quick answer, hold = back to panel, double tap = close.
  */
 class ReaderService : AccessibilityService() {
 
+    enum class Mode { PANEL, HIDE }
+
     private lateinit var wm: WindowManager
     private val main = Handler(Looper.getMainLooper())
-    private val worker = Executors.newSingleThreadExecutor()
+    val pool = Executors.newCachedThreadPool()
 
+    private var mode = Mode.PANEL
+    private var panel: PanelUi? = null
     private var dot: View? = null
     private var dotLp: WindowManager.LayoutParams? = null
     private var answerView: View? = null
-    private var busy = false
+    private var dotBusy = false
     private var closing = false
     private var requestId = 0
     private var lastTap = 0L
-    private var screenW = 0
-    private var screenH = 0
+    private var lastPkg = ""
+    var screenW = 0
+    var screenH = 0
 
     private val answerTimeout = Runnable { finishAnswer() }
+
+    fun apiKey(): String = Config.embeddedKey().ifEmpty {
+        getSharedPreferences("prefs", MODE_PRIVATE).getString("api_key", "").orEmpty()
+    }
+
+    // ------------------------------------------------------------ lifecycle
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
         closing = false
-        busy = false
+        dotBusy = false
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
         val b = wm.currentWindowMetrics.bounds
         screenW = b.width()
         screenH = b.height()
-        showDot()
+        setMode(if (Store.mode(this) == "HIDE") Mode.HIDE else Mode.PANEL)
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            val p = event.packageName?.toString() ?: return
+            if (p != packageName && p != "com.android.systemui" && !p.contains("inputmethod")) lastPkg = p
+        }
+    }
 
     override fun onInterrupt() {}
 
-    override fun onUnbind(intent: android.content.Intent?): Boolean {
+    override fun onUnbind(intent: Intent?): Boolean {
         instance = null
-        main.removeCallbacks(answerTimeout)
+        closing = true
+        main.removeCallbacksAndMessages(null)
         removeAnswer()
+        removePanel()
         hideDot()
-        worker.shutdownNow()
+        pool.shutdownNow()
         return super.onUnbind(intent)
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
-    // ------------------------------------------------------------------- dot
+    // ----------------------------------------------------------------- modes
 
-    fun setDotVisible(visible: Boolean) {
-        main.post { if (visible) showDot() else hideDot() }
+    fun setMode(m: Mode) {
+        main.post {
+            if (closing) return@post
+            mode = m
+            Store.setMode(this, m.name)
+            if (m == Mode.PANEL) {
+                hideDot()
+                removeAnswer()
+                showPanel()
+            } else {
+                removePanel()
+                showDot()
+            }
+        }
     }
 
+    fun shutDown() {
+        main.post {
+            closing = true
+            requestId++
+            main.removeCallbacks(answerTimeout)
+            removeAnswer()
+            removePanel()
+            hideDot()
+            disableSelf()
+        }
+    }
+
+    private fun showPanel() {
+        if (panel != null) return
+        val p = PanelUi(this)
+        val w = min(dp(380), (screenW * 0.92f).toInt())
+        val h = (screenH * 0.78f).toInt()
+        val lp = WindowManager.LayoutParams(
+            w, h,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            x = dp(4)
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        }
+        wm.addView(p.root, lp)
+        panel = p
+        p.onShown()
+    }
+
+    private fun removePanel() {
+        panel?.let {
+            it.destroy()
+            try { wm.removeView(it.root) } catch (_: Exception) {}
+        }
+        panel = null
+    }
+
+    // ------------------------------------------------------------------- dot
+
     private fun showDot() {
-        if (dot != null || busy) return
+        if (dot != null || dotBusy) return
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val hit = dp(36)
         val lp = WindowManager.LayoutParams(
             hit, hit,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = prefs.getInt("dot_x", screenW - hit - dp(8))
             y = prefs.getInt("dot_y", screenH / 3)
         }
-
         val frame = FrameLayout(this)
         val circle = View(this).apply {
             background = GradientDrawable().apply {
@@ -111,18 +189,30 @@ class ReaderService : AccessibilityService() {
         var touchX = 0f
         var touchY = 0f
         var moved = false
+        var longFired = false
+        val longPress = Runnable {
+            if (!moved) {
+                longFired = true
+                setMode(Mode.PANEL)
+            }
+        }
         frame.setOnTouchListener { _, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
                     startX = lp.x; startY = lp.y
                     touchX = e.rawX; touchY = e.rawY
                     moved = false
+                    longFired = false
+                    main.postDelayed(longPress, 650)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (e.rawX - touchX).toInt()
                     val dy = (e.rawY - touchY).toInt()
-                    if (abs(dx) > dp(6) || abs(dy) > dp(6)) moved = true
+                    if (abs(dx) > dp(6) || abs(dy) > dp(6)) {
+                        moved = true
+                        main.removeCallbacks(longPress)
+                    }
                     if (moved) {
                         lp.x = min(max(0, startX + dx), screenW - hit)
                         lp.y = min(max(0, startY + dy), screenH - hit)
@@ -130,17 +220,20 @@ class ReaderService : AccessibilityService() {
                     }
                     true
                 }
-                MotionEvent.ACTION_UP -> {
-                    if (moved) {
-                        prefs.edit().putInt("dot_x", lp.x).putInt("dot_y", lp.y).apply()
-                    } else {
-                        val now = android.os.SystemClock.uptimeMillis()
-                        if (now - lastTap < DOUBLE_TAP_MS) {
-                            lastTap = 0
-                            shutDown()
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    main.removeCallbacks(longPress)
+                    if (e.action == MotionEvent.ACTION_UP && !longFired) {
+                        if (moved) {
+                            prefs.edit().putInt("dot_x", lp.x).putInt("dot_y", lp.y).apply()
                         } else {
-                            lastTap = now
-                            onDotTap()
+                            val now = SystemClock.uptimeMillis()
+                            if (now - lastTap < DOUBLE_TAP_MS) {
+                                lastTap = 0
+                                shutDown()
+                            } else {
+                                lastTap = now
+                                onDotTap()
+                            }
                         }
                     }
                     true
@@ -158,47 +251,31 @@ class ReaderService : AccessibilityService() {
         dot = null
     }
 
-    // ---------------------------------------------------------------- answer
+    // ----------------------------------------------------------- quick answer
 
     private fun onDotTap() {
-        if (busy) return
-        val key = Config.embeddedKey().ifEmpty {
-            getSharedPreferences("prefs", MODE_PRIVATE).getString("api_key", "").orEmpty()
-        }
+        if (dotBusy) return
+        val key = apiKey()
         val x = dotLp?.x ?: 0
         val y = dotLp?.y ?: 0
-        busy = true
+        dotBusy = true
         val id = ++requestId
         if (key.isEmpty()) {
             saveError("Ingen API-nyckel. Skriv in den i appen.")
             showAnswer("!", x, y)
             return
         }
-        worker.execute {
+        pool.execute {
             try {
-                val screenText = readScreenText()
-                val shot = takeShot()
-                if (screenText.isBlank() && shot == null) {
-                    throw RuntimeException("Kunde inte läsa skärmen (skyddad skärm?)")
-                }
-                val answer = OpenAiClient(key).askOnce(screenText, shot)
+                val (text, shot) = captureScreen()
+                if (text.isBlank() && shot == null) throw RuntimeException("Kunde inte läsa skärmen (skyddad skärm?)")
+                val answer = OpenAiClient(key).askOnce(text, shot)
                 main.post { if (id == requestId && !closing) showAnswer(answer, x, y) }
             } catch (e: Exception) {
                 saveError(e.message ?: "Okänt fel")
                 main.post { if (id == requestId && !closing) showAnswer("!", x, y) }
             }
         }
-    }
-
-    /** Double tap: remove everything and switch the service off. */
-    private fun shutDown() {
-        closing = true
-        requestId++
-        main.removeCallbacks(answerTimeout)
-        removeAnswer()
-        hideDot()
-        busy = false
-        disableSelf()
     }
 
     private fun showAnswer(msg: String, x: Int, y: Int) {
@@ -224,8 +301,7 @@ class ReaderService : AccessibilityService() {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -249,27 +325,41 @@ class ReaderService : AccessibilityService() {
     private fun finishAnswer() {
         main.removeCallbacks(answerTimeout)
         removeAnswer()
-        busy = false
-        showDot()
+        dotBusy = false
+        if (mode == Mode.HIDE && !closing) showDot()
     }
 
     private fun saveError(msg: String) {
         getSharedPreferences("prefs", MODE_PRIVATE).edit().putString("last_error", msg).apply()
     }
 
-    // ---------------------------------------------------------- read screen
+    // ----------------------------------------------------------- read screen
 
-    /** Collects the visible text of the active window from the accessibility tree. */
-    private fun readScreenText(): String {
-        val root = rootInActiveWindow ?: return ""
+    /** The topmost real app window (not our own overlays). */
+    private fun appRoot(): AccessibilityNodeInfo? {
+        try {
+            val ws = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+                .sortedByDescending { it.layer }
+            for (w in ws) {
+                val r = w.root ?: continue
+                if (r.packageName?.toString() != packageName) return r
+            }
+        } catch (_: Exception) {
+        }
+        val r = rootInActiveWindow
+        return if (r != null && r.packageName?.toString() != packageName) r else null
+    }
+
+    fun currentPkg(): String = appRoot()?.packageName?.toString() ?: lastPkg
+
+    fun readScreenText(): String {
+        val root = appRoot() ?: return ""
         val sb = StringBuilder()
         var count = 0
         var last = ""
-
         fun walk(n: AccessibilityNodeInfo?) {
             if (n == null || count > 1500 || sb.length > 8000) return
             count++
-            if (n.packageName?.toString() == packageName) return
             if (n.isVisibleToUser) {
                 val t = n.text?.toString()?.trim().orEmpty()
                 val d = n.contentDescription?.toString()?.trim().orEmpty()
@@ -283,12 +373,26 @@ class ReaderService : AccessibilityService() {
             }
             for (i in 0 until n.childCount) walk(n.getChild(i))
         }
-
         walk(root)
         return sb.toString().take(8000)
     }
 
-    /** Fallback when the screen has little readable text: silent screenshot, no screen-sharing prompt. */
+    /** Screen text and a silent screenshot, with the panel made transparent while capturing. */
+    fun captureScreen(): Pair<String, String?> {
+        val v = panel?.root
+        if (v != null) {
+            main.post { v.alpha = 0f }
+            Thread.sleep(200)
+        }
+        try {
+            val text = readScreenText()
+            val shot = takeShot()
+            return Pair(text, shot)
+        } finally {
+            if (v != null) main.post { v.alpha = 1f }
+        }
+    }
+
     private fun takeShot(): String? {
         val latch = CountDownLatch(1)
         var out: String? = null
@@ -317,7 +421,7 @@ class ReaderService : AccessibilityService() {
     }
 
     private fun encode(bmp: Bitmap): String {
-        val scale = min(1f, 1800f / max(bmp.width, bmp.height))
+        val scale = min(1f, 1600f / max(bmp.width, bmp.height))
         val scaled = if (scale < 1f) {
             Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt(), (bmp.height * scale).toInt(), true)
         } else bmp
@@ -326,8 +430,163 @@ class ReaderService : AccessibilityService() {
         return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
     }
 
+    // --------------------------------------------------------------- actions
+
+    private fun launch(i: Intent): Boolean = try {
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(i)
+        true
+    } catch (e: Exception) {
+        false
+    }
+
+    fun openApp(name: String): String {
+        val pm = packageManager
+        val q = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val apps = pm.queryIntentActivities(q, 0)
+        val n = name.lowercase().trim()
+        val hit = apps.firstOrNull { it.loadLabel(pm).toString().lowercase() == n }
+            ?: apps.firstOrNull { it.loadLabel(pm).toString().lowercase().contains(n) }
+            ?: apps.firstOrNull { val l = it.loadLabel(pm).toString().lowercase(); l.length > 3 && n.contains(l) }
+            ?: return "Hittade ingen app som heter \"$name\"."
+        val i = pm.getLaunchIntentForPackage(hit.activityInfo.packageName) ?: return "Kunde inte starta appen."
+        return if (launch(i)) "Öppnade ${hit.loadLabel(pm)}." else "Kunde inte öppna appen."
+    }
+
+    fun openUrl(url: String): String {
+        val u = if (url.startsWith("http")) url else "https://$url"
+        return if (launch(Intent(Intent.ACTION_VIEW, Uri.parse(u)))) "Öppnade $u." else "Kunde inte öppna adressen."
+    }
+
+    fun composeSms(number: String, message: String): String {
+        val i = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${Uri.encode(number)}")).putExtra("sms_body", message)
+        return if (launch(i)) "SMS-utkast öppnat. Användaren trycker själv på skicka." else "Kunde inte öppna SMS."
+    }
+
+    fun composeEmail(to: String, subject: String, body: String): String {
+        val i = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")).apply {
+            if (to.isNotBlank()) putExtra(Intent.EXTRA_EMAIL, arrayOf(to))
+            putExtra(Intent.EXTRA_SUBJECT, subject)
+            putExtra(Intent.EXTRA_TEXT, body)
+        }
+        return if (launch(i)) "Mejlutkast öppnat. Användaren trycker själv på skicka." else "Kunde inte öppna mejl."
+    }
+
+    fun dial(number: String): String =
+        if (launch(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(number)}")))) "Öppnade uppringaren." else "Kunde inte öppna uppringaren."
+
+    fun setAlarm(hour: Int, minute: Int, label: String): String {
+        val i = Intent(AlarmClock.ACTION_SET_ALARM)
+            .putExtra(AlarmClock.EXTRA_HOUR, hour).putExtra(AlarmClock.EXTRA_MINUTES, minute)
+            .putExtra(AlarmClock.EXTRA_MESSAGE, label).putExtra(AlarmClock.EXTRA_SKIP_UI, true)
+        return if (launch(i)) "Alarm ställt på %02d:%02d.".format(hour, minute) else "Kunde inte ställa alarm."
+    }
+
+    fun setTimer(seconds: Int, label: String): String {
+        val i = Intent(AlarmClock.ACTION_SET_TIMER)
+            .putExtra(AlarmClock.EXTRA_LENGTH, seconds).putExtra(AlarmClock.EXTRA_MESSAGE, label)
+            .putExtra(AlarmClock.EXTRA_SKIP_UI, true)
+        return if (launch(i)) "Timer startad på $seconds sekunder." else "Kunde inte starta timer."
+    }
+
+    private fun clickableAncestor(n: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+        var c = n
+        var depth = 0
+        while (c != null && depth < 8) {
+            if (c.isClickable && c.isEnabled) return c
+            c = c.parent
+            depth++
+        }
+        return null
+    }
+
+    fun tapText(text: String): String {
+        val root = appRoot() ?: return "Ingen app-skärm att trycka i."
+        val nodes = root.findAccessibilityNodeInfosByText(text)
+        if (nodes.isNullOrEmpty()) return "Hittade inget element med texten \"$text\"."
+        val node = nodes.firstOrNull { it.isVisibleToUser } ?: nodes[0]
+        val target = clickableAncestor(node) ?: node
+        return if (target.performAction(AccessibilityNodeInfo.ACTION_CLICK)) "Tryckte på \"$text\"." else "Kunde inte trycka på \"$text\"."
+    }
+
+    fun tapFraction(fx: Float, fy: Float): Boolean {
+        val x = fx.coerceIn(0f, 1f) * screenW
+        val y = fy.coerceIn(0f, 1f) * screenH
+        val path = Path().apply { moveTo(x, y) }
+        val g = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 60)).build()
+        return dispatchGesture(g, null, null)
+    }
+
+    private fun findEditable(n: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+        if (n == null) return null
+        if (n.isEditable && n.isVisibleToUser) return n
+        for (i in 0 until n.childCount) {
+            val r = findEditable(n.getChild(i))
+            if (r != null) return r
+        }
+        return null
+    }
+
+    private fun inputTarget(): AccessibilityNodeInfo? {
+        val root = appRoot() ?: return null
+        val f = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        return if (f != null && f.isEditable) f else findEditable(root)
+    }
+
+    fun typeText(text: String, append: Boolean): String {
+        val t = inputTarget() ?: return "Hittade inget textfält att skriva i."
+        val cur = if (append && !t.isShowingHintText) t.text?.toString().orEmpty() else ""
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, cur + text)
+        }
+        return if (t.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) "Skrev texten." else "Kunde inte skriva i fältet."
+    }
+
+    fun pressEnter(): String {
+        val t = inputTarget() ?: return "Hittade inget textfält."
+        return if (t.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)) "Tryckte Enter." else "Kunde inte trycka Enter."
+    }
+
+    /** Tries the usual send buttons. */
+    fun tapSend(): String {
+        for (label in listOf("Skicka", "Send", "Skicka meddelande")) {
+            val r = tapText(label)
+            if (r.startsWith("Tryckte")) return r
+        }
+        return "Hittade ingen skicka-knapp. Tryck själv på skicka."
+    }
+
+    private fun findScrollable(n: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+        if (n == null) return null
+        if (n.isScrollable && n.isVisibleToUser) return n
+        for (i in 0 until n.childCount) {
+            val r = findScrollable(n.getChild(i))
+            if (r != null) return r
+        }
+        return null
+    }
+
+    fun scroll(direction: String): String {
+        val s = findScrollable(appRoot()) ?: return "Inget går att scrolla här."
+        val act = if (direction.lowercase().startsWith("u")) AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+        else AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+        return if (s.performAction(act)) "Scrollade." else "Kunde inte scrolla."
+    }
+
+    fun globalAct(action: String): String {
+        val a = when (action.lowercase()) {
+            "back" -> GLOBAL_ACTION_BACK
+            "home" -> GLOBAL_ACTION_HOME
+            "recents" -> GLOBAL_ACTION_RECENTS
+            "notifications" -> GLOBAL_ACTION_NOTIFICATIONS
+            "quick_settings" -> GLOBAL_ACTION_QUICK_SETTINGS
+            else -> return "Okänd systemåtgärd: $action"
+        }
+        return if (performGlobalAction(a)) "Utförde $action." else "Kunde inte utföra $action."
+    }
+
     companion object {
-        /** How long the answer stays visible. */
         const val ANSWER_MS = 5000L
         const val ANSWER_MAX_MS = 10000L
         const val DOUBLE_TAP_MS = 350L

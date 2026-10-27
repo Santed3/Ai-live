@@ -8,56 +8,22 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-/** Minimal OpenAI client (vision). Blocks, so call it from a background thread. */
+/** Minimal OpenAI client (chat, tools, vision, web search). Blocks: call from a background thread. */
 class OpenAiClient(
     private val apiKey: String,
     private val model: String = "gpt-4o"
 ) {
     private val http = OkHttpClient.Builder()
-        .callTimeout(45, TimeUnit.SECONDS)
-        .readTimeout(45, TimeUnit.SECONDS)
+        .callTimeout(75, TimeUnit.SECONDS)
+        .readTimeout(75, TimeUnit.SECONDS)
         .build()
 
-    /**
-     * Looks at the screenshot (and the screen text) and returns the correct answers,
-     * one per line, formatted as "1: B – Paris".
-     */
-    fun askOnce(screenText: String, screenshotBase64: String?): String {
-        val content = JSONArray().put(
-            JSONObject().put("type", "text").put(
-                "text",
-                "Lös frågorna som syns på skärmen. Svara med JSON enligt instruktionen.\n" +
-                    if (screenText.isNotBlank()) "Text på skärmen:\n$screenText" else "(Ingen läsbar text, använd bilden.)"
-            )
-        )
-        if (screenshotBase64 != null) {
-            content.put(
-                JSONObject().put("type", "image_url").put(
-                    "image_url",
-                    JSONObject()
-                        .put("url", "data:image/jpeg;base64,$screenshotBase64")
-                        .put("detail", "high")
-                )
-            )
-        }
-        val messages = JSONArray()
-            .put(JSONObject().put("role", "system").put("content", SYSTEM))
-            .put(JSONObject().put("role", "user").put("content", content))
-
-        val body = JSONObject()
-            .put("model", model)
-            .put("messages", messages)
-            .put("max_tokens", 900)
-            .put("temperature", 0)
-            .put("response_format", JSONObject().put("type", "json_object"))
-            .toString()
-
+    private fun post(body: JSONObject): JSONObject {
         val request = Request.Builder()
             .url("https://api.openai.com/v1/chat/completions")
             .header("Authorization", "Bearer $apiKey")
-            .post(body.toRequestBody("application/json".toMediaType()))
+            .post(body.toString().toRequestBody("application/json".toMediaType()))
             .build()
-
         http.newCall(request).execute().use { response ->
             val text = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
@@ -68,11 +34,92 @@ class OpenAiClient(
                 }
                 throw RuntimeException("OpenAI ${response.code}: ${msg ?: text.take(200)}")
             }
-            val raw = JSONObject(text)
-                .getJSONArray("choices").getJSONObject(0)
-                .getJSONObject("message").getString("content").trim()
-            return format(raw)
+            return JSONObject(text)
         }
+    }
+
+    /** User message content: text plus optional screenshot. */
+    fun content(text: String, shotBase64: String?): JSONArray {
+        val c = JSONArray().put(JSONObject().put("type", "text").put("text", text))
+        if (shotBase64 != null) {
+            c.put(
+                JSONObject().put("type", "image_url").put(
+                    "image_url",
+                    JSONObject().put("url", "data:image/jpeg;base64,$shotBase64").put("detail", "high")
+                )
+            )
+        }
+        return c
+    }
+
+    fun chat(
+        messages: JSONArray,
+        tools: JSONArray? = null,
+        maxTokens: Int = 900,
+        json: Boolean = false,
+        temperature: Double? = null
+    ): JSONObject {
+        val body = JSONObject().put("model", model).put("messages", messages).put("max_tokens", maxTokens)
+        if (tools != null && tools.length() > 0) body.put("tools", tools).put("tool_choice", "auto")
+        if (json) body.put("response_format", JSONObject().put("type", "json_object"))
+        if (temperature != null) body.put("temperature", temperature)
+        return post(body).getJSONArray("choices").getJSONObject(0).getJSONObject("message")
+    }
+
+    private fun contentOf(msg: JSONObject): String = if (msg.isNull("content")) "" else msg.getString("content").trim()
+
+    /** Plain text completion. */
+    fun text(system: String, user: JSONArray, maxTokens: Int = 700): String {
+        val messages = JSONArray()
+            .put(JSONObject().put("role", "system").put("content", system))
+            .put(JSONObject().put("role", "user").put("content", user))
+        return contentOf(chat(messages, null, maxTokens))
+    }
+
+    fun textSimple(system: String, user: String, maxTokens: Int = 700): String =
+        text(system, JSONArray().put(JSONObject().put("type", "text").put("text", user)), maxTokens)
+
+    /** Web search through OpenAI's search model. Returns answer plus sources. */
+    fun search(query: String): String {
+        val body = JSONObject()
+            .put("model", "gpt-4o-search-preview")
+            .put("web_search_options", JSONObject())
+            .put(
+                "messages", JSONArray()
+                    .put(
+                        JSONObject().put("role", "system").put(
+                            "content",
+                            "Sök på webben och svara kort och korrekt på användarens språk. Ge konkreta fakta och jämför källor när det behövs."
+                        )
+                    )
+                    .put(JSONObject().put("role", "user").put("content", query))
+            )
+        val msg = post(body).getJSONArray("choices").getJSONObject(0).getJSONObject("message")
+        val answer = contentOf(msg)
+        val sources = LinkedHashMap<String, String>()
+        val ann = msg.optJSONArray("annotations")
+        if (ann != null) {
+            for (i in 0 until ann.length()) {
+                val u = ann.getJSONObject(i).optJSONObject("url_citation") ?: continue
+                val url = u.optString("url")
+                if (url.isNotEmpty() && !sources.containsKey(url)) sources[url] = u.optString("title", url)
+            }
+        }
+        val src = sources.entries.take(4).joinToString("\n") { "- ${it.value} (${it.key})" }
+        return if (src.isEmpty()) answer else "$answer\n\nKällor:\n$src"
+    }
+
+    /**
+     * Quick answer: returns only the correct answers, one per line, e.g. "1: B – Paris".
+     */
+    fun askOnce(screenText: String, screenshotBase64: String?): String {
+        val prompt = "Lös frågorna som syns på skärmen. Svara med JSON enligt instruktionen.\n" +
+            if (screenText.isNotBlank()) "Text på skärmen:\n$screenText" else "(Ingen läsbar text, använd bilden.)"
+        val messages = JSONArray()
+            .put(JSONObject().put("role", "system").put("content", QUICK_SYSTEM))
+            .put(JSONObject().put("role", "user").put("content", content(prompt, screenshotBase64)))
+        val raw = contentOf(chat(messages, null, 900, json = true, temperature = 0.0))
+        return format(raw)
     }
 
     private fun format(raw: String): String {
@@ -99,7 +146,7 @@ class OpenAiClient(
     }
 
     companion object {
-        private const val SYSTEM =
+        private const val QUICK_SYSTEM =
             "Du löser frågor, quiz och uppgifter som syns på en telefonskärm. Du får en skärmbild och ibland texten från skärmen. " +
                 "Bilden visar vad som faktiskt syns (inklusive foton, diagram och bildalternativ); texten hjälper dig läsa exakt.\n" +
                 "Gör så här: 1) Hitta alla frågor och deras svarsalternativ. " +

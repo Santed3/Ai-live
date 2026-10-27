@@ -1,7 +1,9 @@
 package com.example.screenbubble
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -10,8 +12,8 @@ import android.text.InputType
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.Toast
 
 class MainActivity : Activity() {
 
@@ -53,9 +55,7 @@ class MainActivity : Activity() {
         root.addView(Button(this).apply {
             text = "1. Tillåt begränsade inställningar (appinfo)"
             setOnClickListener {
-                startActivity(
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
-                )
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
             }
         })
         root.addView(Button(this).apply {
@@ -66,25 +66,31 @@ class MainActivity : Activity() {
             }
         })
         root.addView(Button(this).apply {
-            text = "Visa knappen"
-            setOnClickListener { saveKey(); ReaderService.instance?.setDotVisible(true) }
+            text = "3. Tillåt mikrofon (för röst)"
+            setOnClickListener { requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1) }
         })
         root.addView(Button(this).apply {
-            text = "Dölj knappen"
-            setOnClickListener { ReaderService.instance?.setDotVisible(false) }
+            text = "Öppna sidopanelen"
+            setOnClickListener { saveKey(); ReaderService.instance?.setMode(ReaderService.Mode.PANEL) }
+        })
+        root.addView(Button(this).apply {
+            text = "Hide-läge (bara svart prick)"
+            setOnClickListener { saveKey(); ReaderService.instance?.setMode(ReaderService.Mode.HIDE) }
         })
 
-        root.addView(TextView(this).apply {
+        val help = TextView(this).apply {
             text = "Så funkar det\n\n" +
-                "• En liten svart prick ligger över alla appar. Dra den dit du vill ha den.\n" +
-                "• Ett tryck: skärmens text läses (ingen skärmdelning) och bara rätt svar visas bredvid pricken i några sekunder.\n" +
-                "• Dubbeltryck: pricken försvinner och tjänsten stängs av. Slå på igen i Tillgänglighet.\n\n" +
-                "Android 13 och nyare: tryck ⋮ i appinfo och välj \"Tillåt begränsade inställningar\" först (steg 1)."
+                "Sidopanelen: fråga om det som är på skärmen, be assistenten öppna appar, trycka, skriva, söka på webben, ställa alarm och timers, eller föreslå svar på mejl och meddelanden. " +
+                "Använd 🎤 för röst och Samtal för fri konversation. Skicka och andra känsliga åtgärder kräver alltid att du bekräftar.\n\n" +
+                "Hide-läge: tryck Dölj i panelen. Då visas bara en liten svart prick. Ett tryck ger ett kort svar på frågor på skärmen, håll in pricken för att öppna panelen, dubbeltryck stänger av.\n\n" +
+                "Android 13 och nyare: tryck ⋮ i appinfo och välj \"Tillåt begränsade inställningar\" före steg 2.\n\n" +
+                "Skärmens innehåll skickas till OpenAI när du ställer en fråga. Använd inte appen där hjälpmedel är förbjudna, till exempel på prov."
             textSize = 14f
             setPadding(0, pad, 0, 0)
-        })
+        }
+        root.addView(help)
 
-        setContentView(root)
+        setContentView(ScrollView(this).apply { addView(root) })
     }
 
     override fun onResume() {
@@ -99,15 +105,16 @@ class MainActivity : Activity() {
 
     private fun saveKey() {
         val et = keyInput ?: return
-        getSharedPreferences("prefs", MODE_PRIVATE).edit()
-            .putString("api_key", et.text.toString().trim()).apply()
+        getSharedPreferences("prefs", MODE_PRIVATE).edit().putString("api_key", et.text.toString().trim()).apply()
     }
 
     private fun refreshStatus() {
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
         val on = ReaderService.instance != null
+        val mic = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         val err = prefs.getString("last_error", "").orEmpty()
-        status.text = (if (on) "Status: på (pricken visas)" else "Status: av (slå på i Tillgänglighet)") +
+        status.text = (if (on) "Tjänst: på" else "Tjänst: av (slå på i Tillgänglighet)") +
+            "\nMikrofon: " + (if (mic) "tillåten" else "inte tillåten") +
             (if (err.isNotEmpty()) "\nSenaste fel: $err" else "")
     }
 }
