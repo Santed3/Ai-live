@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="sv"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; media-src 'self' blob:">
+<title>ScreenBubble</title>
+<style>
+:root{--bg:#101326;--card:#1b1f36;--text:#eceff8;--muted:#9aa3bf;--accent:#7cf5c8;--primary:#6c47ff}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 'Segoe UI',system-ui,sans-serif}
+#app{display:flex;flex-direction:column;height:100%;padding:12px;gap:8px}
+header{display:flex;align-items:center;gap:6px;-webkit-app-region:drag}
+header h1{flex:1;margin:0;font-size:16px}
+button{-webkit-app-region:no-drag;font:inherit;color:var(--text);background:rgba(255,255,255,.15);border:0;border-radius:14px;padding:6px 11px;cursor:pointer}
+button:hover{background:rgba(255,255,255,.25)}
+button.p{background:var(--primary)} button.on{background:var(--primary)} button.x{background:rgba(255,92,92,.25)}
+#chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+#chips button{white-space:nowrap;background:rgba(124,92,255,.25)}
+#chat{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:2px}
+.m{max-width:88%;padding:8px 12px;border-radius:14px;background:var(--card);white-space:pre-wrap;word-break:break-word;user-select:text}
+.m.u{align-self:flex-end;background:var(--primary)}
+.s{color:var(--accent);font-size:12.5px;padding:2px 4px}
+.card{background:var(--card);border-radius:14px;padding:10px;display:none}
+.card.show{display:block}
+#confirm{background:#3a2a12}
+.card label{color:var(--accent);font-size:12px}
+#draft{width:100%;min-height:70px;max-height:160px;margin-top:4px;background:transparent;border:0;color:var(--text);font:inherit;resize:vertical;outline:0}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+#inrow{display:flex;gap:6px;align-items:flex-end}
+#inp{flex:1;resize:none;max-height:90px;background:rgba(255,255,255,.12);border:0;border-radius:16px;color:var(--text);font:inherit;padding:9px 13px;outline:0}
+#setup{display:none}
+#setup input{width:100%;padding:8px;border-radius:10px;border:0;margin:6px 0;background:rgba(255,255,255,.12);color:var(--text)}
+</style></head>
+<body><div id="app">
+  <header>
+    <h1>ScreenBubble</h1>
+    <button id="speak" title="Läs upp svar">🔇</button>
+    <button id="convo">Samtal</button>
+    <button id="new">Ny</button>
+    <button id="hide" title="Ctrl+Alt+Space">Dölj</button>
+    <button id="quit" class="x">✕</button>
+  </header>
+  <div id="setup" class="card show"><label>OpenAI API-nyckel krävs</label><input id="key" type="password" placeholder="sk-..."><button id="savekey" class="p">Spara</button></div>
+  <div id="chips"></div>
+  <div id="chat"></div>
+  <div id="draftcard" class="card">
+    <label>Förslag (redigera fritt)</label>
+    <textarea id="draft"></textarea>
+    <div class="row" id="tools"></div>
+    <div class="row">
+      <button id="copy">Kopiera</button><button id="insert">Skriv in</button><button id="sendd" class="p">Skicka</button><button id="closed">Stäng</button>
+    </div>
+  </div>
+  <div id="confirm" class="card"><div id="ctext" style="white-space:pre-wrap"></div><div class="row"><button id="yes" class="p">Ja, gör det</button><button id="no">Nej</button></div></div>
+  <div id="inrow"><textarea id="inp" rows="1" placeholder="Fråga eller säg vad jag ska göra…"></textarea><button id="mic">🎤</button><button id="go" class="p">➤</button></div>
+</div>
+<script src="app.js"></script>
+</body></html>

@@ -1,0 +1,533 @@
+const { app, BrowserWindow, globalShortcut, screen, desktopCapturer, ipcMain, clipboard, shell, session } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const { execFile } = require('child_process');
+
+const MODEL = 'gpt-4o';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+if (!app.requestSingleInstanceLock()) app.quit();
+
+// ------------------------------------------------------------------ storage
+function file(name) { return path.join(app.getPath('userData'), name); }
+function readJson(name, def) { try { return JSON.parse(fs.readFileSync(file(name), 'utf8')); } catch { return def; } }
+function writeJson(name, v) { try { fs.mkdirSync(app.getPath('userData'), { recursive: true }); fs.writeFileSync(file(name), JSON.stringify(v)); } catch {} }
+function embeddedKey() {
+  try {
+    const c = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
+    return typeof c.openaiKey === 'string' && c.openaiKey.startsWith('sk-') ? c.openaiKey : '';
+  } catch { return ''; }
+}
+function apiKey() { return embeddedKey() || readJson('settings.json', {}).apiKey || ''; }
+function history() { return readJson('history.json', []); }
+function addHistory(role, content) {
+  const h = history(); h.push({ role, content: String(content).slice(0, 2000) });
+  writeJson('history.json', h.slice(-24));
+}
+function memory() { return readJson('memory.json', []); }
+function addMemory(f) { const m = memory(); m.push(String(f).slice(0, 300)); writeJson('memory.json', m.slice(-30)); }
+
+// ------------------------------------------------------------------- OpenAI
+async function post(url, body) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey() },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(75000),
+  });
+  const t = await r.text();
+  if (!r.ok) {
+    let m = t.slice(0, 200);
+    try { m = JSON.parse(t).error.message; } catch {}
+    throw new Error('OpenAI ' + r.status + ': ' + m);
+  }
+  return JSON.parse(t);
+}
+function content(text, shot) {
+  const c = [{ type: 'text', text }];
+  if (shot) c.push({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + shot, detail: 'high' } });
+  return c;
+}
+async function chat(messages, o = {}) {
+  const body = { model: MODEL, messages, max_tokens: o.maxTokens || 900 };
+  if (o.tools) { body.tools = o.tools; body.tool_choice = 'auto'; }
+  if (o.json) body.response_format = { type: 'json_object' };
+  if (o.temperature !== undefined) body.temperature = o.temperature;
+  const j = await post('https://api.openai.com/v1/chat/completions', body);
+  return j.choices[0].message;
+}
+async function textCompletion(system, user, maxTokens = 700) {
+  const m = await chat([{ role: 'system', content: system }, { role: 'user', content: user }], { maxTokens });
+  return (m.content || '').trim();
+}
+async function webSearch(query) {
+  const j = await post('https://api.openai.com/v1/chat/completions', {
+    model: 'gpt-4o-search-preview',
+    web_search_options: {},
+    messages: [
+      { role: 'system', content: 'Sök på webben och svara kort och korrekt på användarens språk. Ge konkreta fakta och jämför källor när det behövs.' },
+      { role: 'user', content: query },
+    ],
+  });
+  const m = j.choices[0].message;
+  const src = new Map();
+  for (const a of m.annotations || []) {
+    const u = a.url_citation;
+    if (u && u.url && !src.has(u.url)) src.set(u.url, u.title || u.url);
+  }
+  const list = [...src.entries()].slice(0, 4).map(([u, t]) => '- ' + t + ' (' + u + ')').join('\n');
+  return (m.content || '').trim() + (list ? '\n\nKällor:\n' + list : '');
+}
+
+const QUICK_SYSTEM =
+  'Du löser frågor, quiz och uppgifter som syns på en datorskärm. Du får en skärmbild. ' +
+  'Gör så här: 1) Hitta alla frågor och deras svarsalternativ. 2) Gäller frågan en bild, eller är alternativen bilder: titta noga på bilden/bilderna och jämför dem med frågan innan du väljer. ' +
+  '3) Tänk igenom varje fråga noggrant och räkna matte steg för steg i fältet "reasoning". 4) Välj det alternativ som är rätt.\n' +
+  'Svara ENDAST med JSON: {"reasoning":"kort tankegång","answers":[{"q":"frågans nummer, t.ex. 1","option":"alternativets bokstav eller siffra, t.ex. B eller 3","answer":"svaret i klartext, kort, t.ex. Paris"}]}\n' +
+  'Regler: Ett objekt per fråga, i den ordning de står. "option" ska ALLTID fyllas i när frågan har alternativ. ' +
+  'Saknar alternativen bokstav/siffra: räkna dem uppifrån och ned (eller vänster till höger) som 1, 2, 3 och skriv numret. ' +
+  'Vid bildalternativ: beskriv den rätta bilden med några ord i "answer". Flera rätta alternativ: skriv alla i "option", t.ex. "A, C". ' +
+  'Fråga utan alternativ: lämna "option" tom och skriv svaret i "answer". Om ingen fråga syns: answers är en tom lista. Svara på samma språk som frågorna.';
+
+function formatAnswers(raw) {
+  try {
+    const arr = JSON.parse(raw).answers;
+    if (!Array.isArray(arr) || !arr.length) return '–';
+    return arr.map((o) => {
+      const q = String(o.q || '').trim(), opt = String(o.option || '').trim(), ans = String(o.answer || '').trim();
+      const core = opt && ans && opt.toLowerCase() !== ans.toLowerCase() ? opt + ' – ' + ans : opt || ans;
+      return q ? q + ': ' + core : core;
+    }).join('\n');
+  } catch { return String(raw).slice(0, 200); }
+}
+async function askOnce(shot) {
+  const m = await chat([
+    { role: 'system', content: QUICK_SYSTEM },
+    { role: 'user', content: content('Lös frågorna som syns på skärmen. Svara med JSON enligt instruktionen.', shot) },
+  ], { json: true, temperature: 0, maxTokens: 900 });
+  return formatAnswers(m.content || '');
+}
+
+// --------------------------------------------------------------- PowerShell
+function ps(lines, timeout = 10000) {
+  const script = Array.isArray(lines) ? lines.join('\n') : lines;
+  const enc = Buffer.from(script, 'utf16le').toString('base64');
+  return new Promise((resolve) => {
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', enc],
+      { timeout, windowsHide: true }, (err, stdout, stderr) =>
+        resolve({ ok: !err, out: (stdout || '').trim(), err: (stderr || '').trim() }));
+  });
+}
+const q1 = (s) => String(s).replace(/'/g, "''");
+const WIN32 = [
+  'Add-Type @"',
+  'using System; using System.Runtime.InteropServices; using System.Text;',
+  'public class W32 {',
+  '  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);',
+  '  [DllImport("user32.dll")] public static extern void mouse_event(int f, int dx, int dy, int d, int e);',
+  '  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();',
+  '  [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);',
+  '  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);',
+  '}',
+  '"@',
+];
+let lastExternal = { title: '', proc: '' };
+async function pollForeground() {
+  if (!panel || !panel.isVisible() || panel.isFocused()) return;
+  const r = await ps([...WIN32,
+    '$h=[W32]::GetForegroundWindow(); $sb=New-Object System.Text.StringBuilder 512; [void][W32]::GetWindowText($h,$sb,512)',
+    '$p=0; [void][W32]::GetWindowThreadProcessId($h,[ref]$p); $n=(Get-Process -Id $p -ErrorAction SilentlyContinue).ProcessName',
+    '$sb.ToString() + "|" + $n'], 6000);
+  if (r.ok && r.out.includes('|')) {
+    const i = r.out.lastIndexOf('|');
+    const proc = r.out.slice(i + 1).toLowerCase();
+    if (proc && proc !== 'screenbubble' && proc !== 'electron') lastExternal = { title: r.out.slice(0, i), proc };
+  }
+}
+
+// ------------------------------------------------------------------ windows
+let panel = null, dot = null, answerWin = null, mode = 'panel', answerTimer = null, qaBusy = false;
+
+function createPanel() {
+  const wa = screen.getPrimaryDisplay().workArea;
+  const w = 420;
+  panel = new BrowserWindow({
+    x: wa.x + wa.width - w, y: wa.y, width: w, height: wa.height,
+    frame: false, resizable: false, alwaysOnTop: true, show: false, backgroundColor: '#101326',
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  panel.setAlwaysOnTop(true, 'screen-saver');
+  panel.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  panel.on('closed', () => app.quit());
+}
+function createDot() {
+  const wa = screen.getPrimaryDisplay().workArea;
+  const s = readJson('dot.json', null);
+  dot = new BrowserWindow({
+    x: s ? s.x : wa.x + wa.width - 40, y: s ? s.y : wa.y + Math.round(wa.height / 3), width: 24, height: 24,
+    frame: false, transparent: true, resizable: false, alwaysOnTop: true, skipTaskbar: true, show: false,
+    focusable: false, hasShadow: false,
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  dot.setAlwaysOnTop(true, 'screen-saver');
+  dot.loadFile(path.join(__dirname, 'renderer', 'dot.html'));
+}
+function createAnswer() {
+  answerWin = new BrowserWindow({
+    width: 100, height: 30, frame: false, transparent: true, resizable: false, alwaysOnTop: true,
+    skipTaskbar: true, show: false, focusable: false, hasShadow: false,
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  answerWin.setAlwaysOnTop(true, 'screen-saver');
+  answerWin.loadFile(path.join(__dirname, 'renderer', 'answer.html'));
+}
+
+function setMode(m) {
+  mode = m;
+  clearTimeout(answerTimer);
+  if (answerWin) answerWin.hide();
+  if (m === 'panel') {
+    if (dot) dot.hide();
+    panel.show(); panel.focus();
+    panel.webContents.send('panel-shown');
+  } else {
+    panel.hide();
+    dot.showInactive();
+  }
+}
+
+function showAnswer(text) {
+  if (!answerWin) createAnswer();
+  const clean = String(text).replace(/\*\*/g, '').trim();
+  const lines = clean.split('\n');
+  const longest = Math.max(...lines.map((l) => l.length), 1);
+  const w = Math.min(360, Math.max(50, longest * 8 + 24));
+  const cpl = Math.max(1, Math.floor((w - 20) / 7.6));
+  const nl = lines.reduce((n, l) => n + Math.max(1, Math.ceil(l.length / cpl)), 0);
+  const h = nl * 19 + 14;
+  const b = dot ? dot.getBounds() : { x: screen.getPrimaryDisplay().workArea.width - 40, y: 200, width: 24, height: 24 };
+  const wa = screen.getDisplayNearestPoint({ x: b.x, y: b.y }).workArea;
+  let x = b.x > wa.x + wa.width / 2 ? b.x - w : b.x + b.width;
+  x = Math.min(Math.max(wa.x, x), wa.x + wa.width - w);
+  const y = Math.min(Math.max(wa.y, b.y + Math.round((b.height - h) / 2)), wa.y + wa.height - h);
+  answerWin.setBounds({ x, y, width: w, height: h });
+  answerWin.webContents.send('answer-text', clean);
+  if (mode === 'hide' && dot) dot.hide();
+  answerWin.showInactive();
+  clearTimeout(answerTimer);
+  answerTimer = setTimeout(endAnswer, Math.min(10000, 5000 + (lines.length - 1) * 1500));
+}
+function endAnswer() {
+  clearTimeout(answerTimer);
+  if (answerWin) answerWin.hide();
+  if (mode === 'hide' && dot) dot.showInactive();
+}
+
+// ------------------------------------------------------------------ capture
+async function captureScreen(hidePanel) {
+  const wasVisible = panel && panel.isVisible();
+  if (hidePanel && wasVisible) { panel.hide(); await sleep(300); }
+  try {
+    const d = screen.getPrimaryDisplay();
+    const size = { width: Math.round(d.size.width * d.scaleFactor), height: Math.round(d.size.height * d.scaleFactor) };
+    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size });
+    const src = sources.find((s) => String(s.display_id) === String(d.id)) || sources[0];
+    if (!src) throw new Error('Kunde inte fånga skärmen');
+    let img = src.thumbnail;
+    const sz = img.getSize();
+    const scale = Math.min(1, 1600 / Math.max(sz.width, sz.height));
+    if (scale < 1) img = img.resize({ width: Math.round(sz.width * scale), height: Math.round(sz.height * scale) });
+    return img.toJPEG(82).toString('base64');
+  } finally {
+    if (hidePanel && wasVisible) panel.showInactive();
+  }
+}
+
+async function quickAnswer() {
+  if (qaBusy) return;
+  qaBusy = true;
+  try {
+    if (!apiKey()) { showAnswer('!'); return; }
+    const shot = await captureScreen(mode === 'panel');
+    showAnswer(await askOnce(shot));
+  } catch (e) {
+    writeJson('last-error.json', { e: String(e.message || e) });
+    showAnswer('!');
+  } finally { qaBusy = false; }
+}
+
+// --------------------------------------------------------- computer control
+const pendingConfirms = new Map();
+let confirmSeq = 0;
+function askConfirm(text) {
+  return new Promise((resolve) => {
+    const id = ++confirmSeq;
+    pendingConfirms.set(id, resolve);
+    panel.webContents.send('confirm-request', { id, text });
+    setTimeout(() => { if (pendingConfirms.has(id)) { pendingConfirms.delete(id); resolve(false); } }, 90000);
+  });
+}
+ipcMain.on('confirm-reply', (_e, { id, ok }) => {
+  const r = pendingConfirms.get(id);
+  if (r) { pendingConfirms.delete(id); r(!!ok); }
+});
+
+async function withPanelHidden(fn) {
+  const wasVisible = panel.isVisible();
+  if (wasVisible) { panel.hide(); await sleep(400); }
+  try { return await fn(); }
+  finally { if (wasVisible) panel.showInactive(); }
+}
+
+const sensitive = /(skicka|send|radera|delete|ta bort|remove|betala|pay|köp|buy|beställ|order|posta|post|publicera|logga ut|log out|bekräfta|confirm|submit|godkänn)/i;
+
+async function openApp(name) {
+  const n = q1(name).replace(/[*?\[\]]/g, '');
+  const r = await ps([
+    "$n='" + n + "'",
+    "$dirs=@(\"$env:ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\",\"$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\")",
+    "$f=Get-ChildItem $dirs -Recurse -Filter *.lnk -ErrorAction SilentlyContinue | Where-Object { $_.BaseName -like \"*$n*\" } | Sort-Object { $_.BaseName.Length } | Select-Object -First 1",
+    "if ($f) { Start-Process $f.FullName; 'ok:' + $f.BaseName } else { try { Start-Process $n -ErrorAction Stop; 'ok:' + $n } catch { 'fail' } }",
+  ], 15000);
+  return r.ok && r.out.startsWith('ok:') ? 'Öppnade ' + r.out.slice(3) + '.' : 'Hittade ingen app som heter "' + name + '".';
+}
+async function sendKeys(keys) {
+  const r = await ps(['Add-Type -AssemblyName System.Windows.Forms', "[System.Windows.Forms.SendKeys]::SendWait('" + q1(keys) + "')"]);
+  return r.ok ? 'Skickade tangenterna.' : 'Misslyckades: ' + r.err.slice(0, 120);
+}
+async function typeText(text) {
+  const old = clipboard.readText();
+  clipboard.writeText(text);
+  const r = await sendKeys('^v');
+  await sleep(250);
+  clipboard.writeText(old);
+  return r.startsWith('Skickade') ? 'Skrev texten.' : r;
+}
+async function click(fx, fy, dbl) {
+  const b = screen.getPrimaryDisplay().bounds;
+  const x = Math.round(b.x + Math.min(Math.max(fx, 0), 1) * b.width);
+  const y = Math.round(b.y + Math.min(Math.max(fy, 0), 1) * b.height);
+  const once = '[W32]::mouse_event(2,0,0,0,0); [W32]::mouse_event(4,0,0,0,0)';
+  const r = await ps([...WIN32, '[void][W32]::SetCursorPos(' + x + ',' + y + ')', 'Start-Sleep -Milliseconds 80', once,
+    dbl ? 'Start-Sleep -Milliseconds 80; ' + once : '']);
+  return r.ok ? 'Klickade.' : 'Kunde inte klicka: ' + r.err.slice(0, 120);
+}
+async function scrollWheel(dir, amount) {
+  const d = (String(dir).toLowerCase().startsWith('u') ? 1 : -1) * 120 * Math.max(1, Math.min(10, amount || 3));
+  const r = await ps([...WIN32, '[W32]::mouse_event(0x0800,0,0,' + d + ',0)']);
+  return r.ok ? 'Scrollade.' : 'Kunde inte scrolla.';
+}
+
+function tool(name, desc, props = {}, required = []) {
+  const p = {};
+  for (const [k, [type, d]] of Object.entries(props)) p[k] = { type, description: d };
+  return { type: 'function', function: { name, description: desc, parameters: { type: 'object', properties: p, required } } };
+}
+const CONSEQ = ['boolean', 'true om handlingen skickar, raderar, betalar, publicerar eller är svår att ångra'];
+const TOOLS = [
+  tool('read_screen', 'Läs av aktivt fönster och ta en ny skärmbild.'),
+  tool('open_app', 'Öppna ett program via namn.', { name: ['string', 'Programmets namn, t.ex. Chrome, Outlook'] }, ['name']),
+  tool('open_url', 'Öppna en webbadress i standardwebbläsaren.', { url: ['string', 'Hela adressen'] }, ['url']),
+  tool('type_text', 'Skriv text i det fönster som är aktivt (klistrar in).', { text: ['string', 'Texten'] }, ['text']),
+  tool('press_keys', 'Tryck tangenter med SendKeys-syntax, t.ex. "{ENTER}", "^c" (Ctrl+C), "%{F4}" (Alt+F4), "{TAB}".', { keys: ['string', 'SendKeys-sträng'], consequential: CONSEQ }, ['keys']),
+  tool('click', 'Klicka på en position. x och y är bråkdelar 0..1 av skärmens bredd/höjd enligt skärmbilden.', { x: ['number', '0..1 från vänster'], y: ['number', '0..1 uppifrån'], double: ['boolean', 'dubbelklick'], consequential: CONSEQ }, ['x', 'y']),
+  tool('scroll', 'Scrolla med mushjulet.', { direction: ['string', 'up eller down'], amount: ['integer', 'steg 1-10'] }, ['direction']),
+  tool('compose_email', 'Öppna ett mejlutkast i standardmejlprogrammet. Användaren trycker själv på skicka.', { to: ['string', 'Mottagare'], subject: ['string', 'Ämne'], body: ['string', 'Text'] }, ['subject', 'body']),
+  tool('web_search', 'Sök på webben och få en sammanfattning med källor.', { query: ['string', 'Sökfråga'] }, ['query']),
+  tool('remember', 'Spara ett faktum om användaren till senare.', { fact: ['string', 'Faktat'] }, ['fact']),
+  tool('wait', 'Vänta några sekunder.', { seconds: ['integer', '1-10'] }, ['seconds']),
+];
+
+function systemPrompt() {
+  const now = new Date().toLocaleString('sv-SE');
+  const mem = memory();
+  return 'Du är ScreenBubble, en snabb och vänlig assistent på användarens Windows-dator, ungefär som Siri fast mycket smartare. ' +
+    'Du ser skärmen (bild) och kan styra datorn med verktyg.\nRegler:\n' +
+    '- Svara kort, naturligt och på användarens språk. Använd inte markdown.\n' +
+    '- Använd verktyg bara när användaren vill att något ska göras eller du behöver mer information. Annars svara direkt.\n' +
+    '- Efter varje handling får du en ny skärmbild. Kontrollera att det blev rätt innan du går vidare. Max 10 steg.\n' +
+    '- Sätt consequential=true när en handling skickar, raderar, betalar, publicerar eller ändrar något som är svårt att ångra. Användaren får då bekräfta.\n' +
+    '- compose_email öppnar bara ett utkast. Användaren trycker själv på skicka.\n' +
+    '- Fråga användaren om något viktigt saknas. Gör aldrig något användaren inte bett om. Nekar användaren en bekräftelse: sluta och säg det kort.\n' +
+    '- Använd web_search för fakta som kan ha ändrats, jämförelser och research och sammanfatta själv.\n' +
+    '- Använd remember när användaren ber dig komma ihåg något.\nNu: ' + now + '\n' +
+    (mem.length ? 'Saker användaren bett dig komma ihåg:\n' + mem.map((m) => '- ' + m).join('\n') : '');
+}
+
+function status(t) { if (panel && !panel.isDestroyed()) panel.webContents.send('status', t); }
+
+async function runAgent(userText) {
+  const messages = [{ role: 'system', content: systemPrompt() }, ...history()];
+  const shot0 = await captureScreen(true);
+  messages.push({
+    role: 'user',
+    content: content('Användarens meddelande: ' + userText + '\n\nAktivt fönster: ' + lastExternal.title + ' (' + lastExternal.proc + ')', shot0),
+  });
+  let answer = '';
+  for (let step = 0; step < 10; step++) {
+    const msg = await chat(messages, { tools: TOOLS, maxTokens: 900 });
+    const calls = msg.tool_calls;
+    if (!calls || !calls.length) { answer = (msg.content || '').trim(); break; }
+    messages.push({ role: 'assistant', content: msg.content || '', tool_calls: calls });
+    let newShot = null;
+    for (const c of calls) {
+      let args = {};
+      try { args = JSON.parse(c.function.arguments || '{}'); } catch {}
+      let result;
+      try {
+        const out = await execTool(c.function.name, args);
+        result = out.text;
+        if (out.shot) newShot = out.shot;
+      } catch (e) { result = 'Fel: ' + e.message; }
+      messages.push({ role: 'tool', tool_call_id: c.id, content: result });
+    }
+    if (newShot) messages.push({ role: 'user', content: content('Ny skärmbild efter åtgärden.', newShot) });
+  }
+  if (!answer) answer = 'Jag hann inte klart. Försök igen eller dela upp uppgiften.';
+  addHistory('user', userText);
+  addHistory('assistant', answer);
+  return answer;
+}
+
+async function acted(text) {
+  await sleep(700);
+  return { text, shot: await captureScreen(false) };
+}
+
+async function execTool(name, a) {
+  switch (name) {
+    case 'read_screen':
+      status('Läser skärmen…');
+      return { text: 'Aktivt fönster: ' + lastExternal.title + ' (' + lastExternal.proc + ')', shot: await captureScreen(true) };
+    case 'open_app':
+      status('Öppnar ' + a.name + '…');
+      return acted(await withPanelHidden(() => openApp(String(a.name || ''))));
+    case 'open_url': {
+      const u = String(a.url || '');
+      const url = /^https?:\/\//i.test(u) ? u : 'https://' + u;
+      status('Öppnar ' + url + '…');
+      await shell.openExternal(url);
+      return acted('Öppnade ' + url + '.');
+    }
+    case 'type_text':
+      status('Skriver…');
+      return acted(await withPanelHidden(() => typeText(String(a.text || ''))));
+    case 'press_keys':
+      if (a.consequential && !(await askConfirm('Trycka "' + a.keys + '"?')))
+        return { text: 'Användaren nekade åtgärden.' };
+      status('Trycker tangenter…');
+      return acted(await withPanelHidden(() => sendKeys(String(a.keys || ''))));
+    case 'click':
+      if (a.consequential && !(await askConfirm('Klicka på markerad plats?'))) return { text: 'Användaren nekade åtgärden.' };
+      status('Klickar…');
+      return acted(await withPanelHidden(() => click(Number(a.x), Number(a.y), !!a.double)));
+    case 'scroll':
+      status('Scrollar…');
+      return acted(await withPanelHidden(() => scrollWheel(a.direction, a.amount)));
+    case 'compose_email': {
+      status('Förbereder mejl…');
+      const url = 'mailto:' + encodeURIComponent(a.to || '') + '?subject=' + encodeURIComponent(a.subject || '') + '&body=' + encodeURIComponent(a.body || '');
+      await shell.openExternal(url);
+      return acted('Mejlutkast öppnat. Användaren trycker själv på skicka.');
+    }
+    case 'web_search':
+      status('Söker: ' + a.query);
+      return { text: await webSearch(String(a.query || '')) };
+    case 'remember':
+      addMemory(a.fact);
+      return { text: 'Sparat.' };
+    case 'wait':
+      await sleep(Math.min(10, Math.max(1, Number(a.seconds) || 1)) * 1000);
+      return { text: 'Väntade.' };
+  }
+  return { text: 'Okänt verktyg: ' + name };
+}
+
+// --------------------------------------------------------------------- IPC
+let busy = false;
+ipcMain.handle('chat', async (_e, { text }) => {
+  if (busy) return { ok: false, error: 'Jag jobbar fortfarande med förra uppgiften.' };
+  if (!apiKey()) return { ok: false, error: 'Ingen API-nyckel. Skriv in den under inställningar.' };
+  busy = true;
+  try { return { ok: true, reply: await runAgent(String(text || '')) }; }
+  catch (e) { return { ok: false, error: String(e.message || e) }; }
+  finally { busy = false; }
+});
+ipcMain.handle('chips', () => ({ title: lastExternal.title, proc: lastExternal.proc }));
+ipcMain.handle('reply', async () => {
+  try {
+    if (!apiKey()) throw new Error('Ingen API-nyckel');
+    const shot = await captureScreen(true);
+    const t = await chat([
+      { role: 'system', content: 'Du skriver svar åt användaren. Läs mejlet eller konversationen på skärmen och skriv ett naturligt, bra svar som användaren kan skicka. Matcha språk och ton i konversationen. Svara ENDAST med själva svarstexten: ingen inledning, inga citattecken, ingen förklaring.' },
+      { role: 'user', content: content('Skriv svaret.', shot) },
+    ], { maxTokens: 600 });
+    return { ok: true, text: (t.content || '').trim() };
+  } catch (e) { return { ok: false, error: String(e.message || e) }; }
+});
+ipcMain.handle('transform', async (_e, { instruction, text }) => {
+  try {
+    return { ok: true, text: await textCompletion('Du redigerar text åt användaren. Svara ENDAST med den nya texten, utan inledning eller citattecken.', 'Instruktion: ' + instruction + '\n\nText:\n' + text, 600) };
+  } catch (e) { return { ok: false, error: String(e.message || e) }; }
+});
+ipcMain.handle('insert', async (_e, { text, send }) => {
+  if (send && !(await askConfirm('Skicka det här meddelandet?\n\n' + text))) return { ok: false, error: 'Avbrutet.' };
+  const r = await withPanelHidden(async () => {
+    const t = await typeText(text);
+    if (send) { await sleep(300); await sendKeys('{ENTER}'); }
+    return t;
+  });
+  return { ok: true, text: r + (send ? ' Tryckte Enter.' : '') };
+});
+ipcMain.handle('copy', (_e, t) => { clipboard.writeText(String(t || '')); return true; });
+ipcMain.handle('new-chat', () => { writeJson('history.json', []); return true; });
+ipcMain.handle('set-mode', (_e, m) => { setMode(m); return true; });
+ipcMain.handle('quit', () => { app.quit(); return true; });
+ipcMain.handle('settings-get', () => ({ hasEmbedded: !!embeddedKey(), hasKey: !!apiKey() }));
+ipcMain.handle('settings-set', (_e, s) => { const cur = readJson('settings.json', {}); if (s && typeof s.apiKey === 'string') cur.apiKey = s.apiKey.trim(); writeJson('settings.json', cur); return true; });
+ipcMain.handle('stt', async (_e, buf) => {
+  try {
+    const fd = new FormData();
+    fd.append('file', new Blob([Buffer.from(buf)], { type: 'audio/webm' }), 'audio.webm');
+    fd.append('model', 'gpt-4o-mini-transcribe');
+    const lang = (app.getLocale() || '').slice(0, 2);
+    if (lang) fd.append('language', lang);
+    const r = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + apiKey() }, body: fd, signal: AbortSignal.timeout(60000),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error((j.error && j.error.message) || 'Taligenkänning misslyckades');
+    return { ok: true, text: (j.text || '').trim() };
+  } catch (e) { return { ok: false, error: String(e.message || e) }; }
+});
+
+// dot + answer
+let lastDotClick = 0;
+ipcMain.on('dot-click', () => {
+  const now = Date.now();
+  if (now - lastDotClick < 350) { lastDotClick = 0; app.quit(); return; }
+  lastDotClick = now;
+  quickAnswer();
+});
+ipcMain.on('dot-dbl', () => app.quit());
+ipcMain.on('dot-panel', () => setMode('panel'));
+ipcMain.on('dot-move', (_e, { x, y }) => { if (dot) dot.setPosition(Math.round(x), Math.round(y)); });
+ipcMain.on('dot-save', () => { if (dot) { const b = dot.getBounds(); writeJson('dot.json', { x: b.x, y: b.y }); } });
+ipcMain.on('answer-click', () => endAnswer());
+
+// ---------------------------------------------------------------- lifecycle
+app.whenReady().then(() => {
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(permission === 'media'));
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) => permission === 'media');
+  createPanel();
+  createDot();
+  createAnswer();
+  panel.once('ready-to-show', () => setMode(readJson('mode.json', { m: 'panel' }).m === 'hide' ? 'hide' : 'panel'));
+  globalShortcut.register('Control+Alt+Space', () => setMode(mode === 'panel' ? 'hide' : 'panel'));
+  globalShortcut.register('Control+Alt+A', () => quickAnswer());
+  setInterval(pollForeground, 2500);
+});
+app.on('before-quit', () => writeJson('mode.json', { m: mode }));
+app.on('will-quit', () => globalShortcut.unregisterAll());
+app.on('window-all-closed', () => app.quit());
+app.on('second-instance', () => setMode('panel'));
