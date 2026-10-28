@@ -559,15 +559,65 @@ class ReaderService : AccessibilityService() {
         if (nodes.isNullOrEmpty()) return "Hittade inget element med texten \"$text\"."
         val node = nodes.firstOrNull { it.isVisibleToUser } ?: nodes[0]
         val target = clickableAncestor(node) ?: node
+        val r = android.graphics.Rect()
+        target.getBoundsInScreen(r)
+        ripple(r.exactCenterX(), r.exactCenterY())
         return if (target.performAction(AccessibilityNodeInfo.ACTION_CLICK)) "Tryckte på \"$text\"." else "Kunde inte trycka på \"$text\"."
+    }
+
+    /** Short expanding ring at a point so the user can see where the assistant touches. */
+    private fun ripple(x: Float, y: Float) {
+        main.post {
+            try {
+                val size = dp(56)
+                val v = android.view.View(this).apply {
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.OVAL
+                        setColor(0x557C5CFF)
+                        setStroke(dp(2), 0xFFB9A8FF.toInt())
+                    }
+                    alpha = 0.9f
+                    scaleX = 0.4f
+                    scaleY = 0.4f
+                }
+                val lp = WindowManager.LayoutParams(
+                    size, size,
+                    WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    PixelFormat.TRANSLUCENT
+                ).apply {
+                    gravity = Gravity.TOP or Gravity.START
+                    this.x = (x - size / 2).toInt()
+                    this.y = (y - size / 2).toInt()
+                }
+                wm.addView(v, lp)
+                v.animate().scaleX(1f).scaleY(1f).alpha(0f).setDuration(520).withEndAction {
+                    try { wm.removeView(v) } catch (_: Exception) {}
+                }.start()
+            } catch (_: Exception) {}
+        }
     }
 
     fun tapFraction(fx: Float, fy: Float): Boolean {
         val x = fx.coerceIn(0f, 1f) * screenW
         val y = fy.coerceIn(0f, 1f) * screenH
+        ripple(x, y)
         val path = Path().apply { moveTo(x, y) }
         val g = GestureDescription.Builder()
             .addStroke(GestureDescription.StrokeDescription(path, 0, 60)).build()
+        return dispatchGesture(g, null, null)
+    }
+
+    /** Swipe / drag between two points (fractions of the screen). */
+    fun swipe(x1: Float, y1: Float, x2: Float, y2: Float): Boolean {
+        val ax = x1.coerceIn(0f, 1f) * screenW
+        val ay = y1.coerceIn(0f, 1f) * screenH
+        val bx = x2.coerceIn(0f, 1f) * screenW
+        val by = y2.coerceIn(0f, 1f) * screenH
+        ripple(ax, ay)
+        val path = Path().apply { moveTo(ax, ay); lineTo(bx, by) }
+        val g = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 450)).build()
         return dispatchGesture(g, null, null)
     }
 

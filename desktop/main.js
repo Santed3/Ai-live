@@ -437,6 +437,16 @@ async function click(fx, fy, dbl) {
     dbl ? 'Start-Sleep -Milliseconds 90; ' + once : '']);
   return r.ok ? 'Klickade.' : 'Kunde inte klicka: ' + r.err.slice(0, 120);
 }
+async function drag(fx1, fy1, fx2, fy2) {
+  const b = screen.getPrimaryDisplay().bounds;
+  const px = (f, o, d) => Math.round(o + Math.min(Math.max(f, 0), 1) * d);
+  const x1 = px(fx1, b.x, b.width), y1 = px(fy1, b.y, b.height), x2 = px(fx2, b.x, b.width), y2 = px(fy2, b.y, b.height);
+  const r = await ps([...WIN32,
+    '[void][W32]::SetCursorPos(' + x1 + ',' + y1 + ')', 'Start-Sleep -Milliseconds 120', '[W32]::mouse_event(2,0,0,0,0)', 'Start-Sleep -Milliseconds 80',
+    '$n=24; for($i=1;$i -le $n;$i++){ $t=$i/$n; $e=$t*$t*(3-2*$t); [void][W32]::SetCursorPos([int](' + x1 + '+(' + x2 + '-' + x1 + ')*$e),[int](' + y1 + '+(' + y2 + '-' + y1 + ')*$e)); Start-Sleep -Milliseconds 16 }',
+    'Start-Sleep -Milliseconds 100', '[W32]::mouse_event(4,0,0,0,0)']);
+  return r.ok ? 'Drog.' : 'Kunde inte dra: ' + r.err.slice(0, 120);
+}
 async function scrollWheel(dir, amount) {
   const d = (String(dir).toLowerCase().startsWith('u') ? 1 : -1) * 120 * Math.max(1, Math.min(10, amount || 3));
   const r = await ps([...WIN32, '[W32]::mouse_event(0x0800,0,0,' + d + ',0)']);
@@ -456,6 +466,7 @@ const TOOLS = [
   tool('type_text', 'Skriv text i det fönster som är aktivt (klistrar in).', { text: ['string', 'Texten'] }, ['text']),
   tool('press_keys', 'Tryck tangenter med SendKeys-syntax, t.ex. "{ENTER}", "^c" (Ctrl+C), "%{F4}" (Alt+F4), "{TAB}".', { keys: ['string', 'SendKeys-sträng'], consequential: CONSEQ }, ['keys']),
   tool('click', 'Klicka på en position. x och y är bråkdelar 0..1 av skärmens bredd/höjd enligt skärmbilden.', { x: ['number', '0..1 från vänster'], y: ['number', '0..1 uppifrån'], double: ['boolean', 'dubbelklick'], consequential: CONSEQ }, ['x', 'y']),
+  tool('drag', 'Dra med musen från en position till en annan (fraktioner 0..1 av skärmen). För att flytta fönster, markera text eller dra filer.', { x1: ['number', 'start x'], y1: ['number', 'start y'], x2: ['number', 'slut x'], y2: ['number', 'slut y'], consequential: CONSEQ }, ['x1', 'y1', 'x2', 'y2']),
   tool('scroll', 'Scrolla med mushjulet.', { direction: ['string', 'up eller down'], amount: ['integer', 'steg 1-10'] }, ['direction']),
   tool('compose_email', 'Öppna ett mejlutkast i standardmejlprogrammet. Användaren trycker själv på skicka.', { to: ['string', 'Mottagare'], subject: ['string', 'Ämne'], body: ['string', 'Text'] }, ['subject', 'body']),
   tool('web_search', 'Sök på webben och få en sammanfattning med källor.', { query: ['string', 'Sökfråga'] }, ['query']),
@@ -548,6 +559,10 @@ async function execTool(name, a) {
       if (a.consequential && !(await askConfirm('Klicka på markerad plats?'))) return { text: 'Användaren nekade åtgärden.' };
       status('Klickar…');
       return acted(await withPanelHidden(() => click(Number(a.x), Number(a.y), !!a.double)));
+    case 'drag':
+      if (a.consequential && !(await askConfirm('Dra på skärmen?'))) return { text: 'Användaren nekade åtgärden.' };
+      status('Drar…');
+      return acted(await withPanelHidden(() => drag(Number(a.x1), Number(a.y1), Number(a.x2), Number(a.y2))));
     case 'scroll':
       status('Scrollar…');
       return acted(await withPanelHidden(() => scrollWheel(a.direction, a.amount)));

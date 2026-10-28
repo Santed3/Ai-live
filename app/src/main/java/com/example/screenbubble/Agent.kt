@@ -145,6 +145,11 @@ class Agent(
                 val ok = svc.tapFraction(a.optDouble("x").toFloat(), a.optDouble("y").toFloat())
                 return after(if (ok) "Tryckte." else "Kunde inte trycka.")
             }
+            "swipe" -> {
+                ui.status("Sveper på skärmen…")
+                val ok = svc.swipe(a.optDouble("x1").toFloat(), a.optDouble("y1").toFloat(), a.optDouble("x2").toFloat(), a.optDouble("y2").toFloat())
+                return after(if (ok) "Svepte." else "Kunde inte svepa.")
+            }
             "type_text" -> {
                 ui.status("Skriver…")
                 return after(svc.typeText(a.optString("text"), a.optBoolean("append")))
@@ -213,6 +218,7 @@ class Agent(
             .put(tool("open_url", "Öppna en webbadress i webbläsaren.", listOf(Triple("url", "string", "Hela adressen")), listOf("url")))
             .put(tool("tap_text", "Tryck på ett element på skärmen som har viss text eller beskrivning.", listOf(Triple("text", "string", "Texten på knappen/elementet"), conseq), listOf("text")))
             .put(tool("tap_position", "Tryck på en position på skärmen. x och y är bråkdelar 0..1 av skärmbredd/-höjd i skärmbilden.", listOf(Triple("x", "number", "0..1 från vänster"), Triple("y", "number", "0..1 uppifrån"), conseq), listOf("x", "y")))
+            .put(tool("swipe", "Svep eller dra från en punkt till en annan. Alla värden är bråkdelar 0..1 av skärmen. Använd för att dra, byta sida eller scrolla exakt.", listOf(Triple("x1", "number", "Start x"), Triple("y1", "number", "Start y"), Triple("x2", "number", "Slut x"), Triple("y2", "number", "Slut y")), listOf("x1", "y1", "x2", "y2")))
             .put(tool("type_text", "Skriv text i det aktiva textfältet (eller första textfältet).", listOf(Triple("text", "string", "Texten"), Triple("append", "boolean", "true för att lägga till efter befintlig text")), listOf("text")))
             .put(tool("press_enter", "Tryck Enter/skicka-åtgärd i textfältet.", listOf(conseq)))
             .put(tool("scroll", "Scrolla aktuell vy.", listOf(Triple("direction", "string", "up eller down")), listOf("direction")))
