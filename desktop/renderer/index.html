@@ -3,12 +3,24 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; media-src 'self' blob:">
 <title>ScreenBubble</title>
 <style>
-:root{--bg:#101326;--card:#1b1f36;--text:#eceff8;--muted:#9aa3bf;--accent:#7cf5c8;--primary:#6c47ff}
+:root{--bg:rgba(18,19,22,.97);--card:#23252b;--text:#eceff8;--muted:#9aa3bf;--accent:#7cf5c8;--primary:#6c47ff}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 'Segoe UI',system-ui,sans-serif}
-#app{display:flex;flex-direction:column;height:100%;padding:12px;gap:8px}
+html,body{margin:0;height:100%;background:transparent;color:var(--text);font:14px/1.45 'Segoe UI',system-ui,sans-serif;overflow:hidden}
+.view{display:none;height:100%}
+#app{flex-direction:column;padding:10px;gap:8px;background:var(--bg);border-radius:18px}
+body[data-v=chat] #app{display:flex}
+body[data-v=menu] #menu{display:block}
+body[data-v=bar] #bar{display:block}
+#bar{cursor:pointer}
+#pill{position:absolute;right:1px;top:20px;width:6px;height:56px;border-radius:4px;background:#2a2c33;box-shadow:0 0 0 1px rgba(255,255,255,.25)}
+#menu{background:var(--bg);border-radius:20px;padding:12px}
+#menu h2{margin:0 0 8px 4px;font-size:15px;font-weight:600}
+#grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:76px;border-radius:14px;background:rgba(255,255,255,.08);cursor:pointer;text-align:center;font-size:11.5px;color:#c9cedf;padding:4px}
+.tile:hover{background:rgba(255,255,255,.16)}
+.tile i{font-style:normal;font-size:22px}
 header{display:flex;align-items:center;gap:6px;-webkit-app-region:drag}
-header h1{flex:1;margin:0;font-size:16px}
+header h1{flex:1;margin:0;font-size:15px}
 button{-webkit-app-region:no-drag;font:inherit;color:var(--text);background:rgba(255,255,255,.15);border:0;border-radius:14px;padding:6px 11px;cursor:pointer}
 button:hover{background:rgba(255,255,255,.25)}
 button.p{background:var(--primary)} button.on{background:var(--primary)} button.x{background:rgba(255,92,92,.25)}
@@ -29,14 +41,13 @@ button.p{background:var(--primary)} button.on{background:var(--primary)} button.
 #setup{display:none}
 #setup input{width:100%;padding:8px;border-radius:10px;border:0;margin:6px 0;background:rgba(255,255,255,.12);color:var(--text)}
 </style></head>
-<body><div id="app">
+<body data-v="bar"><div id="bar" class="view"><div id="pill"></div></div><div id="menu" class="view"><h2>ScreenBubble</h2><div id="grid"></div></div><div id="app" class="view">
   <header>
-    <h1>ScreenBubble</h1>
+    <button id="hide" title="Meny">‹</button><h1>Chatt</h1>
     <button id="speak" title="Läs upp svar">🔇</button>
     <button id="convo">Samtal</button>
     <button id="new">Ny</button>
-    <button id="hide" title="Ctrl+Alt+Space">Dölj</button>
-    <button id="quit" class="x">✕</button>
+        <button id="quit" class="x" title="Minimera">✕</button>
   </header>
   <div id="setup" class="card show"><label>OpenAI API-nyckel krävs</label><input id="key" type="password" placeholder="sk-..."><button id="savekey" class="p">Spara</button></div>
   <div id="chips"></div>

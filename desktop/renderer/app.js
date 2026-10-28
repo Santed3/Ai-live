@@ -69,8 +69,8 @@ inp.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('go').click(); }
 });
 $('new').onclick = async () => { await api.newChat(); chat.textContent = ''; $('draftcard').classList.remove('show'); addMsg(false, 'Ny konversation. Vad vill du göra?'); refreshChips(); };
-$('hide').onclick = () => api.hide();
-$('quit').onclick = () => api.quit();
+$('hide').onclick = () => api.setMode('menu');
+$('quit').onclick = () => api.setMode('bar');
 
 // ------------------------------------------------------- smart reply card
 async function makeReply() {
@@ -172,10 +172,46 @@ $('convo').onclick = () => {
 async function init() {
   const s = await api.getSettings();
   $('setup').style.display = s.hasKey ? 'none' : 'block';
-  addMsg(false, 'Hej! Fråga mig om skärmen, be mig göra något på datorn, eller tryck på en genväg ovan. Ctrl+Alt+Space växlar mellan panel och hide-läge, Ctrl+Alt+A ger ett snabbsvar.');
+  addMsg(false, 'Hej! Vad vill du göra? Ctrl+Alt+Space öppnar menyn, Ctrl+Alt+A ger ett snabbsvar.');
   refreshChips();
 }
 $('savekey').onclick = async () => { await api.setSettings({ apiKey: $('key').value }); $('key').value = ''; $('setup').style.display = 'none'; addMsg(false, 'Nyckeln är sparad.'); };
 api.onShown(refreshChips);
 setInterval(() => { if (!busy) refreshChips(); }, 6000);
 init();
+
+// ---- sidebar, menu, views
+let preset = null;
+const TILES = [
+  ['💬', 'Chatt', () => api.setMode('chat')],
+  ['✅', 'Svara på frågan', () => api.quick()],
+  ['🧩', 'Lös uppgiften', () => go('Lös uppgiften som syns på skärmen och utför den om det går.', true)],
+  ['🔎', 'Google', () => go('google ', false)],
+  ['✍️', 'Skriv', () => go('skriv ', false)],
+  ['💌', 'Svara på meddelande', () => go('Föreslå ett kort svar på meddelandet på skärmen.', true)],
+  ['📄', 'Sammanfatta', () => go('Sammanfatta det som syns på skärmen kort.', true)],
+  ['🌍', 'Översätt', () => go('Översätt texten på skärmen till svenska.', true)],
+  ['🫥', 'Hide-läge', () => api.setMode('hide')],
+  ['🎤', 'Röst', () => { preset = { voice: true }; api.setMode('chat'); }],
+  ['➖', 'Minimera', () => api.setMode('bar')],
+  ['✕', 'Stäng', () => api.quit()],
+];
+function go(text, auto) { preset = { text, auto }; api.setMode('chat'); }
+TILES.forEach(([i, l, f]) => {
+  const d = document.createElement('div'); d.className = 'tile';
+  d.innerHTML = '<i>' + i + '</i><span>' + l + '</span>'; d.onclick = f; $('grid').appendChild(d);
+});
+api.onView((v) => {
+  document.body.dataset.v = v;
+  if (v !== 'chat' || !preset) return;
+  const p = preset; preset = null;
+  if (p.voice) { setTimeout(() => toggleMic(), 200); return; }
+  if (p.auto) send(p.text, false);
+  else { $('inp').value = p.text; $('inp').focus(); }
+});
+{
+  let d = false, mv = false, sy = 0;
+  $('bar').addEventListener('mousedown', (e) => { d = true; mv = false; sy = e.screenY; });
+  window.addEventListener('mousemove', (e) => { if (!d) return; if (Math.abs(e.screenY - sy) > 5) mv = true; if (mv) api.barMove(e.screenY); });
+  window.addEventListener('mouseup', () => { if (!d) return; d = false; if (!mv) api.setMode('menu'); });
+}

@@ -146,19 +146,28 @@ async function pollForeground() {
 }
 
 // ------------------------------------------------------------------ windows
-let panel = null, dot = null, answerWin = null, mode = 'panel', answerTimer = null, qaBusy = false;
+let panel = null, dot = null, answerWin = null, mode = 'bar', answerTimer = null, qaBusy = false;
 
-function createPanel() {
+let barOff = 0;
+const SIZES = { bar: [22, 96], menu: [320, 372], chat: [340, 480] };
+function layout(v) {
   const wa = screen.getPrimaryDisplay().workArea;
-  const w = 420;
+  let [w, h] = SIZES[v] || SIZES.bar;
+  if (v === 'chat') h = Math.min(h, Math.round(wa.height * 0.55));
+  const cy = wa.y + wa.height / 2 + barOff;
+  const y = Math.round(Math.min(Math.max(wa.y, cy - h / 2), wa.y + wa.height - h));
+  panel.setBounds({ x: wa.x + wa.width - w - (v === 'bar' ? 0 : 8), y, width: w, height: h });
+}
+function createPanel() {
   panel = new BrowserWindow({
-    x: wa.x + wa.width - w, y: wa.y, width: w, height: wa.height,
-    frame: false, resizable: false, alwaysOnTop: true, show: false, backgroundColor: '#101326',
+    x: 0, y: 0, width: SIZES.bar[0], height: SIZES.bar[1],
+    frame: false, transparent: true, resizable: false, alwaysOnTop: true, show: false, hasShadow: false, skipTaskbar: false,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   panel.setAlwaysOnTop(true, 'screen-saver');
   panel.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   panel.on('closed', () => app.quit());
+  panel.on('blur', () => { if (mode === 'menu') setMode('bar'); });
 }
 function createDot() {
   const wa = screen.getPrimaryDisplay().workArea;
@@ -183,17 +192,16 @@ function createAnswer() {
 }
 
 function setMode(m) {
+  if (m === 'panel') m = 'bar';
   mode = m;
   clearTimeout(answerTimer);
   if (answerWin) answerWin.hide();
-  if (m === 'panel') {
-    if (dot) dot.hide();
-    panel.show(); panel.focus();
-    panel.webContents.send('panel-shown');
-  } else {
-    panel.hide();
-    dot.showInactive();
-  }
+  if (m === 'hide') { panel.hide(); dot.showInactive(); return; }
+  if (dot) dot.hide();
+  layout(m);
+  panel.webContents.send('view', m);
+  if (m === 'bar') panel.showInactive(); else { panel.show(); panel.focus(); }
+  if (m === 'chat') panel.webContents.send('panel-shown');
 }
 
 function showAnswer(text) {
@@ -205,7 +213,7 @@ function showAnswer(text) {
   const cpl = Math.max(1, Math.floor((w - 20) / 7.6));
   const nl = lines.reduce((n, l) => n + Math.max(1, Math.ceil(l.length / cpl)), 0);
   const h = nl * 19 + 14;
-  const b = dot ? dot.getBounds() : { x: screen.getPrimaryDisplay().workArea.width - 40, y: 200, width: 24, height: 24 };
+  const b = (mode === 'hide' && dot) ? dot.getBounds() : panel.getBounds();
   const wa = screen.getDisplayNearestPoint({ x: b.x, y: b.y }).workArea;
   let x = b.x > wa.x + wa.width / 2 ? b.x - w : b.x + b.width;
   x = Math.min(Math.max(wa.x, x), wa.x + wa.width - w);
@@ -226,7 +234,7 @@ function endAnswer() {
 // ------------------------------------------------------------------ capture
 async function captureScreen(hidePanel) {
   const wasVisible = panel && panel.isVisible();
-  if (hidePanel && wasVisible) { panel.hide(); await sleep(300); }
+  if (hidePanel && wasVisible) { panel.setOpacity(0); await sleep(110); }
   try {
     const d = screen.getPrimaryDisplay();
     const size = { width: Math.round(d.size.width * d.scaleFactor), height: Math.round(d.size.height * d.scaleFactor) };
@@ -239,7 +247,7 @@ async function captureScreen(hidePanel) {
     if (scale < 1) img = img.resize({ width: Math.round(sz.width * scale), height: Math.round(sz.height * scale) });
     return img.toJPEG(82).toString('base64');
   } finally {
-    if (hidePanel && wasVisible) panel.showInactive();
+    if (hidePanel && wasVisible) panel.setOpacity(1);
   }
 }
 
@@ -248,7 +256,7 @@ async function quickAnswer() {
   qaBusy = true;
   try {
     if (!apiKey()) { showAnswer('!'); return; }
-    const shot = await captureScreen(mode === 'panel');
+    const shot = await captureScreen(mode === 'chat');
     showAnswer(await askOnce(shot));
   } catch (e) {
     writeJson('last-error.json', { e: String(e.message || e) });
@@ -263,6 +271,7 @@ function askConfirm(text) {
   return new Promise((resolve) => {
     const id = ++confirmSeq;
     pendingConfirms.set(id, resolve);
+    if (mode !== 'chat') setMode('chat');
     panel.webContents.send('confirm-request', { id, text });
     setTimeout(() => { if (pendingConfirms.has(id)) { pendingConfirms.delete(id); resolve(false); } }, 90000);
   });
@@ -273,10 +282,9 @@ ipcMain.on('confirm-reply', (_e, { id, ok }) => {
 });
 
 async function withPanelHidden(fn) {
-  const wasVisible = panel.isVisible();
-  if (wasVisible) { panel.hide(); await sleep(400); }
-  try { return await fn(); }
-  finally { if (wasVisible) panel.showInactive(); }
+  // Keep the UI where it is. Only hand focus back to the app underneath so keystrokes land there.
+  if (panel.isFocused()) { panel.blur(); await sleep(180); }
+  return fn();
 }
 
 const sensitive = /(skicka|send|radera|delete|ta bort|remove|betala|pay|köp|buy|beställ|order|posta|post|publicera|logga ut|log out|bekräfta|confirm|submit|godkänn)/i;
@@ -296,12 +304,22 @@ async function sendKeys(keys) {
   return r.ok ? 'Skickade tangenterna.' : 'Misslyckades: ' + r.err.slice(0, 120);
 }
 async function typeText(text) {
-  const old = clipboard.readText();
-  clipboard.writeText(text);
-  const r = await sendKeys('^v');
-  await sleep(250);
-  clipboard.writeText(old);
-  return r.startsWith('Skickade') ? 'Skrev texten.' : r;
+  text = String(text);
+  if (text.length > 600) {
+    const old = clipboard.readText();
+    clipboard.writeText(text);
+    const r = await sendKeys('^v');
+    await sleep(250);
+    clipboard.writeText(old);
+    return r.startsWith('Skickade') ? 'Skrev texten.' : r;
+  }
+  const b64 = Buffer.from(text, 'utf8').toString('base64');
+  const r = await ps([
+    'Add-Type -AssemblyName System.Windows.Forms',
+    "$t=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + b64 + "'))",
+    "foreach($c in $t.ToCharArray()){ $s=[string]$c; if('+^%~(){}[]'.Contains($s)){ $s='{'+$s+'}' } elseif($s -eq [string][char]10){ $s='{ENTER}' } elseif($s -eq [string][char]13){ continue }; [System.Windows.Forms.SendKeys]::SendWait($s); Start-Sleep -Milliseconds 18 }",
+  ], 8000 + text.length * 60);
+  return r.ok ? 'Skrev texten.' : 'Misslyckades: ' + r.err.slice(0, 120);
 }
 async function click(fx, fy, dbl) {
   const b = screen.getPrimaryDisplay().bounds;
@@ -349,7 +367,8 @@ function systemPrompt() {
     '- Sätt consequential=true när en handling skickar, raderar, betalar, publicerar eller ändrar något som är svårt att ångra. Användaren får då bekräfta.\n' +
     '- compose_email öppnar bara ett utkast. Användaren trycker själv på skicka.\n' +
     '- Fråga användaren om något viktigt saknas. Gör aldrig något användaren inte bett om. Nekar användaren en bekräftelse: sluta och säg det kort.\n' +
-    '- Använd web_search för fakta som kan ha ändrats, jämförelser och research och sammanfatta själv.\n' +
+    '- Att googla: använd open_url med https://www.google.com/search?q=... så användaren ser sökningen på skärmen. Använd web_search (i bakgrunden) bara när användaren vill ha ett sammanfattat svar eller research.\n' +
+    '- Gör saker synligt på skärmen (öppna appar, skriv i fönster) och inte i bakgrunden.\n' +
     '- Använd remember när användaren ber dig komma ihåg något.\nNu: ' + now + '\n' +
     (mem.length ? 'Saker användaren bett dig komma ihåg:\n' + mem.map((m) => '- ' + m).join('\n') : '');
 }
@@ -445,7 +464,17 @@ async function execTool(name, a) {
 
 // --------------------------------------------------------------------- IPC
 let busy = false;
+async function fastCommand(t) {
+  const s = String(t || '').trim();
+  if (/sammanfatta|jämför|förklara|berätta|research|och sedan|och sen/i.test(s)) return null;
+  let m = s.match(/^(?:google|googla|sök(?: efter| på)?(?: google)?)\s+(.+)$/i);
+  if (m) { await shell.openExternal('https://www.google.com/search?q=' + encodeURIComponent(m[1].trim())); return 'Googlar: ' + m[1].trim(); }
+  m = s.match(/^(?:öppna|starta)\s+(.+)$/i);
+  if (m) return await openApp(m[1].trim());
+  return null;
+}
 ipcMain.handle('chat', async (_e, { text }) => {
+  try { const f = await fastCommand(text); if (f) return { ok: true, reply: f }; } catch (_) {}
   if (busy) return { ok: false, error: 'Jag jobbar fortfarande med förra uppgiften.' };
   if (!apiKey()) return { ok: false, error: 'Ingen API-nyckel. Skriv in den under inställningar.' };
   busy = true;
@@ -482,6 +511,12 @@ ipcMain.handle('insert', async (_e, { text, send }) => {
 ipcMain.handle('copy', (_e, t) => { clipboard.writeText(String(t || '')); return true; });
 ipcMain.handle('new-chat', () => { writeJson('history.json', []); return true; });
 ipcMain.handle('set-mode', (_e, m) => { setMode(m); return true; });
+ipcMain.on('bar-move', (_e, { y }) => {
+  const wa = screen.getPrimaryDisplay().workArea;
+  barOff = Math.round(Math.max(-wa.height / 2 + 60, Math.min(wa.height / 2 - 60, y - (wa.y + wa.height / 2))));
+  layout(mode === 'hide' ? 'bar' : mode);
+});
+ipcMain.handle('quick', async () => { setMode('bar'); await sleep(150); quickAnswer(); return true; });
 ipcMain.handle('quit', () => { app.quit(); return true; });
 ipcMain.handle('settings-get', () => ({ hasEmbedded: !!embeddedKey(), hasKey: !!apiKey() }));
 ipcMain.handle('settings-set', (_e, s) => { const cur = readJson('settings.json', {}); if (s && typeof s.apiKey === 'string') cur.apiKey = s.apiKey.trim(); writeJson('settings.json', cur); return true; });
@@ -510,7 +545,7 @@ ipcMain.on('dot-click', () => {
   quickAnswer();
 });
 ipcMain.on('dot-dbl', () => app.quit());
-ipcMain.on('dot-panel', () => setMode('panel'));
+ipcMain.on('dot-panel', () => setMode('menu'));
 ipcMain.on('dot-move', (_e, { x, y }) => { if (dot) dot.setPosition(Math.round(x), Math.round(y)); });
 ipcMain.on('dot-save', () => { if (dot) { const b = dot.getBounds(); writeJson('dot.json', { x: b.x, y: b.y }); } });
 ipcMain.on('answer-click', () => endAnswer());
@@ -522,12 +557,12 @@ app.whenReady().then(() => {
   createPanel();
   createDot();
   createAnswer();
-  panel.once('ready-to-show', () => setMode(readJson('mode.json', { m: 'panel' }).m === 'hide' ? 'hide' : 'panel'));
-  globalShortcut.register('Control+Alt+Space', () => setMode(mode === 'panel' ? 'hide' : 'panel'));
+  panel.webContents.once('did-finish-load', () => setMode(readJson('mode.json', { m: 'bar' }).m === 'hide' ? 'hide' : 'bar'));
+  globalShortcut.register('Control+Alt+Space', () => setMode(mode === 'bar' ? 'menu' : mode === 'hide' ? 'bar' : 'bar'));
   globalShortcut.register('Control+Alt+A', () => quickAnswer());
   setInterval(pollForeground, 2500);
 });
-app.on('before-quit', () => writeJson('mode.json', { m: mode }));
+app.on('before-quit', () => writeJson('mode.json', { m: mode === 'hide' ? 'hide' : 'bar' }));
 app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('window-all-closed', () => app.quit());
-app.on('second-instance', () => setMode('panel'));
+app.on('second-instance', () => setMode('menu'));
