@@ -227,18 +227,40 @@ class PanelUi(private val svc: ReaderService) {
     // ------------------------------------------------------------------ chat
 
     private fun addMsg(user: Boolean, text: String) {
+        val sp = android.text.SpannableStringBuilder()
+        var bold = false
+        var i = 0
+        while (i < text.length) {
+            if (text.startsWith("**", i)) { bold = !bold; i += 2; continue }
+            val start = sp.length
+            sp.append(text[i])
+            if (bold) sp.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, start + 1, 0)
+            i++
+        }
+        val big = dp(18).toFloat()
+        val small = dp(4).toFloat()
         val tv = TextView(svc).apply {
-            this.text = text.replace("**", "")
+            this.text = sp
             textSize = 14.5f
+            setLineSpacing(0f, 1.12f)
             setTextColor(if (user) Color.WHITE else TEXT)
             setTextIsSelectable(true)
-            setPadding(dp(12), dp(8), dp(12), dp(8))
-            background = rounded(if (user) PRIMARY else CARD, 14)
+            setPadding(dp(13), dp(9), dp(13), dp(9))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                if (user) intArrayOf(0xFF7A58FF.toInt(), 0xFF5A3BDC.toInt()) else intArrayOf(0x1AFFFFFF, 0x1AFFFFFF)
+            ).apply {
+                cornerRadii = if (user) floatArrayOf(big, big, big, big, small, small, big, big)
+                else floatArrayOf(big, big, big, big, big, big, small, small)
+            }
             maxWidth = dp(250)
+            alpha = 0f
+            translationY = dp(6).toFloat()
         }
-        val p = lp(-2, -2, t = 6)
+        val p = lp(-2, -2, t = 7)
         p.gravity = if (user) Gravity.END else Gravity.START
         chat.addView(tv, p)
+        tv.animate().alpha(1f).translationY(0f).setDuration(180).start()
         scrollDown()
     }
 

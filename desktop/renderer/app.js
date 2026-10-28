@@ -3,14 +3,54 @@ const chat = $('chat'), inp = $('inp');
 let busy = false, speakOn = false, convo = false, statusEl = null;
 
 // ---------------------------------------------------------------- helpers
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function inline(t) {
+  return esc(t)
+    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
+    .replace(/(https?:\/\/[^\s<)]+)/g, '<a data-href="$1">$1</a>');
+}
+// Small, safe markdown subset: paragraphs, lists, code blocks, bold, inline code, links.
+function md(text) {
+  const out = []; let list = null;
+  const flush = () => { if (list) { out.push('</' + list + '>'); list = null; } };
+  const parts = String(text).split(/```/);
+  parts.forEach((part, i) => {
+    if (i % 2) { flush(); out.push('<pre><code>' + esc(part.replace(/^\w*\n/, '').replace(/\n$/, '')) + '</code></pre>'); return; }
+    for (const line of part.split('\n')) {
+      let m;
+      if ((m = line.match(/^\s*[-*•]\s+(.*)/))) { if (list !== 'ul') { flush(); out.push('<ul>'); list = 'ul'; } out.push('<li>' + inline(m[1]) + '</li>'); }
+      else if ((m = line.match(/^\s*\d+[.)]\s+(.*)/))) { if (list !== 'ol') { flush(); out.push('<ol>'); list = 'ol'; } out.push('<li>' + inline(m[1]) + '</li>'); }
+      else if (!line.trim()) flush();
+      else { flush(); out.push('<p>' + inline(line.replace(/^#+\s*/, '')) + '</p>'); }
+    }
+  });
+  flush();
+  return out.join('');
+}
+chat.addEventListener('click', (e) => { const a = e.target.closest('a[data-href]'); if (a) api.openLink(a.dataset.href); });
 function addMsg(user, text) {
   const d = document.createElement('div');
-  d.className = 'm' + (user ? ' u' : '');
-  d.textContent = String(text).replace(/\*\*/g, '');
+  d.className = 'm ' + (user ? 'u' : 'a');
+  if (user) d.textContent = String(text); else d.innerHTML = md(text);
   chat.appendChild(d);
   chat.scrollTop = chat.scrollHeight;
+  return d;
 }
+let live = null, liveText = '';
+api.onDelta((t) => {
+  clearStatus(); clearDots();
+  if (!live) { live = addMsg(false, ''); liveText = ''; }
+  liveText += t;
+  live.innerHTML = md(liveText);
+  chat.scrollTop = chat.scrollHeight;
+});
+api.onDeltaReset(() => { if (live) { live.remove(); live = null; liveText = ''; } });
+let dotsEl = null;
+function showDots() { if (dotsEl) return; dotsEl = document.createElement('div'); dotsEl.className = 'dots'; dotsEl.innerHTML = '<i></i><i></i><i></i>'; chat.appendChild(dotsEl); chat.scrollTop = chat.scrollHeight; }
+function clearDots() { if (dotsEl) { dotsEl.remove(); dotsEl = null; } }
 function setStatus(t) {
+  clearDots();
   if (!statusEl) { statusEl = document.createElement('div'); statusEl.className = 's'; chat.appendChild(statusEl); }
   statusEl.textContent = t;
   chat.scrollTop = chat.scrollHeight;
@@ -54,13 +94,14 @@ async function send(text, voice) {
   if (!text || busy) return;
   busy = true;
   addMsg(true, text);
-  setStatus('Tänker…');
+  live = null; liveText = '';
+  showDots();
   try {
     const r = await api.chat(text, voice);
-    clearStatus();
-    addMsg(false, r.ok ? r.reply : 'Fel: ' + r.error);
+    clearStatus(); clearDots();
+    if (live && r.ok) { live.innerHTML = md(r.reply); live = null; } else { if (live) { live.remove(); live = null; } addMsg(false, r.ok ? r.reply : 'Fel: ' + r.error); }
     if (r.ok && (speakOn || voice)) speak(r.reply);
-  } catch (e) { clearStatus(); addMsg(false, 'Fel: ' + e.message); }
+  } catch (e) { clearStatus(); clearDots(); addMsg(false, 'Fel: ' + e.message); }
   busy = false;
 }
 api.onStatus(setStatus);
@@ -120,7 +161,7 @@ api.onConfirm(({ id, text }) => {
 function speak(text) {
   try {
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(String(text).replace(/\*\*/g, ''));
+    const u = new SpeechSynthesisUtterance(String(text).replace(/[*`#]/g, ''));
     u.lang = navigator.language || 'sv-SE';
     u.onend = () => { if (convo) toggleMic(); };
     speechSynthesis.speak(u);

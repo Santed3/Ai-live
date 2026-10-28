@@ -1,7 +1,7 @@
 const { app, BrowserWindow, globalShortcut, screen, desktopCapturer, ipcMain, clipboard, shell, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 
 const MODEL = 'gpt-4o';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -56,6 +56,52 @@ async function chat(messages, o = {}) {
   const j = await post('https://api.openai.com/v1/chat/completions', body);
   return j.choices[0].message;
 }
+// Streaming variant: forwards text deltas while the model talks, accumulates tool calls.
+async function chatStream(messages, o, onDelta, onTool) {
+  const body = { model: MODEL, messages, max_tokens: o.maxTokens || 900, stream: true };
+  if (o.tools) { body.tools = o.tools; body.tool_choice = 'auto'; }
+  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey() },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(90000),
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    let m = t.slice(0, 200);
+    try { m = JSON.parse(t).error.message; } catch {}
+    throw new Error('OpenAI ' + r.status + ': ' + m);
+  }
+  const dec = new TextDecoder();
+  let buf = '', text = '', toolsSeen = false;
+  const calls = [];
+  for await (const chunk of r.body) {
+    buf += dec.decode(chunk, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).trim();
+      buf = buf.slice(i + 1);
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (data === '[DONE]') continue;
+      let j; try { j = JSON.parse(data); } catch { continue; }
+      const d = j.choices && j.choices[0] && j.choices[0].delta;
+      if (!d) continue;
+      if (d.content) { text += d.content; if (!toolsSeen) onDelta(d.content); }
+      for (const tc of d.tool_calls || []) {
+        if (!toolsSeen) { toolsSeen = true; onTool(); }
+        const c = calls[tc.index] || (calls[tc.index] = { id: '', type: 'function', function: { name: '', arguments: '' } });
+        if (tc.id) c.id = tc.id;
+        if (tc.function && tc.function.name) c.function.name += tc.function.name;
+        if (tc.function && tc.function.arguments) c.function.arguments += tc.function.arguments;
+      }
+    }
+  }
+  const msg = { role: 'assistant', content: text };
+  const real = calls.filter(Boolean);
+  if (real.length) msg.tool_calls = real;
+  return msg;
+}
 async function textCompletion(system, user, maxTokens = 700) {
   const m = await chat([{ role: 'system', content: system }, { role: 'user', content: user }], { maxTokens });
   return (m.content || '').trim();
@@ -109,8 +155,7 @@ async function askOnce(shot) {
 }
 
 // --------------------------------------------------------------- PowerShell
-function ps(lines, timeout = 10000) {
-  const script = Array.isArray(lines) ? lines.join('\n') : lines;
+function psOnce(script, timeout) {
   const enc = Buffer.from(script, 'utf16le').toString('base64');
   return new Promise((resolve) => {
     execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', enc],
@@ -118,12 +163,66 @@ function ps(lines, timeout = 10000) {
         resolve({ ok: !err, out: (stdout || '').trim(), err: (stderr || '').trim() }));
   });
 }
+// One long-lived PowerShell process: no startup cost per action, so mouse, typing and polling feel instant.
+let pss = null, pssQueue = Promise.resolve(), pssSeq = 0;
+function pssStart() {
+  const p = spawn('powershell.exe', ['-NoProfile', '-NoLogo', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', '-'], { windowsHide: true });
+  const st = { p, buf: '', done: null, dead: false };
+  p.stdout.setEncoding('utf8');
+  p.stdout.on('data', (d) => { st.buf += d; if (st.done) st.done(); });
+  p.stderr.on('data', () => {});
+  p.on('error', () => { st.dead = true; if (st.done) st.done(); });
+  p.on('exit', () => { st.dead = true; if (st.done) st.done(); });
+  return st;
+}
+function pssRun(script, timeout) {
+  return new Promise((resolve) => {
+    if (!pss || pss.dead) pss = pssStart();
+    const st = pss, id = ++pssSeq, end = '@@END' + id + '@@';
+    st.buf = '';
+    const b64 = Buffer.from(script, 'utf8').toString('base64');
+    let finished = false;
+    const finish = (r) => { if (finished) return; finished = true; clearTimeout(tm); st.done = null; resolve(r); };
+    const tm = setTimeout(() => { try { st.p.kill(); } catch {} st.dead = true; finish({ ok: false, out: '', err: 'timeout' }); }, timeout);
+    st.done = () => {
+      if (st.dead && !st.buf.includes(end)) return finish({ ok: false, out: '', err: 'PowerShell stängdes', dead: true });
+      const i = st.buf.indexOf(end);
+      if (i < 0) return;
+      const out = st.buf.slice(0, i).replace(/\r/g, '').trim();
+      const m = out.match(/(?:^|\n)@@ERR@@(.*)$/s);
+      finish(m ? { ok: false, out: out.slice(0, m.index), err: m[1].trim() } : { ok: true, out, err: '' });
+    };
+    try {
+      st.p.stdin.write("try { iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + b64 + "'))) } catch { Write-Output ('@@ERR@@' + $_.Exception.Message) }; Write-Output '" + end + "'\n");
+    } catch { st.dead = true; finish({ ok: false, out: '', err: 'stdin', dead: true }); }
+  });
+}
+let pssReady = null;
+function pssInit() {
+  if (!pssReady) pssReady = pssRun('[Console]::OutputEncoding=[Text.Encoding]::UTF8\nAdd-Type -AssemblyName System.Windows.Forms\n' + WIN32_SRC, 20000);
+  return pssReady;
+}
+function ps(lines, timeout = 10000) {
+  let script = Array.isArray(lines) ? lines.join('\n') : lines;
+  script = script.split(WIN32_SRC).join('');
+  const run = pssQueue.then(async () => {
+    const init = await pssInit();
+    if (!init.ok) { pssReady = null; return psOnce(WIN32_SRC + '\n' + script, timeout); }
+    let r = await pssRun(script, timeout);
+    if (r.dead) { pssReady = null; await pssInit(); r = await pssRun(script, timeout); }
+    return r;
+  });
+  pssQueue = run.catch(() => {});
+  return run;
+}
 const q1 = (s) => String(s).replace(/'/g, "''");
 const WIN32 = [
   'Add-Type @"',
   'using System; using System.Runtime.InteropServices; using System.Text;',
   'public class W32 {',
+  '  [StructLayout(LayoutKind.Sequential)] public struct PT { public int X; public int Y; }',
   '  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);',
+  '  [DllImport("user32.dll")] public static extern bool GetCursorPos(out PT p);',
   '  [DllImport("user32.dll")] public static extern void mouse_event(int f, int dx, int dy, int d, int e);',
   '  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();',
   '  [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);',
@@ -131,6 +230,7 @@ const WIN32 = [
   '}',
   '"@',
 ];
+const WIN32_SRC = WIN32.join('\n');
 let lastExternal = { title: '', proc: '' };
 async function pollForeground() {
   if (!panel || !panel.isVisible() || panel.isFocused()) return;
@@ -149,11 +249,11 @@ async function pollForeground() {
 let panel = null, dot = null, answerWin = null, mode = 'bar', answerTimer = null, qaBusy = false;
 
 let barOff = 0;
-const SIZES = { bar: [22, 96], menu: [320, 372], chat: [340, 480] };
+const SIZES = { bar: [22, 96], menu: [320, 372], chat: [380, 560] };
 function layout(v) {
   const wa = screen.getPrimaryDisplay().workArea;
   let [w, h] = SIZES[v] || SIZES.bar;
-  if (v === 'chat') h = Math.min(h, Math.round(wa.height * 0.55));
+  if (v === 'chat') h = Math.min(h, Math.round(wa.height * 0.7));
   const cy = wa.y + wa.height / 2 + barOff;
   const y = Math.round(Math.min(Math.max(wa.y, cy - h / 2), wa.y + wa.height - h));
   panel.setBounds({ x: wa.x + wa.width - w - (v === 'bar' ? 0 : 8), y, width: w, height: h });
@@ -243,7 +343,7 @@ async function captureScreen(hidePanel) {
     if (!src) throw new Error('Kunde inte fånga skärmen');
     let img = src.thumbnail;
     const sz = img.getSize();
-    const scale = Math.min(1, 1600 / Math.max(sz.width, sz.height));
+    const scale = Math.min(1, 1920 / Math.max(sz.width, sz.height));
     if (scale < 1) img = img.resize({ width: Math.round(sz.width * scale), height: Math.round(sz.height * scale) });
     return img.toJPEG(82).toString('base64');
   } finally {
@@ -305,7 +405,7 @@ async function sendKeys(keys) {
 }
 async function typeText(text) {
   text = String(text);
-  if (text.length > 600) {
+  if (text.length > 900) {
     const old = clipboard.readText();
     clipboard.writeText(text);
     const r = await sendKeys('^v');
@@ -313,21 +413,28 @@ async function typeText(text) {
     clipboard.writeText(old);
     return r.startsWith('Skickade') ? 'Skrev texten.' : r;
   }
+  // Type in small bursts so the text visibly appears, quickly but not instantly.
   const b64 = Buffer.from(text, 'utf8').toString('base64');
   const r = await ps([
-    'Add-Type -AssemblyName System.Windows.Forms',
     "$t=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + b64 + "'))",
-    "foreach($c in $t.ToCharArray()){ $s=[string]$c; if('+^%~(){}[]'.Contains($s)){ $s='{'+$s+'}' } elseif($s -eq [string][char]10){ $s='{ENTER}' } elseif($s -eq [string][char]13){ continue }; [System.Windows.Forms.SendKeys]::SendWait($s); Start-Sleep -Milliseconds 18 }",
-  ], 8000 + text.length * 60);
+    '$t=$t -replace "`r",""',
+    '$buf=""; $send={ param($x) if($x.Length -gt 0){ [System.Windows.Forms.SendKeys]::SendWait($x) } }',
+    'foreach($c in $t.ToCharArray()){ $s=[string]$c; if(\'+^%~(){}[]\'.Contains($s)){ $s=\'{\'+$s+\'}\' } elseif($c -eq [char]10){ $s=\'{ENTER}\' }; $buf+=$s; if($buf.Length -ge 6 -or $c -eq [char]10){ & $send $buf; $buf=""; Start-Sleep -Milliseconds 16 } }',
+    '& $send $buf',
+  ], 8000 + text.length * 40);
   return r.ok ? 'Skrev texten.' : 'Misslyckades: ' + r.err.slice(0, 120);
 }
 async function click(fx, fy, dbl) {
   const b = screen.getPrimaryDisplay().bounds;
   const x = Math.round(b.x + Math.min(Math.max(fx, 0), 1) * b.width);
   const y = Math.round(b.y + Math.min(Math.max(fy, 0), 1) * b.height);
-  const once = '[W32]::mouse_event(2,0,0,0,0); [W32]::mouse_event(4,0,0,0,0)';
-  const r = await ps([...WIN32, '[void][W32]::SetCursorPos(' + x + ',' + y + ')', 'Start-Sleep -Milliseconds 80', once,
-    dbl ? 'Start-Sleep -Milliseconds 80; ' + once : '']);
+  const once = '[W32]::mouse_event(2,0,0,0,0); Start-Sleep -Milliseconds 40; [W32]::mouse_event(4,0,0,0,0)';
+  // Glide the pointer to the target so the user can follow what happens.
+  const r = await ps([...WIN32,
+    '$pt=New-Object W32+PT; [void][W32]::GetCursorPos([ref]$pt); $sx=$pt.X; $sy=$pt.Y; $n=16',
+    'for($i=1;$i -le $n;$i++){ $t=$i/$n; $e=$t*$t*(3-2*$t); [void][W32]::SetCursorPos([int]($sx+(' + x + '-$sx)*$e),[int]($sy+(' + y + '-$sy)*$e)); Start-Sleep -Milliseconds 14 }',
+    'Start-Sleep -Milliseconds 90', once,
+    dbl ? 'Start-Sleep -Milliseconds 90; ' + once : '']);
   return r.ok ? 'Klickade.' : 'Kunde inte klicka: ' + r.err.slice(0, 120);
 }
 async function scrollWheel(dir, amount) {
@@ -373,6 +480,7 @@ function systemPrompt() {
     (mem.length ? 'Saker användaren bett dig komma ihåg:\n' + mem.map((m) => '- ' + m).join('\n') : '');
 }
 
+function send2(ch, v) { if (panel && !panel.isDestroyed()) panel.webContents.send(ch, v); }
 function status(t) { if (panel && !panel.isDestroyed()) panel.webContents.send('status', t); }
 
 async function runAgent(userText) {
@@ -384,7 +492,7 @@ async function runAgent(userText) {
   });
   let answer = '';
   for (let step = 0; step < 10; step++) {
-    const msg = await chat(messages, { tools: TOOLS, maxTokens: 900 });
+    const msg = await chatStream(messages, { tools: TOOLS, maxTokens: 900 }, (t) => send2('delta', t), () => send2('delta-reset'));
     const calls = msg.tool_calls;
     if (!calls || !calls.length) { answer = (msg.content || '').trim(); break; }
     messages.push({ role: 'assistant', content: msg.content || '', tool_calls: calls });
@@ -508,6 +616,7 @@ ipcMain.handle('insert', async (_e, { text, send }) => {
   });
   return { ok: true, text: r + (send ? ' Tryckte Enter.' : '') };
 });
+ipcMain.handle('open-link', (_e, u) => { if (/^https?:\/\//i.test(String(u))) shell.openExternal(String(u)); return true; });
 ipcMain.handle('copy', (_e, t) => { clipboard.writeText(String(t || '')); return true; });
 ipcMain.handle('new-chat', () => { writeJson('history.json', []); return true; });
 ipcMain.handle('set-mode', (_e, m) => { setMode(m); return true; });
@@ -566,3 +675,5 @@ app.on('before-quit', () => writeJson('mode.json', { m: mode === 'hide' ? 'hide'
 app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('window-all-closed', () => app.quit());
 app.on('second-instance', () => setMode('menu'));
+
+app.on('will-quit', () => { try { if (pss) pss.p.kill(); } catch {} });
