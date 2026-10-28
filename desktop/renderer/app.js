@@ -234,13 +234,14 @@ const TILES = [
   ['🌍', 'Översätt', () => go('Översätt texten på skärmen till svenska.', true)],
   ['🫥', 'Hide-läge', () => api.setMode('hide')],
   ['🎤', 'Röst', () => { preset = { voice: true }; api.setMode('chat'); }],
+  ['🚀', 'Autostart', async (d) => { const on = await api.autostartSet(!(await api.autostartGet())); d.querySelector('span').textContent = 'Autostart: ' + (on ? 'på' : 'av'); }],
   ['➖', 'Minimera', () => api.setMode('bar')],
   ['✕', 'Stäng', () => api.quit()],
 ];
 function go(text, auto) { preset = { text, auto }; api.setMode('chat'); }
 TILES.forEach(([i, l, f]) => {
   const d = document.createElement('div'); d.className = 'tile';
-  d.innerHTML = '<i>' + i + '</i><span>' + l + '</span>'; d.onclick = f; $('grid').appendChild(d);
+  d.innerHTML = '<i>' + i + '</i><span>' + l + '</span>'; d.onclick = () => f(d); $('grid').appendChild(d);
 });
 api.onView((v) => {
   document.body.dataset.v = v;
@@ -256,3 +257,7 @@ api.onView((v) => {
   window.addEventListener('mousemove', (e) => { if (!d) return; if (Math.abs(e.screenY - sy) > 5) mv = true; if (mv) api.barMove(e.screenY); });
   window.addEventListener('mouseup', () => { if (!d) return; d = false; if (!mv) api.setMode('menu'); });
 }
+
+api.onAsk((t) => send(t, false));
+
+api.autostartGet().then((on) => { const t = [...document.querySelectorAll('.tile span')].find((e) => e.textContent === 'Autostart'); if (t) t.textContent = 'Autostart: ' + (on ? 'på' : 'av'); });

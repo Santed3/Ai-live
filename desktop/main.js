@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, screen, desktopCapturer, ipcMain, clipboard, shell, session } = require('electron');
+const { app, Tray, Menu, nativeImage, BrowserWindow, globalShortcut, screen, desktopCapturer, ipcMain, clipboard, shell, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile, spawn } = require('child_process');
@@ -249,7 +249,7 @@ async function pollForeground() {
 let panel = null, dot = null, answerWin = null, mode = 'bar', answerTimer = null, qaBusy = false;
 
 let barOff = 0;
-const SIZES = { bar: [22, 96], menu: [320, 372], chat: [380, 560] };
+const SIZES = { bar: [22, 96], menu: [320, 448], chat: [380, 560] };
 function layout(v) {
   const wa = screen.getPrimaryDisplay().workArea;
   let [w, h] = SIZES[v] || SIZES.bar;
@@ -685,7 +685,45 @@ app.whenReady().then(() => {
   globalShortcut.register('Control+Alt+Space', () => setMode(mode === 'bar' ? 'menu' : mode === 'hide' ? 'bar' : 'bar'));
   globalShortcut.register('Control+Alt+A', () => quickAnswer());
   setInterval(pollForeground, 2500);
+  globalShortcut.register('Control+Alt+C', explainSelection);
+  makeTray();
 });
+
+// ------------------------------------------------------------ tray, autostart, selection
+const TRAY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABBElEQVR4nO3XVw6CQBSFYXdo712XICj2ujj3YgUF8emaKyExRmYYnLkkxknOq99vgCiJxP8IHgDYsqYcXXdcWLddWOFaN1jimg4scA0HpMf4H7bp3oGHzxs2zOs2zGpX+DriFRbFcdMq7hItRBY+qeAs8QiZ+KRswbjkRcSGj0smjIomPyLqDRcGHxXP/EuhEh8WvHEDVOJG/hQcQIEbuRMMcsfPEc8AAnyQZQRQ4H1mAAHezxyCAyhwnRlAgOvpfXAABa4xAwhwLRUQ4EfEhvsBKvFecscPwKnEQ/0iqsC53/49Ijb89VLIxCP/L4wF/xSi5IYTjcCFec7J3pLIXs1++jwA1IEz2SC+hVgAAAAASUVORK5CYII=';
+let tray = null;
+const autostart = () => { try { return app.getLoginItemSettings().openAtLogin; } catch { return false; } };
+function setAutostart(on) { try { app.setLoginItemSettings({ openAtLogin: !!on }); } catch {} return autostart(); }
+function makeTray() {
+  try {
+    tray = new Tray(nativeImage.createFromDataURL(TRAY_PNG));
+    tray.setToolTip('ScreenBubble');
+    const build = () => Menu.buildFromTemplate([
+      { label: 'Öppna meny', click: () => setMode('menu') },
+      { label: 'Snabbsvar på skärmen', click: () => quickAnswer() },
+      { label: 'Förklara markerad text (Ctrl+Alt+C)', click: () => explainSelection() },
+      { type: 'separator' },
+      { label: 'Starta med Windows', type: 'checkbox', checked: autostart(), click: (i) => setAutostart(i.checked) },
+      { label: 'Avsluta', click: () => app.quit() },
+    ]);
+    tray.on('click', () => setMode('menu'));
+    tray.on('right-click', () => tray.popUpContextMenu(build()));
+  } catch {}
+}
+// Copies the current selection in whatever app is in front and asks about it in the chat.
+async function explainSelection() {
+  const old = clipboard.readText();
+  clipboard.writeText('');
+  await sendKeys('^c');
+  await sleep(180);
+  const sel = clipboard.readText().trim();
+  if (old) clipboard.writeText(old);
+  if (!sel) { showAnswer('Markera text först'); return; }
+  setMode('chat');
+  setTimeout(() => send2('ask', 'Förklara eller svara kort på den här texten som jag markerade:\n\n' + sel.slice(0, 4000)), 350);
+}
+ipcMain.handle('autostart-get', () => autostart());
+ipcMain.handle('autostart-set', (_e, on) => setAutostart(on));
 app.on('before-quit', () => writeJson('mode.json', { m: mode === 'hide' ? 'hide' : 'bar' }));
 app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('window-all-closed', () => app.quit());
