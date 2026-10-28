@@ -41,7 +41,7 @@ jobs:
       - name: Bygg APK
         run: |
           set +e
-          gradle assembleDebug --no-daemon --console=plain -Pkotlin.compiler.execution.strategy=in-process > build.log 2>&1
+          gradle assembleRelease --no-daemon --console=plain -Pkotlin.compiler.execution.strategy=in-process > build.log 2>&1
           code=$?
           if [ $code -ne 0 ]; then
             msg=$(grep -E "\.kt|^e: |Unresolved|error:" build.log | grep -v "^w: " | head -30 | sed ':a;N;$!ba;s/\n/%0A/g')
@@ -51,7 +51,7 @@ jobs:
           exit $code
 
       - name: Döp om filen
-        run: cp app/build/outputs/apk/debug/app-debug.apk ScreenBubble.apk
+        run: cp app/build/outputs/apk/release/app-release.apk ScreenBubble.apk
 
       - name: Publicera som release
         uses: softprops/action-gh-release@v2

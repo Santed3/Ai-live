@@ -40,13 +40,16 @@ import kotlin.math.min
  */
 class ReaderService : AccessibilityService() {
 
-    enum class Mode { PANEL, HIDE }
+    enum class Mode { BAR, MENU, CHAT, HIDE }
 
     private lateinit var wm: WindowManager
     private val main = Handler(Looper.getMainLooper())
     val pool = Executors.newCachedThreadPool()
 
-    private var mode = Mode.PANEL
+    private var mode = Mode.BAR
+    private var side: View? = null
+    private var sideLp: WindowManager.LayoutParams? = null
+    private var barY = 0
     private var panel: PanelUi? = null
     private var dot: View? = null
     private var dotLp: WindowManager.LayoutParams? = null
@@ -76,7 +79,7 @@ class ReaderService : AccessibilityService() {
         val b = wm.currentWindowMetrics.bounds
         screenW = b.width()
         screenH = b.height()
-        setMode(if (Store.mode(this) == "HIDE") Mode.HIDE else Mode.PANEL)
+        setMode(if (Store.mode(this) == "HIDE") Mode.HIDE else Mode.BAR)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -94,6 +97,7 @@ class ReaderService : AccessibilityService() {
         main.removeCallbacksAndMessages(null)
         removeAnswer()
         removePanel()
+        removeSide()
         hideDot()
         pool.shutdownNow()
         return super.onUnbind(intent)
@@ -107,16 +111,64 @@ class ReaderService : AccessibilityService() {
         main.post {
             if (closing) return@post
             mode = m
-            Store.setMode(this, m.name)
-            if (m == Mode.PANEL) {
-                hideDot()
-                removeAnswer()
-                showPanel()
-            } else {
-                removePanel()
-                showDot()
+            if (m == Mode.BAR || m == Mode.HIDE) Store.setMode(this, m.name)
+            when (m) {
+                Mode.BAR -> { hideDot(); removePanel(); showBar() }
+                Mode.MENU -> { hideDot(); removePanel(); showMenu() }
+                Mode.CHAT -> { hideDot(); removeAnswer(); removeSide(); showPanel() }
+                Mode.HIDE -> { removePanel(); removeSide(); showDot() }
             }
         }
+    }
+
+    private var pendingVoice = false
+    fun voiceSoon() { pendingVoice = true }
+
+    /** Open the compact chat, optionally with a preset message. */
+    fun openChat(preset: String?, auto: Boolean) {
+        setMode(Mode.CHAT)
+        main.post {
+            panel?.start(preset, auto)
+            if (pendingVoice) { pendingVoice = false; panel?.startVoice() }
+        }
+    }
+
+    /** Menu shortcut: answer the question on screen, shown as a small card next to the handle. */
+    fun quickAnswer() {
+        setMode(Mode.BAR)
+        main.postDelayed({ onDotTap(screenW, screenH / 2 + barY) }, 150)
+    }
+
+    private fun removeSide() {
+        side?.let { try { wm.removeView(it) } catch (_: Exception) {} }
+        side = null
+    }
+
+    private fun showBar() {
+        removeSide()
+        val lp = WindowManager.LayoutParams(
+            dp(22), dp(96),
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; y = barY }
+        val v = SideUi(this).bar(lp) { barY = lp.y; try { wm.updateViewLayout(side, lp) } catch (_: Exception) {} }
+        wm.addView(v, lp)
+        side = v; sideLp = lp
+    }
+
+    private fun showMenu() {
+        removeSide()
+        val lp = WindowManager.LayoutParams(
+            min(dp(300), (screenW * 0.88f).toInt()), WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = dp(8); y = barY }
+        val v = SideUi(this).menu { setMode(Mode.BAR) }
+        wm.addView(v, lp)
+        side = v; sideLp = lp
     }
 
     fun shutDown() {
@@ -126,6 +178,7 @@ class ReaderService : AccessibilityService() {
             main.removeCallbacks(answerTimeout)
             removeAnswer()
             removePanel()
+            removeSide()
             hideDot()
             disableSelf()
         }
@@ -134,8 +187,8 @@ class ReaderService : AccessibilityService() {
     private fun showPanel() {
         if (panel != null) return
         val p = PanelUi(this)
-        val w = min(dp(380), (screenW * 0.92f).toInt())
-        val h = (screenH * 0.78f).toInt()
+        val w = min(dp(320), (screenW * 0.86f).toInt())
+        val h = min(dp(400), (screenH * 0.46f).toInt())
         val lp = WindowManager.LayoutParams(
             w, h,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
@@ -143,7 +196,7 @@ class ReaderService : AccessibilityService() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            x = dp(4)
+            x = dp(8)
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
         wm.addView(p.root, lp)
@@ -193,7 +246,7 @@ class ReaderService : AccessibilityService() {
         val longPress = Runnable {
             if (!moved) {
                 longFired = true
-                setMode(Mode.PANEL)
+                setMode(Mode.MENU)
             }
         }
         frame.setOnTouchListener { _, e ->
@@ -253,11 +306,11 @@ class ReaderService : AccessibilityService() {
 
     // ----------------------------------------------------------- quick answer
 
-    private fun onDotTap() {
+    private fun onDotTap(px: Int = dotLp?.x ?: 0, py: Int = dotLp?.y ?: 0) {
         if (dotBusy) return
         val key = apiKey()
-        val x = dotLp?.x ?: 0
-        val y = dotLp?.y ?: 0
+        val x = px
+        val y = py
         dotBusy = true
         val id = ++requestId
         if (key.isEmpty()) {
@@ -382,7 +435,7 @@ class ReaderService : AccessibilityService() {
         val v = panel?.root
         if (v != null) {
             main.post { v.alpha = 0f }
-            Thread.sleep(200)
+            Thread.sleep(120)
         }
         try {
             val text = readScreenText()

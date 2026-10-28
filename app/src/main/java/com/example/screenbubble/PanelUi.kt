@@ -36,7 +36,7 @@ class PanelUi(private val svc: ReaderService) {
     private val density = svc.resources.displayMetrics.density
     private fun dp(v: Int) = (v * density).toInt()
 
-    private val BG = 0xF2101326.toInt()
+    private val BG = 0xF5121316.toInt()
     private val CARD = 0xFF1B1F36.toInt()
     private val ACCENT = 0xFF7CF5C8.toInt()
     private val PRIMARY = 0xFF6C47FF.toInt()
@@ -103,25 +103,25 @@ class PanelUi(private val svc: ReaderService) {
 
     private fun build() {
         root.orientation = LinearLayout.VERTICAL
-        root.background = rounded(BG, 22)
-        root.setPadding(dp(12), dp(10), dp(12), dp(10))
+        root.background = rounded(BG, 20)
+        root.setPadding(dp(10), dp(8), dp(10), dp(8))
         root.elevation = dp(10).toFloat()
 
         // header
         val header = LinearLayout(svc).apply { gravity = Gravity.CENTER_VERTICAL }
+        header.addView(pill("‹") { svc.setMode(ReaderService.Mode.MENU) }, lp(-2, -2, r = 8))
         header.addView(TextView(svc).apply {
-            text = "ScreenBubble"
-            textSize = 16f
+            text = "Chatt"
+            textSize = 15f
             setTextColor(TEXT)
             setTypeface(typeface, Typeface.BOLD)
         }, lp(0, -2, weight = 1f))
         speakBtn = pill(if (speakOn) "🔊" else "🔇") { toggleSpeak() }
         convoBtn = pill("Samtal") { toggleConvo() }
-        header.addView(speakBtn, lp(-2, -2, r = 6))
-        header.addView(convoBtn, lp(-2, -2, r = 6))
-        header.addView(pill("Ny") { newConversation() }, lp(-2, -2, r = 6))
-        header.addView(pill("Dölj") { svc.setMode(ReaderService.Mode.HIDE) }, lp(-2, -2, r = 6))
-        header.addView(pill("✕", 0x33FF5C5C.toInt()) { svc.shutDown() })
+        header.addView(speakBtn, lp(-2, -2, r = 4))
+        header.addView(convoBtn, lp(-2, -2, r = 4))
+        header.addView(pill("Ny") { newConversation() }, lp(-2, -2, r = 4))
+        header.addView(pill("✕", 0x33FF5C5C.toInt()) { svc.setMode(ReaderService.Mode.BAR) })
         root.addView(header)
 
         // chips
@@ -197,11 +197,24 @@ class PanelUi(private val svc: ReaderService) {
         row.addView(pill("➤", PRIMARY) { sendFromInput() }, lp(-2, -2, l = 6))
         root.addView(row, lp(-1, -2, t = 8))
 
-        addMsg(false, "Hej! Fråga mig om skärmen, be mig göra något på telefonen, eller tryck på en genväg ovan.")
+        addMsg(false, "Hej! Vad vill du göra?")
     }
 
     fun onShown() {
         refreshChips()
+    }
+
+    fun startVoice() { listen() }
+
+    /** Opens with a preset: send it right away, or put it in the input for the user to finish. */
+    fun start(preset: String?, auto: Boolean) {
+        if (preset.isNullOrBlank()) return
+        if (auto) send(preset, false)
+        else {
+            input.setText(preset)
+            input.setSelection(preset.length)
+            input.requestFocus()
+        }
     }
 
     fun destroy() {
@@ -221,7 +234,7 @@ class PanelUi(private val svc: ReaderService) {
             setTextIsSelectable(true)
             setPadding(dp(12), dp(8), dp(12), dp(8))
             background = rounded(if (user) PRIMARY else CARD, 14)
-            maxWidth = dp(290)
+            maxWidth = dp(250)
         }
         val p = lp(-2, -2, t = 6)
         p.gravity = if (user) Gravity.END else Gravity.START

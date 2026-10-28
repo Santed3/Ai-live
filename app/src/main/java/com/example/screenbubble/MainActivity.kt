@@ -70,8 +70,8 @@ class MainActivity : Activity() {
             setOnClickListener { requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1) }
         })
         root.addView(Button(this).apply {
-            text = "Öppna sidopanelen"
-            setOnClickListener { saveKey(); ReaderService.instance?.setMode(ReaderService.Mode.PANEL) }
+            text = "Visa sidebaren"
+            setOnClickListener { saveKey(); ReaderService.instance?.setMode(ReaderService.Mode.BAR) }
         })
         root.addView(Button(this).apply {
             text = "Hide-läge (bara svart prick)"
@@ -80,9 +80,8 @@ class MainActivity : Activity() {
 
         val help = TextView(this).apply {
             text = "Så funkar det\n\n" +
-                "Sidopanelen: fråga om det som är på skärmen, be assistenten öppna appar, trycka, skriva, söka på webben, ställa alarm och timers, eller föreslå svar på mejl och meddelanden. " +
-                "Använd 🎤 för röst och Samtal för fri konversation. Skicka och andra känsliga åtgärder kräver alltid att du bekräftar.\n\n" +
-                "Hide-läge: tryck Dölj i panelen. Då visas bara en liten svart prick. Ett tryck ger ett kort svar på frågor på skärmen, håll in pricken för att öppna panelen, dubbeltryck stänger av.\n\n" +
+                "Sidebaren: ett litet streck vid kanten av skärmen. Tryck på det för en meny med snabbkommandon: chatt, svara på frågan, lös uppgiften, Google, skriv, svara på meddelande, sammanfatta, översätt, röst och hide-läge. Dra strecket för att flytta det. Skicka och andra känsliga åtgärder kräver alltid att du bekräftar.\n\n" +
+                "Hide-läge: välj Hide-läge i menyn. Då visas bara en liten svart prick. Ett tryck ger ett kort svar på frågor på skärmen, håll in pricken för att öppna menyn, dubbeltryck stänger av.\n\n" +
                 "Android 13 och nyare: tryck ⋮ i appinfo och välj \"Tillåt begränsade inställningar\" före steg 2.\n\n" +
                 "Skärmens innehåll skickas till OpenAI när du ställer en fråga. Använd inte appen där hjälpmedel är förbjudna, till exempel på prov."
             textSize = 14f

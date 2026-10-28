@@ -11,13 +11,23 @@ android {
         applicationId = "com.example.screenbubble"
         minSdk = 30
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = 2
+        versionName = "1.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("screenbubble.keystore")
+            storePassword = "screenbubble"
+            keyAlias = "screenbubble"
+            keyPassword = "screenbubble"
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

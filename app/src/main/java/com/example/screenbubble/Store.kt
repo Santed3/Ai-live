@@ -41,7 +41,7 @@ object Store {
         p(c).edit().putString("memory", out.toString()).apply()
     }
 
-    fun mode(c: Context): String = p(c).getString("mode", "PANEL") ?: "PANEL"
+    fun mode(c: Context): String = p(c).getString("mode", "BAR") ?: "BAR"
     fun setMode(c: Context, m: String) {
         p(c).edit().putString("mode", m).apply()
     }

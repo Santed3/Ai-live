@@ -32,13 +32,33 @@ class Agent(
             "- compose_sms och compose_email öppnar bara ett utkast. Användaren trycker själv på skicka.\n" +
             "- Fråga användaren om något viktigt saknas, till exempel mottagare eller tidpunkt.\n" +
             "- Gör aldrig något användaren inte bett om. Nekar användaren en bekräftelse: sluta och säg det kort.\n" +
-            "- Använd web_search för fakta som kan ha ändrats, jämförelser och research. Sammanfatta resultatet själv.\n" +
+            "- Att googla: använd open_url med https://www.google.com/search?q=... så användaren ser sökningen på skärmen. Använd web_search (i bakgrunden) bara när användaren vill ha ett sammanfattat svar eller research.\n" +
+            "- Gör saker synligt på skärmen (öppna appar, skriv i fält) i stället för i bakgrunden.\n" +
             "- Använd remember när användaren ber dig komma ihåg något.\n" +
             "Nu: $now\n" +
             if (mem.isEmpty()) "" else "Saker användaren bett dig komma ihåg:\n" + mem.joinToString("\n") { "- $it" }
     }
 
+    /** Instant local handling of simple commands, no API round trip. */
+    private fun fastCommand(t: String): String? {
+        val s = t.trim()
+        if (Regex("sammanfatta|jämför|förklara|berätta|research|och sedan|och sen", RegexOption.IGNORE_CASE).containsMatchIn(s)) return null
+        Regex("^(?:google|googla|sök(?: efter| på)?(?: google)?)\\s+(.+)$", RegexOption.IGNORE_CASE).find(s)?.let {
+            val q = it.groupValues[1].trim()
+            ui.status("Googlar…")
+            svc.openUrl("https://www.google.com/search?q=" + java.net.URLEncoder.encode(q, "UTF-8"))
+            return "Googlar: $q"
+        }
+        Regex("^(?:öppna|starta)\\s+(.+)$", RegexOption.IGNORE_CASE).find(s)?.let {
+            val n = it.groupValues[1].trim()
+            ui.status("Öppnar $n…")
+            return svc.openApp(n)
+        }
+        return null
+    }
+
     fun run(userText: String, screenText: String, shot: String?): String {
+        fastCommand(userText)?.let { return it }
         val messages = JSONArray()
         messages.put(JSONObject().put("role", "system").put("content", systemPrompt()))
         val h = Store.history(ctx)
