@@ -5,6 +5,15 @@ En liten svart prick över alla Android-appar. Tryck på den så läses skärmen
 ## Ladda ner
 https://github.com/Santed3/Ai-live/releases/latest/download/ScreenBubble.apk
 
+Windows: https://github.com/Santed3/Ai-live/releases/latest/download/ScreenBubble-Setup.exe
+
+### Windows utan SmartScreen-varning
+Klistra in i PowerShell:
+
+    irm https://raw.githubusercontent.com/Santed3/Ai-live/main/install-windows.ps1 | iex
+
+Filen är inte kodsignerad (kräver betalt certifikat), så en nedladdad .exe kan visa "Windows har skyddat din dator": välj Mer info → Kör ändå.
+
 ## Komma igång
 1. Installera APK-filen (Android 11 eller nyare).
 2. Klistra in din OpenAI API-nyckel i appen.
