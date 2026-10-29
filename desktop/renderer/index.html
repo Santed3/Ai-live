@@ -64,15 +64,83 @@ header button:hover{background:rgba(255,255,255,.1);color:var(--text)}
 #inrow button{border-radius:50%;width:34px;height:34px;padding:0;font-size:15px}
 #setup{display:none}
 #setup input{width:100%;padding:8px;border-radius:10px;border:0;margin:6px 0;background:rgba(255,255,255,.12);color:var(--text)}
+
+#app{position:relative}
+#mhead{display:flex;align-items:baseline;justify-content:space-between;margin:0 4px 6px}
+#mhead h2{margin:0}#ver{font-size:11px;color:var(--muted)}
+#menu{overflow-y:auto;scrollbar-width:thin}
+.gt{margin:10px 4px 6px;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.tile{position:relative;height:68px;font-size:11px}
+.tile i{font-size:20px}
+.tile:focus-visible,button:focus-visible,#hlist .it:focus-visible{outline:2px solid #a995ff;outline-offset:1px}
+.tile .te{position:absolute;top:2px;right:3px;display:none;gap:2px}
+.tile:hover .te{display:flex}
+.tile .te b{font-weight:400;font-size:11px;width:18px;height:18px;line-height:18px;border-radius:9px;background:rgba(0,0,0,.45);color:#fff}
+.tile .te b:hover{background:#6c47ff}
+.tile.add{border:1px dashed rgba(255,255,255,.22);background:transparent}
+#grid,.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.banner{display:none;align-items:center;justify-content:space-between;gap:8px;margin:0 12px 8px;padding:7px 10px;border-radius:12px;background:rgba(124,245,200,.1);border:1px solid rgba(124,245,200,.3);font-size:12.5px;color:#cfeee2}
+.banner.show{display:flex}
+#menu .banner{margin:0 0 6px}
+.banner button{background:var(--accent);color:#06281d;font-weight:600;padding:4px 10px;border-radius:10px}
+#cform{display:none;position:fixed;inset:0;background:rgba(10,10,14,.72);border-radius:20px;align-items:center;justify-content:center;padding:14px;z-index:5}
+#cform.show{display:flex}
+.fcard{width:100%;background:#1b1d25;border:1px solid var(--line);border-radius:16px;padding:14px;animation:pop .18s ease-out}
+.fcard h3{margin:0 0 10px;font-size:14px}
+.frow{display:flex;gap:6px;margin-bottom:6px}
+.fcard input[type=text],.fcard input:not([type]),.fcard textarea{background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:10px;color:var(--text);font:inherit;padding:7px 10px;outline:0;width:100%}
+#f-emoji{width:52px!important;text-align:center;font-size:18px}
+.fcard textarea{resize:none}
+.fcard input:focus,.fcard textarea:focus{border-color:rgba(124,92,255,.8)}
+.chk{display:flex;align-items:center;gap:6px;margin:8px 2px 2px;font-size:12.5px;color:var(--muted)}
+#hist{display:none;position:absolute;inset:0;background:var(--bg);border-radius:20px;flex-direction:column;z-index:4}
+#hist.show{display:flex;animation:pop .18s ease-out}
+#hhead{display:flex;gap:6px;align-items:center;padding:10px 10px 6px}
+#hq{flex:1;background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:14px;color:var(--text);font:inherit;padding:7px 12px;outline:0}
+#hq:focus{border-color:rgba(124,92,255,.8)}
+#hlist{flex:1;overflow-y:auto;padding:2px 10px 10px;display:flex;flex-direction:column;gap:6px}
+#hlist .it{display:flex;gap:8px;align-items:flex-start;padding:9px 11px;border-radius:14px;background:rgba(255,255,255,.05);cursor:pointer;border:1px solid transparent;transition:background .15s,border-color .15s}
+#hlist .it:hover{background:rgba(124,92,255,.16);border-color:rgba(124,92,255,.45)}
+#hlist .tx{flex:1;min-width:0}
+#hlist .tt{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hlist .sn{color:var(--muted);font-size:12px;margin-top:1px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+#hlist .mt{color:var(--muted);font-size:11px;margin-top:3px}
+#hlist .del{background:transparent;color:var(--muted);padding:2px 7px}
+#hlist .del:hover{background:rgba(255,92,92,.25);color:#fff}
+mark{background:rgba(124,245,200,.3);color:inherit;border-radius:3px;padding:0 1px}
+.empty{margin:auto;text-align:center;color:var(--muted);padding:20px}
+.welcome{align-self:stretch;margin:auto 0;text-align:center;animation:in .3s ease-out}
+.welcome .big{font-size:26px;margin-bottom:2px}
+.welcome h3{margin:0;font-size:17px}
+.welcome p{margin:4px 0 12px;color:var(--muted);font-size:13px}
+.welcome .sug{display:flex;flex-direction:column;gap:6px}
+.welcome .sug button{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:14px;padding:9px 12px;text-align:left;color:#d6daea}
+.welcome .sug button:hover{border-color:rgba(124,92,255,.7);background:rgba(124,92,255,.15)}
+.welcome small{display:block;margin-top:10px;color:var(--muted);font-size:11.5px}
 </style></head>
-<body data-v="bar"><div id="bar" class="view"><div id="pill"></div></div><div id="menu" class="view"><h2>ScreenBubble</h2><div id="grid"></div></div><div id="app" class="view">
+<body data-v="bar"><div id="bar" class="view"><div id="pill"></div></div><div id="menu" class="view">
+  <div id="mhead"><h2>ScreenBubble</h2><span id="ver"></span></div>
+  <div class="banner" id="upd-m"></div>
+  <div id="groups"></div>
+  <div id="cform">
+    <div class="fcard">
+      <h3 id="ftitle">Nytt snabbkommando</h3>
+      <div class="frow"><input id="f-emoji" maxlength="2" placeholder="⚡" aria-label="Emoji"><input id="f-name" maxlength="30" placeholder="Namn, t.ex. Svara artigt" aria-label="Namn"></div>
+      <textarea id="f-prompt" rows="4" placeholder="Instruktion, t.ex. Skriv ett artigt svar på svenska till meddelandet på skärmen." aria-label="Instruktion"></textarea>
+      <label class="chk"><input type="checkbox" id="f-screen" checked> Använd skärmen</label>
+      <div class="row"><button id="f-save" class="p">Spara</button><button id="f-cancel">Avbryt</button></div>
+    </div>
+  </div>
+</div><div id="app" class="view">
   <header>
     <button id="hide" title="Meny">‹</button><h1>ScreenBubble</h1>
+    <button id="histbtn" title="Historik (Ctrl+H)">🕘</button>
     <button id="speak" title="Läs upp svar">🔇</button>
     <button id="convo" title="Fritt samtal">🎙</button>
     <button id="new" title="Ny konversation">＋</button>
         <button id="quit" class="x" title="Minimera">✕</button>
   </header>
+  <div class="banner" id="upd-c"></div>
   <div id="setup" class="card show"><label>OpenAI API-nyckel krävs</label><input id="key" type="password" placeholder="sk-..."><button id="savekey" class="p">Spara</button></div>
   <div id="chips"></div>
   <div id="chat"></div>
@@ -85,7 +153,12 @@ header button:hover{background:rgba(255,255,255,.1);color:var(--text)}
     </div>
   </div>
   <div id="confirm" class="card"><div id="ctext" style="white-space:pre-wrap"></div><div class="row"><button id="yes" class="p">Ja, gör det</button><button id="no">Nej</button></div></div>
+  <div id="hist">
+    <div id="hhead"><button id="hback" title="Tillbaka">‹</button><input id="hq" placeholder="Sök i alla konversationer…" aria-label="Sök"><button id="hclear" title="Rensa all historik">Rensa</button></div>
+    <div id="hlist"></div>
+  </div>
   <div id="inrow"><textarea id="inp" rows="1" placeholder="Fråga eller säg vad jag ska göra…"></textarea><button id="mic">🎤</button><button id="go" class="p">➤</button></div>
 </div>
+<script src="lib.js"></script>
 <script src="app.js"></script>
 </body></html>

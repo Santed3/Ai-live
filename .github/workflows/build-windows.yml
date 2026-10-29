@@ -34,6 +34,11 @@ jobs:
             echo "::warning title=Nyckel::Ingen secret satt, appen frågar efter nyckeln"
           fi
 
+      - name: Sätt version
+        working-directory: desktop
+        shell: bash
+        run: npm version 1.0.${{ github.run_number }} --no-git-tag-version --allow-same-version
+
       - name: Installera
         working-directory: desktop
         run: npm install --no-audit --no-fund
@@ -54,4 +59,7 @@ jobs:
           tag_name: latest-build
           name: ScreenBubble (senaste version)
           make_latest: true
-          files: desktop/dist/ScreenBubble-Setup.exe
+          files: |
+            desktop/dist/ScreenBubble-Setup.exe
+            desktop/dist/ScreenBubble-Setup.exe.blockmap
+            desktop/dist/latest.yml

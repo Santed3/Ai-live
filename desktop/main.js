@@ -19,13 +19,38 @@ function embeddedKey() {
   } catch { return ''; }
 }
 function apiKey() { return embeddedKey() || readJson('settings.json', {}).apiKey || ''; }
+const Lib = require('./renderer/lib.js');
+let curConv = null;
 function history() { return readJson('history.json', []); }
 function addHistory(role, content) {
   const h = history(); h.push({ role, content: String(content).slice(0, 2000) });
   writeJson('history.json', h.slice(-24));
+  const r = Lib.archiveAppend(readJson('archive.json', []), curConv, role, content, Date.now());
+  curConv = r.id; writeJson('archive.json', r.arr);
 }
 function memory() { return readJson('memory.json', []); }
-function addMemory(f) { const m = memory(); m.push(String(f).slice(0, 300)); writeJson('memory.json', m.slice(-30)); }
+function addMemory(f, force) { writeJson('memory.json', Lib.mergeMemory(memory(), [f], 40, force !== false)); }
+function styleSamples() { return readJson('style.json', []); }
+function styleBlock() {
+  const s = styleSamples().slice(-3);
+  return s.length ? '\nSå brukar användaren skriva (stilprov, härma tonen):\n' + s.map((x) => '- ' + x.replace(/\n/g, ' ')).join('\n') : '';
+}
+// Quietly learns lasting facts (people, tone, habits) from an exchange. Never throws.
+async function learn(userText, answer) {
+  try {
+    if (!apiKey() || String(userText).length < 12 || Lib.isSensitive(userText)) return;
+    const j = await post('https://api.openai.com/v1/chat/completions', {
+      model: 'gpt-4o-mini', max_tokens: 300, temperature: 0, response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: 'Du plockar ut VARAKTIGA fakta om användaren ur ett utbyte med en assistent: personer användaren skriver till (namn och relation), önskad ton eller språk per person, vanor och preferenser. Skriv varje fakta som en kort svensk mening. Ta ALDRIG med lösenord, kortnummer, personnummer, hälsa, ekonomi eller annat känsligt, och inget tillfälligt. Svara med JSON {"facts":["..."]}. Inget nytt: {"facts":[]}.' },
+        { role: 'user', content: 'Användare: ' + String(userText).slice(0, 800) + '\nAssistent: ' + String(answer).slice(0, 600) },
+      ],
+    });
+    const facts = JSON.parse(j.choices[0].message.content).facts;
+    if (Array.isArray(facts) && facts.length) writeJson('memory.json', Lib.mergeMemory(memory(), facts.slice(0, 4), 40, false));
+  } catch {}
+}
+function commands() { return readJson('commands.json', []).map(Lib.sanitizeCommand).filter(Boolean); }
 
 // ------------------------------------------------------------------- OpenAI
 async function post(url, body) {
@@ -259,7 +284,7 @@ async function pollForeground() {
 let panel = null, dot = null, answerWin = null, mode = 'bar', answerTimer = null, qaBusy = false;
 
 let barOff = 0;
-const SIZES = { bar: [22, 96], menu: [320, 448], chat: [380, 560] };
+const SIZES = { bar: [22, 96], menu: [340, 520], chat: [380, 560] };
 function layout(v) {
   const wa = screen.getPrimaryDisplay().workArea;
   let [w, h] = SIZES[v] || SIZES.bar;
@@ -498,7 +523,7 @@ function systemPrompt() {
     '- Att googla: använd open_url med https://www.google.com/search?q=... så användaren ser sökningen på skärmen. Använd web_search (i bakgrunden) bara när användaren vill ha ett sammanfattat svar eller research.\n' +
     '- Gör saker synligt på skärmen (öppna appar, skriv i fönster) och inte i bakgrunden.\n' +
     '- Använd remember när användaren ber dig komma ihåg något.\nNu: ' + now + '\n' +
-    (mem.length ? 'Saker användaren bett dig komma ihåg:\n' + mem.map((m) => '- ' + m).join('\n') : '');
+    (mem.length ? 'Det du vet om användaren (använd naturligt, nämn det inte i onödan):\n' + mem.map((m) => '- ' + m).join('\n') : '') + styleBlock();
 }
 
 function send2(ch, v) { if (panel && !panel.isDestroyed()) panel.webContents.send(ch, v); }
@@ -534,6 +559,7 @@ async function runAgent(userText) {
   if (!answer) answer = 'Jag hann inte klart. Försök igen eller dela upp uppgiften.';
   addHistory('user', userText);
   addHistory('assistant', answer);
+  learn(userText, answer);
   return answer;
 }
 
@@ -586,7 +612,7 @@ async function execTool(name, a) {
       status('Söker: ' + a.query);
       return { text: await webSearch(String(a.query || '')) };
     case 'remember':
-      addMemory(a.fact);
+      addMemory(a.fact, true);
       return { text: 'Sparat.' };
     case 'wait':
       await sleep(Math.min(10, Math.max(1, Number(a.seconds) || 1)) * 1000);
@@ -607,6 +633,8 @@ async function fastCommand(t) {
   return null;
 }
 ipcMain.handle('chat', async (_e, { text }) => {
+  const mc = Lib.parseMemoryCommand(text, memory());
+  if (mc) { if (mc.mem) writeJson('memory.json', mc.mem); return { ok: true, reply: mc.reply }; }
   try { const f = await fastCommand(text); if (f) return { ok: true, reply: f }; } catch (_) {}
   if (busy) return { ok: false, error: 'Jag jobbar fortfarande med förra uppgiften.' };
   if (!apiKey()) return { ok: false, error: 'Ingen API-nyckel. Skriv in den under inställningar.' };
@@ -621,7 +649,7 @@ ipcMain.handle('reply', async () => {
     if (!apiKey()) throw new Error('Ingen API-nyckel');
     const shot = await captureScreen(true);
     const t = await chat([
-      { role: 'system', content: 'Du skriver svar åt användaren. Läs mejlet eller konversationen på skärmen och skriv ett naturligt, bra svar som användaren kan skicka. Matcha språk och ton i konversationen. Svara ENDAST med själva svarstexten: ingen inledning, inga citattecken, ingen förklaring.' },
+      { role: 'system', content: 'Du skriver svar åt användaren. Läs mejlet eller konversationen på skärmen och skriv ett naturligt, bra svar som användaren kan skicka. Matcha språk och ton i konversationen och härma användarens stil om stilprov finns.' + styleBlock() + ' Svara ENDAST med själva svarstexten: ingen inledning, inga citattecken, ingen förklaring.' },
       { role: 'user', content: content('Skriv svaret.', shot) },
     ], { maxTokens: 600 });
     return { ok: true, text: (t.content || '').trim() };
@@ -643,7 +671,28 @@ ipcMain.handle('insert', async (_e, { text, send }) => {
 });
 ipcMain.handle('open-link', (_e, u) => { if (/^https?:\/\//i.test(String(u))) shell.openExternal(String(u)); return true; });
 ipcMain.handle('copy', (_e, t) => { clipboard.writeText(String(t || '')); return true; });
-ipcMain.handle('new-chat', () => { writeJson('history.json', []); return true; });
+ipcMain.handle('new-chat', () => { writeJson('history.json', []); curConv = null; return true; });
+ipcMain.handle('archive-list', (_e, q) => Lib.searchArchive(readJson('archive.json', []), q, 100));
+ipcMain.handle('archive-open', (_e, id) => {
+  const c = readJson('archive.json', []).find((x) => x.id === id);
+  if (!c) return null;
+  curConv = c.id;
+  writeJson('history.json', c.messages.slice(-24).map((x) => ({ role: x.role, content: x.content })));
+  return c.messages;
+});
+ipcMain.handle('archive-delete', (_e, id) => { writeJson('archive.json', readJson('archive.json', []).filter((x) => x.id !== id)); if (curConv === id) curConv = null; return true; });
+ipcMain.handle('archive-clear', () => { writeJson('archive.json', []); curConv = null; return true; });
+ipcMain.handle('commands-get', () => commands());
+ipcMain.handle('commands-save', (_e, c) => {
+  const n = Lib.sanitizeCommand(c); if (!n) return commands();
+  const list = commands(); const i = list.findIndex((x) => x.id === n.id);
+  if (i >= 0) list[i] = n; else list.push(n);
+  writeJson('commands.json', list.slice(0, 24)); return list.slice(0, 24);
+});
+ipcMain.handle('commands-delete', (_e, id) => { const l = commands().filter((x) => x.id !== id); writeJson('commands.json', l); return l; });
+ipcMain.handle('style-add', (_e, t) => { writeJson('style.json', Lib.addStyleSample(styleSamples(), t)); return true; });
+ipcMain.handle('memory-get', () => memory());
+ipcMain.handle('memory-set', (_e, list) => { writeJson('memory.json', Array.isArray(list) ? list.map(String).slice(0, 40) : []); return true; });
 ipcMain.handle('set-mode', (_e, m) => { setMode(m); return true; });
 ipcMain.on('bar-move', (_e, { y }) => {
   const wa = screen.getPrimaryDisplay().workArea;
@@ -697,7 +746,31 @@ app.whenReady().then(() => {
   setInterval(pollForeground, 2500);
   globalShortcut.register('Control+Alt+C', explainSelection);
   makeTray();
+  initUpdater();
 });
+
+// ------------------------------------------------------------------ auto-update
+let updater = null, updateState = { state: 'idle' };
+function pushUpdate(s) { updateState = s; send2('update', s); if (tray) try { tray.setToolTip(s.state === 'ready' ? 'ScreenBubble – ny version redo' : 'ScreenBubble'); } catch {} }
+function initUpdater() {
+  if (!app.isPackaged) return;
+  try {
+    updater = require('electron-updater').autoUpdater;
+    updater.autoDownload = true;
+    updater.autoInstallOnAppQuit = true;
+    updater.logger = null;
+    updater.on('update-available', (i) => pushUpdate({ state: 'downloading', version: i.version }));
+    updater.on('update-not-available', () => pushUpdate({ state: 'latest' }));
+    updater.on('update-downloaded', (i) => pushUpdate({ state: 'ready', version: i.version }));
+    updater.on('error', () => pushUpdate({ state: 'idle' }));
+    setTimeout(checkUpdate, 15000);
+    setInterval(checkUpdate, 4 * 3600 * 1000);
+  } catch { updater = null; }
+}
+function checkUpdate() { if (!updater) return Promise.resolve(); pushUpdate({ state: 'checking' }); return updater.checkForUpdates().catch(() => pushUpdate({ state: 'idle' })); }
+ipcMain.handle('update-state', () => ({ ...updateState, version: app.getVersion(), packaged: app.isPackaged }));
+ipcMain.handle('update-check', () => { checkUpdate(); return true; });
+ipcMain.handle('update-install', () => { if (updater && updateState.state === 'ready') { setImmediate(() => updater.quitAndInstall(true, true)); } return true; });
 
 // ------------------------------------------------------------ tray, autostart, selection
 const TRAY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABBElEQVR4nO3XVw6CQBSFYXdo712XICj2ujj3YgUF8emaKyExRmYYnLkkxknOq99vgCiJxP8IHgDYsqYcXXdcWLddWOFaN1jimg4scA0HpMf4H7bp3oGHzxs2zOs2zGpX+DriFRbFcdMq7hItRBY+qeAs8QiZ+KRswbjkRcSGj0smjIomPyLqDRcGHxXP/EuhEh8WvHEDVOJG/hQcQIEbuRMMcsfPEc8AAnyQZQRQ4H1mAAHezxyCAyhwnRlAgOvpfXAABa4xAwhwLRUQ4EfEhvsBKvFecscPwKnEQ/0iqsC53/49Ijb89VLIxCP/L4wF/xSi5IYTjcCFec7J3pLIXs1++jwA1IEz2SC+hVgAAAAASUVORK5CYII=';
@@ -713,6 +786,7 @@ function makeTray() {
       { label: 'Snabbsvar på skärmen', click: () => quickAnswer() },
       { label: 'Förklara markerad text (Ctrl+Alt+C)', click: () => explainSelection() },
       { type: 'separator' },
+      { label: updateState.state === 'ready' ? 'Starta om och uppdatera' : 'Sök efter uppdatering', click: () => (updateState.state === 'ready' && updater ? updater.quitAndInstall(true, true) : checkUpdate()) },
       { label: 'Starta med Windows', type: 'checkbox', checked: autostart(), click: (i) => setAutostart(i.checked) },
       { label: 'Avsluta', click: () => app.quit() },
     ]);

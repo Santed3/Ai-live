@@ -9,6 +9,9 @@
     "start": "electron .",
     "dist": "electron-builder --win nsis --publish never"
   },
+  "dependencies": {
+    "electron-updater": "6.3.9"
+  },
   "devDependencies": {
     "electron": "31.7.7",
     "electron-builder": "24.13.3"
@@ -17,6 +20,7 @@
     "appId": "com.example.screenbubble.desktop",
     "productName": "ScreenBubble",
     "files": ["main.js", "preload.js", "renderer/**", "config.json", "package.json"],
+    "publish": [{ "provider": "github", "owner": "Santed3", "repo": "Ai-live", "releaseType": "release" }],
     "win": {
       "target": [{ "target": "nsis", "arch": ["x64"] }],
       "artifactName": "ScreenBubble-Setup.exe"

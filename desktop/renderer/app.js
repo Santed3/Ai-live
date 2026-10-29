@@ -93,6 +93,7 @@ async function send(text, voice) {
   text = String(text || '').trim();
   if (!text || busy) return;
   busy = true;
+  const w = chat.querySelector('.welcome'); if (w) w.remove();
   addMsg(true, text);
   live = null; liveText = '';
   showDots();
@@ -109,7 +110,7 @@ $('go').onclick = () => { const t = inp.value; inp.value = ''; send(t, false); }
 inp.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('go').click(); }
 });
-$('new').onclick = async () => { await api.newChat(); chat.textContent = ''; $('draftcard').classList.remove('show'); addMsg(false, 'Ny konversation. Vad vill du göra?'); refreshChips(); };
+$('new').onclick = async () => { await api.newChat(); chat.textContent = ''; $('draftcard').classList.remove('show'); showWelcome(); refreshChips(); };
 $('hide').onclick = () => api.setMode('menu');
 $('quit').onclick = () => api.setMode('bar');
 
@@ -138,9 +139,10 @@ for (const [label, instr] of TOOLS) {
   };
   $('tools').appendChild(b);
 }
-$('copy').onclick = async () => { await api.copy($('draft').value); setStatus('Kopierat.'); setTimeout(clearStatus, 1500); };
+$('copy').onclick = async () => { api.styleAdd($('draft').value); await api.copy($('draft').value); setStatus('Kopierat.'); setTimeout(clearStatus, 1500); };
 async function insert(sendIt) {
   const t = $('draft').value; if (!t.trim()) return;
+  api.styleAdd(t);
   const r = await api.insert(t, sendIt);
   setStatus(r.ok ? r.text : r.error); setTimeout(clearStatus, 2500);
 }
@@ -213,7 +215,7 @@ $('convo').onclick = () => {
 async function init() {
   const s = await api.getSettings();
   $('setup').style.display = s.hasKey ? 'none' : 'block';
-  addMsg(false, 'Hej! Vad vill du göra? Ctrl+Alt+Space öppnar menyn, Ctrl+Alt+A ger ett snabbsvar.');
+  showWelcome();
   refreshChips();
 }
 $('savekey').onclick = async () => { await api.setSettings({ apiKey: $('key').value }); $('key').value = ''; $('setup').style.display = 'none'; addMsg(false, 'Nyckeln är sparad.'); };
@@ -223,31 +225,151 @@ init();
 
 // ---- sidebar, menu, views
 let preset = null;
-const TILES = [
-  ['💬', 'Chatt', () => api.setMode('chat')],
-  ['✅', 'Svara på frågan', () => api.quick()],
-  ['🧩', 'Lös uppgiften', () => go('Lös uppgiften som syns på skärmen och utför den om det går.', true)],
-  ['🔎', 'Google', () => go('google ', false)],
-  ['✍️', 'Skriv', () => go('skriv ', false)],
-  ['💌', 'Svara på meddelande', () => go('Föreslå ett kort svar på meddelandet på skärmen.', true)],
-  ['📄', 'Sammanfatta', () => go('Sammanfatta det som syns på skärmen kort.', true)],
-  ['🌍', 'Översätt', () => go('Översätt texten på skärmen till svenska.', true)],
-  ['🫥', 'Hide-läge', () => api.setMode('hide')],
-  ['🎤', 'Röst', () => { preset = { voice: true }; api.setMode('chat'); }],
-  ['🚀', 'Autostart', async (d) => { const on = await api.autostartSet(!(await api.autostartGet())); d.querySelector('span').textContent = 'Autostart: ' + (on ? 'på' : 'av'); }],
-  ['➖', 'Minimera', () => api.setMode('bar')],
-  ['✕', 'Stäng', () => api.quit()],
-];
 function go(text, auto) { preset = { text, auto }; api.setMode('chat'); }
-TILES.forEach(([i, l, f]) => {
-  const d = document.createElement('div'); d.className = 'tile';
-  d.innerHTML = '<i>' + i + '</i><span>' + l + '</span>'; d.onclick = () => f(d); $('grid').appendChild(d);
+function showWelcome() {
+  const d = document.createElement('div'); d.className = 'welcome';
+  d.innerHTML = '<div class="big">👋</div><h3>Hej! Vad vill du göra?</h3><p>Jag ser din skärm och kan hjälpa dig direkt.</p><div class="sug"></div><small>Ctrl+Alt+Space meny · Ctrl+Alt+A snabbsvar · Ctrl+Alt+C förklara markering</small>';
+  for (const [l, t] of [['✅ Svara på frågan på skärmen', 'Svara på frågan som syns på skärmen. Ge svaret tydligt.'], ['📄 Sammanfatta det jag tittar på', 'Sammanfatta det som syns på skärmen kort.'], ['🔎 Googla något', null]]) {
+    const b = document.createElement('button'); b.textContent = l;
+    b.onclick = () => (t ? send(t, false) : (inp.value = 'google ', inp.focus()));
+    d.querySelector('.sug').appendChild(b);
+  }
+  chat.appendChild(d);
+}
+const BUILTIN = [
+  ['Svara', [
+    ['💬', 'Chatt', () => api.setMode('chat')],
+    ['✅', 'Svara på frågan', () => api.quick()],
+    ['💌', 'Svara på meddelande', () => go('Föreslå ett kort svar på meddelandet på skärmen.', true)],
+    ['🧩', 'Lös uppgiften', () => go('Lös uppgiften som syns på skärmen och utför den om det går.', true)],
+  ]],
+  ['Skriv och sök', [
+    ['🔎', 'Google', () => go('google ', false)],
+    ['✍️', 'Skriv', () => go('skriv ', false)],
+    ['📄', 'Sammanfatta', () => go('Sammanfatta det som syns på skärmen kort.', true)],
+    ['🌍', 'Översätt', () => go('Översätt texten på skärmen till svenska.', true)],
+  ]],
+  ['Verktyg', [
+    ['🎤', 'Röst', () => { preset = { voice: true }; api.setMode('chat'); }],
+    ['🕘', 'Historik', () => { preset = { hist: true }; api.setMode('chat'); }],
+    ['🧠', 'Minne', () => go('visa minne', true)],
+    ['🫥', 'Hide-läge', () => api.setMode('hide')],
+  ]],
+];
+let upd = { state: 'idle' }, autostartOn = false, cmds = [];
+function tileEl(icon, label, fn, extra) {
+  const d = document.createElement('div'); d.className = 'tile'; d.tabIndex = 0; d.setAttribute('role', 'button');
+  d.innerHTML = '<i>' + icon + '</i><span></span>'; d.querySelector('span').textContent = label;
+  d.onclick = () => fn(d);
+  d.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(d); } };
+  if (extra) d.appendChild(extra);
+  return d;
+}
+function group(title, tiles) {
+  const wrap = document.createElement('div');
+  const t = document.createElement('div'); t.className = 'gt'; t.textContent = title;
+  const g = document.createElement('div'); g.className = 'grid';
+  tiles.forEach((x) => g.appendChild(x));
+  wrap.append(t, g); return wrap;
+}
+function renderMenu() {
+  const box = $('groups'); box.textContent = '';
+  for (const [title, items] of BUILTIN) box.appendChild(group(title, items.map(([i, l, f]) => tileEl(i, l, f))));
+  const mine = cmds.map((c) => {
+    const te = document.createElement('div'); te.className = 'te';
+    const ed = document.createElement('b'); ed.textContent = '✎'; ed.title = 'Redigera';
+    ed.onclick = (e) => { e.stopPropagation(); openForm(c); };
+    const rm = document.createElement('b'); rm.textContent = '×'; rm.title = 'Ta bort';
+    rm.onclick = async (e) => { e.stopPropagation(); cmds = await api.commandsDelete(c.id); renderMenu(); };
+    te.append(ed, rm);
+    return tileEl(c.emoji || '⚡', c.name, () => go(c.screen ? c.prompt : c.prompt + '\n\n(Du behöver inte titta på skärmen.)', true), te);
+  });
+  const add = tileEl('＋', 'Nytt kommando', () => openForm(null)); add.classList.add('add');
+  box.appendChild(group('Egna kommandon', [...mine, add]));
+  const sys = [
+    tileEl('🚀', 'Autostart: ' + (autostartOn ? 'på' : 'av'), async () => { autostartOn = await api.autostartSet(!autostartOn); renderMenu(); }),
+    tileEl(upd.state === 'ready' ? '🔄' : '⬇️', upd.state === 'ready' ? 'Starta om och uppdatera' : upd.state === 'downloading' ? 'Hämtar…' : upd.state === 'checking' ? 'Söker…' : upd.state === 'latest' ? 'Senaste versionen' : 'Sök uppdatering', () => (upd.state === 'ready' ? api.updateInstall() : api.updateCheck())),
+    tileEl('➖', 'Minimera', () => api.setMode('bar')),
+    tileEl('✕', 'Stäng', () => api.quit()),
+  ];
+  box.appendChild(group('System', sys));
+}
+let editId = null;
+function openForm(c) {
+  editId = c ? c.id : null;
+  $('ftitle').textContent = c ? 'Redigera snabbkommando' : 'Nytt snabbkommando';
+  $('f-emoji').value = c ? c.emoji : ''; $('f-name').value = c ? c.name : ''; $('f-prompt').value = c ? c.prompt : ''; $('f-screen').checked = c ? c.screen : true;
+  $('cform').classList.add('show'); $('f-name').focus();
+}
+$('f-cancel').onclick = () => $('cform').classList.remove('show');
+$('f-save').onclick = async () => {
+  if (!$('f-name').value.trim() || !$('f-prompt').value.trim()) { (!$('f-name').value.trim() ? $('f-name') : $('f-prompt')).focus(); return; }
+  cmds = await api.commandsSave({ id: editId || undefined, emoji: $('f-emoji').value, name: $('f-name').value, prompt: $('f-prompt').value, screen: $('f-screen').checked });
+  $('cform').classList.remove('show'); renderMenu();
+};
+// update banners
+function renderUpdate() {
+  for (const id of ['upd-m', 'upd-c']) {
+    const el = $(id); el.textContent = '';
+    if (upd.state === 'ready') {
+      const s = document.createElement('span'); s.textContent = 'Ny version hämtad' + (upd.version ? ' (' + upd.version + ')' : '') + '.';
+      const b = document.createElement('button'); b.textContent = 'Starta om och uppdatera'; b.onclick = () => api.updateInstall();
+      el.append(s, b); el.classList.add('show');
+    } else if (upd.state === 'downloading') { el.textContent = 'Hämtar ny version i bakgrunden…'; el.classList.add('show'); }
+    else el.classList.remove('show');
+  }
+  renderMenu();
+}
+api.onUpdate((s) => { upd = s; renderUpdate(); });
+Promise.all([api.commandsGet(), api.autostartGet(), api.updateState()]).then(([c, a, u]) => {
+  cmds = c; autostartOn = a; upd = u; $('ver').textContent = 'v' + (u.version || ''); renderUpdate();
+});
+// history
+let hqTimer = null;
+function fmtDate(ts) {
+  const d = new Date(ts), n = new Date();
+  const t = d.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === n.toDateString()) return 'Idag ' + t;
+  const y = new Date(n - 864e5); if (d.toDateString() === y.toDateString()) return 'Igår ' + t;
+  return d.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }) + ' ' + t;
+}
+async function renderHist() {
+  const q = $('hq').value.trim(), list = await api.archiveList(q), box = $('hlist');
+  box.textContent = '';
+  if (!list.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = q ? 'Inga träffar.' : 'Inga sparade konversationer än.'; box.appendChild(e); return; }
+  for (const c of list) {
+    const it = document.createElement('div'); it.className = 'it'; it.tabIndex = 0;
+    const tx = document.createElement('div'); tx.className = 'tx';
+    tx.innerHTML = '<div class="tt">' + Lib.highlightHtml(c.title, q) + '</div>' + (c.snippet ? '<div class="sn">' + Lib.highlightHtml(c.snippet, q) + '</div>' : '') + '<div class="mt">' + fmtDate(c.ts) + ' · ' + c.count + ' meddelanden</div>';
+    const del = document.createElement('button'); del.className = 'del'; del.textContent = '🗑'; del.title = 'Ta bort';
+    del.onclick = async (e) => { e.stopPropagation(); await api.archiveDelete(c.id); renderHist(); };
+    const open = async () => {
+      const msgs = await api.archiveOpen(c.id); if (!msgs) return;
+      chat.textContent = ''; $('draftcard').classList.remove('show');
+      for (const m of msgs) addMsg(m.role === 'user', m.content);
+      closeHist();
+    };
+    it.onclick = open; it.onkeydown = (e) => { if (e.key === 'Enter') open(); };
+    it.append(tx, del); box.appendChild(it);
+  }
+}
+function openHist() { $('hist').classList.add('show'); $('hq').value = ''; renderHist(); $('hq').focus(); }
+function closeHist() { $('hist').classList.remove('show'); inp.focus(); }
+$('histbtn').onclick = openHist;
+$('hback').onclick = closeHist;
+$('hq').oninput = () => { clearTimeout(hqTimer); hqTimer = setTimeout(renderHist, 120); };
+{ let sure = false; $('hclear').onclick = async () => { if (!sure) { sure = true; $('hclear').textContent = 'Säker?'; setTimeout(() => { sure = false; $('hclear').textContent = 'Rensa'; }, 3000); return; } sure = false; $('hclear').textContent = 'Rensa'; await api.archiveClear(); renderHist(); }; }
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { if ($('cform').classList.contains('show')) $('cform').classList.remove('show'); else if ($('hist').classList.contains('show')) closeHist(); else api.setMode('bar'); }
+  else if (e.ctrlKey && e.key.toLowerCase() === 'h' && document.body.dataset.v === 'chat') { e.preventDefault(); openHist(); }
+  else if (e.ctrlKey && e.key.toLowerCase() === 'k') { e.preventDefault(); if ($('hist').classList.contains('show')) $('hq').focus(); else inp.focus(); }
 });
 api.onView((v) => {
   document.body.dataset.v = v;
   if (v !== 'chat' || !preset) return;
   const p = preset; preset = null;
   if (p.voice) { setTimeout(() => toggleMic(), 200); return; }
+  if (p.hist) { openHist(); return; }
   if (p.auto) send(p.text, false);
   else { $('inp').value = p.text; $('inp').focus(); }
 });
@@ -260,4 +382,3 @@ api.onView((v) => {
 
 api.onAsk((t) => send(t, false));
 
-api.autostartGet().then((on) => { const t = [...document.querySelectorAll('.tile span')].find((e) => e.textContent === 'Autostart'); if (t) t.textContent = 'Autostart: ' + (on ? 'på' : 'av'); });
