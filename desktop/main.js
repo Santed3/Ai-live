@@ -129,7 +129,7 @@ const QUICK_SYSTEM =
   'Du löser frågor, quiz och uppgifter som syns på en datorskärm. Du får en skärmbild. ' +
   'Gör så här: 1) Hitta alla frågor och deras svarsalternativ. 2) Gäller frågan en bild, eller är alternativen bilder: titta noga på bilden/bilderna och jämför dem med frågan innan du väljer. ' +
   '3) Tänk igenom varje fråga noggrant och räkna matte steg för steg i fältet "reasoning". 4) Välj det alternativ som är rätt.\n' +
-  'Svara ENDAST med JSON: {"reasoning":"kort tankegång","answers":[{"q":"frågans nummer, t.ex. 1","option":"alternativets bokstav eller siffra, t.ex. B eller 3","answer":"svaret i klartext, kort, t.ex. Paris"}]}\n' +
+  'Svara ENDAST med JSON: {"reasoning":"kort tankegång","answers":[{"q":"frågans nummer, t.ex. 1","option":"alternativets bokstav eller siffra, t.ex. B eller 3","answer":"svaret i klartext, kort, t.ex. Paris","confidence":0.0-1.0}]}\n' +
   'Regler: Ett objekt per fråga, i den ordning de står. "option" ska ALLTID fyllas i när frågan har alternativ. ' +
   'Saknar alternativen bokstav/siffra: räkna dem uppifrån och ned (eller vänster till höger) som 1, 2, 3 och skriv numret. ' +
   'Vid bildalternativ: beskriv den rätta bilden med några ord i "answer". Flera rätta alternativ: skriv alla i "option", t.ex. "A, C". ' +
@@ -147,11 +147,21 @@ function formatAnswers(raw) {
   } catch { return String(raw).slice(0, 200); }
 }
 async function askOnce(shot) {
-  const m = await chat([
+  const messages = [
     { role: 'system', content: QUICK_SYSTEM },
     { role: 'user', content: content('Lös frågorna som syns på skärmen. Svara med JSON enligt instruktionen.', shot) },
-  ], { json: true, temperature: 0, maxTokens: 900 });
-  return formatAnswers(m.content || '');
+  ];
+  let m = await chat(messages, { json: true, temperature: 0, maxTokens: 900 });
+  let raw = m.content || '';
+  let unsure = false;
+  try { unsure = (JSON.parse(raw).answers || []).some((o) => Number(o.confidence === undefined ? 1 : o.confidence) < 0.85); } catch {}
+  if (unsure) {
+    // Second, critical pass only when the first answer was uncertain.
+    messages.push({ role: 'assistant', content: raw },
+      { role: 'user', content: 'Granska ditt svar kritiskt fråga för fråga mot bilden. Räkna om och rätta det som är fel. Svara med samma JSON-format.' });
+    try { m = await chat(messages, { json: true, temperature: 0, maxTokens: 1100 }); raw = m.content || raw; } catch {}
+  }
+  return formatAnswers(raw);
 }
 
 // --------------------------------------------------------------- PowerShell

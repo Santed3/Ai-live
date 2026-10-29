@@ -118,9 +118,23 @@ class OpenAiClient(
         val messages = JSONArray()
             .put(JSONObject().put("role", "system").put("content", QUICK_SYSTEM))
             .put(JSONObject().put("role", "user").put("content", content(prompt, screenshotBase64)))
-        val raw = contentOf(chat(messages, null, 900, json = true, temperature = 0.0))
+        var raw = contentOf(chat(messages, null, 900, json = true, temperature = 0.0))
+        if (unsure(raw)) {
+            // Second, critical pass only when the first answer was uncertain.
+            messages.put(JSONObject().put("role", "assistant").put("content", raw))
+            messages.put(JSONObject().put("role", "user").put("content",
+                "Granska ditt svar kritiskt fråga för fråga mot bilden. Räkna om och rätta det som är fel. Svara med samma JSON-format."))
+            try { raw = contentOf(chat(messages, null, 1100, json = true, temperature = 0.0)) } catch (_: Exception) {}
+        }
         return format(raw)
     }
+
+    private fun unsure(raw: String): Boolean = try {
+        val arr = JSONObject(raw).optJSONArray("answers")
+        var low = false
+        if (arr != null) for (i in 0 until arr.length()) if (arr.getJSONObject(i).optDouble("confidence", 1.0) < 0.85) low = true
+        low
+    } catch (_: Exception) { false }
 
     private fun format(raw: String): String {
         return try {
@@ -154,7 +168,7 @@ class OpenAiClient(
                 "3) Tänk igenom varje fråga noggrant och räkna matte steg för steg i fältet \"reasoning\". " +
                 "4) Välj det alternativ som är rätt.\n" +
                 "Svara ENDAST med JSON: {\"reasoning\":\"kort tankegång\",\"answers\":[{\"q\":\"frågans nummer, t.ex. 1\"," +
-                "\"option\":\"alternativets bokstav eller siffra, t.ex. B eller 3\",\"answer\":\"svaret i klartext, kort, t.ex. Paris\"}]}\n" +
+                "\"option\":\"alternativets bokstav eller siffra, t.ex. B eller 3\",\"answer\":\"svaret i klartext, kort, t.ex. Paris\",\"confidence\":0.0-1.0}]}\n" +
                 "Regler: Ett objekt per fråga, i den ordning de står. \"option\" ska ALLTID fyllas i när frågan har alternativ. " +
                 "Saknar alternativen bokstav/siffra: räkna dem uppifrån och ned (eller vänster till höger) som 1, 2, 3 och skriv numret. " +
                 "Vid bildalternativ: beskriv den rätta bilden med några ord i \"answer\". " +
