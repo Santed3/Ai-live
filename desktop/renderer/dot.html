@@ -3,7 +3,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <style>
 html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden;user-select:none}
-#d{position:absolute;left:6px;top:6px;width:12px;height:12px;border-radius:50%;background:#000}
+#d{position:absolute;left:4.5px;top:4.5px;width:15px;height:15px;border-radius:50%;background:#000;box-shadow:0 0 0 1px rgba(255,255,255,.45)}
 #hit{position:absolute;inset:0;cursor:default}
 </style></head>
 <body><div id="hit"></div><div id="d"></div>
@@ -12,7 +12,7 @@ const hit = document.getElementById('hit');
 let down = false, moved = false, sx = 0, sy = 0, wx = 0, wy = 0, long = null, fired = false;
 hit.addEventListener('mousedown', (e) => {
   down = true; moved = false; fired = false; sx = e.screenX; sy = e.screenY; wx = window.screenX; wy = window.screenY;
-  long = setTimeout(() => { if (!moved) { fired = true; api.dotPanel(); } }, 650);
+  long = setTimeout(() => { if (!moved) { fired = true; api.dotPanel(); } }, 450);
 });
 window.addEventListener('mousemove', (e) => {
   if (!down) return;

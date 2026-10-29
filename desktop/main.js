@@ -326,12 +326,19 @@ function createAnswer() {
   answerWin.loadFile(path.join(__dirname, 'renderer', 'answer.html'));
 }
 
+let prevMode = 'bar', appReady = false;
 function setMode(m) {
   if (m === 'panel') m = 'bar';
+  prevMode = mode;
   mode = m;
   clearTimeout(answerTimer);
   if (answerWin) answerWin.hide();
-  if (m === 'hide') { panel.hide(); dot.showInactive(); return; }
+  if (m === 'hide') {
+    const was = prevMode;
+    panel.hide(); dot.showInactive();
+    if (was !== 'hide' && appReady) setTimeout(() => showAnswer('Hide-läge på\nHåll in pricken för sidebaren'), 250);
+    return;
+  }
   if (dot) dot.hide();
   layout(m);
   panel.webContents.send('view', m);
@@ -728,7 +735,7 @@ ipcMain.on('dot-click', () => {
   quickAnswer();
 });
 ipcMain.on('dot-dbl', () => app.quit());
-ipcMain.on('dot-panel', () => setMode('menu'));
+ipcMain.on('dot-panel', () => setMode('bar'));
 ipcMain.on('dot-move', (_e, { x, y }) => { if (dot) dot.setPosition(Math.round(x), Math.round(y)); });
 ipcMain.on('dot-save', () => { if (dot) { const b = dot.getBounds(); writeJson('dot.json', { x: b.x, y: b.y }); } });
 ipcMain.on('answer-click', () => endAnswer());
@@ -747,6 +754,7 @@ app.whenReady().then(() => {
   globalShortcut.register('Control+Alt+C', explainSelection);
   makeTray();
   initUpdater();
+  setTimeout(() => { appReady = true; }, 1500);
 });
 
 // ------------------------------------------------------------------ auto-update
@@ -783,6 +791,7 @@ function makeTray() {
     tray.setToolTip('ScreenBubble');
     const build = () => Menu.buildFromTemplate([
       { label: 'Öppna meny', click: () => setMode('menu') },
+      { label: 'Visa sidebar', click: () => setMode('bar') },
       { label: 'Snabbsvar på skärmen', click: () => quickAnswer() },
       { label: 'Förklara markerad text (Ctrl+Alt+C)', click: () => explainSelection() },
       { type: 'separator' },
