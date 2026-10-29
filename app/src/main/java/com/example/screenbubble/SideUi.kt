@@ -41,6 +41,43 @@ class SideUi(private val svc: ReaderService) {
         return frame
     }
 
+    /** Suggested replies as tappable chips. Tapping types the text into the chat field. */
+    fun suggestions(list: List<String>, onPick: (String) -> Unit, onClose: () -> Unit): View {
+        val card = LinearLayout(svc).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rounded(0xF2121316.toInt(), 20)
+            setPadding(dp(10), dp(8), dp(10), dp(10))
+            elevation = dp(8).toFloat()
+        }
+        val head = LinearLayout(svc).apply { gravity = Gravity.CENTER_VERTICAL }
+        head.addView(TextView(svc).apply {
+            this.text = "Förslag"
+            textSize = 11f
+            letterSpacing = 0.06f
+            setTextColor(0xFF7CF5C8.toInt())
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        head.addView(TextView(svc).apply {
+            this.text = "✕"
+            textSize = 14f
+            setTextColor(0xFF8D95AD.toInt())
+            setPadding(dp(8), dp(2), dp(4), dp(2))
+            setOnClickListener { onClose() }
+        })
+        card.addView(head)
+        for (s in list) {
+            card.addView(TextView(svc).apply {
+                this.text = s
+                textSize = 14.5f
+                setTextColor(0xFFECEFF8.toInt())
+                background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0x337A58FF, 0x335A3BDC)).apply { cornerRadius = dp(16).toFloat() }
+                setPadding(dp(12), dp(9), dp(12), dp(9))
+                setOnClickListener { onPick(s) }
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+        }
+        return card
+    }
+
     private class Tile(val icon: String, val label: String, val run: () -> Unit)
 
     /** ScrollView that never grows taller than [maxH], so a long menu scrolls instead of overflowing. */
@@ -93,7 +130,11 @@ class SideUi(private val svc: ReaderService) {
                 Tile("🎤", "Röst") { svc.openChat(null, false); svc.voiceSoon() },
                 Tile("🧠", "Minne") { svc.openChat("visa minne", true) },
                 Tile("🫥", "Hide-läge") { svc.setMode(ReaderService.Mode.HIDE) },
-                Tile("⬇️", "Uppdatera") { openApp("checkupdate") }
+                Tile("⬇️", "Uppdatera") { openApp("checkupdate") },
+                Tile("💡", "Förslag: " + (if (Store.flag(svc, "smart_suggest")) "på" else "av")) {
+                    Store.setFlag(svc, "smart_suggest", !Store.flag(svc, "smart_suggest"))
+                    svc.setMode(ReaderService.Mode.MENU)
+                }
             )
         ).toMutableList()
         val mine = Store.commands(svc).map { c ->

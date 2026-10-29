@@ -19,6 +19,7 @@ import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 
@@ -204,9 +205,36 @@ class MainActivity : Activity() {
         val act = card("Använd", "Sidebaren sitter vid skärmkanten. Tryck på den för menyn.")
         val row = LinearLayout(this)
         row.addView(button("Öppna menyn", true) { saveKey(); ReaderService.instance?.setMode(ReaderService.Mode.MENU) ?: toast("Slå på tjänsten först") }, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
-        row.addView(button("Hide-läge") { saveKey(); ReaderService.instance?.setMode(ReaderService.Mode.HIDE) ?: toast("Slå på tjänsten först") }, LinearLayout.LayoutParams(0, -2, 1f))
+        val hidden = ReaderService.instance?.isHidden() == true
+        if (hidden) row.addView(button("Tillbaka till sidebar") { ReaderService.instance?.setMode(ReaderService.Mode.BAR) ; render() }, LinearLayout.LayoutParams(0, -2, 1f))
+        else row.addView(button("Hide-läge") { saveKey(); ReaderService.instance?.setMode(ReaderService.Mode.HIDE) ?: toast("Slå på tjänsten först"); render() }, LinearLayout.LayoutParams(0, -2, 1f))
         act.addView(row, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
         act.addView(text("Markera text i valfri app och välj \"Fråga ScreenBubble\" för att få den förklarad.", 12.5f, MUTED).apply { setPadding(0, dp(10), 0, 0) })
+
+        // smart replies
+        val sr = card("Smarta svar", "När någon skriver till dig i en chatt får du förslag på svar direkt i sidebaren, skrivna som du skriver.")
+        fun toggle(label: String, key: String) {
+            sr.addView(Switch(this).apply {
+                text = label
+                textSize = 14f
+                setTextColor(TEXT)
+                isChecked = Store.flag(this@MainActivity, key)
+                setPadding(0, dp(8), 0, dp(4))
+                setOnCheckedChangeListener { _, v -> Store.setFlag(this@MainActivity, key, v) }
+            })
+        }
+        toggle("Föreslå svar i chattar", "smart_suggest")
+        toggle("Lär dig hur jag skriver", "learn_style")
+        val n = Store.chatSamples(this).size
+        sr.addView(text(
+            "Förslag: chattens text skickas till OpenAI varje gång något nytt skrivs, bara i meddelandeappar och bara medan sidebaren är synlig. " +
+                "Lärande: meddelanden du själv skickar i meddelandeappar sparas bara på din telefon (aldrig lösenordsfält eller känsligt). " +
+                if (n > 0) "Hittills inlärda meddelanden: $n." else "Inget inlärt än.",
+            12f, MUTED
+        ).apply { setPadding(0, dp(6), 0, dp(4)) })
+        if (n > 0 || Store.styleProfile(this).isNotEmpty()) {
+            sr.addView(button("Rensa det jag lärt mig om min stil") { Store.clearWritingStyle(this); render() }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(6) })
+        }
 
         // custom commands
         val cmds = Store.commands(this)

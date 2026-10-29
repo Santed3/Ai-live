@@ -50,6 +50,10 @@ class ReaderService : AccessibilityService() {
     private var side: View? = null
     private var sideLp: WindowManager.LayoutParams? = null
     private var barY = 0
+    private val smart by lazy { SmartReply(this) }
+    private var sugView: View? = null
+    private var hintHide = false
+    private var ready = false
     private var panel: PanelUi? = null
     private var dot: View? = null
     private var dotLp: WindowManager.LayoutParams? = null
@@ -80,6 +84,7 @@ class ReaderService : AccessibilityService() {
         screenW = b.width()
         screenH = b.height()
         setMode(if (Store.mode(this) == "HIDE") Mode.HIDE else Mode.BAR)
+        main.post { ready = true }
         pool.execute {
             val n = Updater.checkIfDue(this)
             if (n != null) main.post {
@@ -89,7 +94,9 @@ class ReaderService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+        if (event == null) return
+        try { smart.onEvent(event) } catch (_: Exception) {}
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val p = event.packageName?.toString() ?: return
             if (p != packageName && p != "com.android.systemui" && !p.contains("inputmethod")) lastPkg = p
         }
@@ -116,13 +123,16 @@ class ReaderService : AccessibilityService() {
     fun setMode(m: Mode) {
         main.post {
             if (closing) return@post
+            val prev = mode
             mode = m
+            if (m != Mode.BAR) removeSuggestions()
+            hintHide = m == Mode.HIDE && prev != Mode.HIDE && ready
             if (m == Mode.BAR || m == Mode.HIDE) Store.setMode(this, m.name)
             when (m) {
                 Mode.BAR -> { hideDot(); removePanel(); showBar() }
                 Mode.MENU -> { hideDot(); removePanel(); showMenu() }
                 Mode.CHAT -> { hideDot(); removeAnswer(); removeSide(); showPanel() }
-                Mode.HIDE -> { removePanel(); removeSide(); showDot() }
+                Mode.HIDE -> { removePanel(); removeSide(); showDot(); if (hintHide) main.postDelayed({ hideHint() }, 250) }
             }
         }
     }
@@ -239,9 +249,10 @@ class ReaderService : AccessibilityService() {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.BLACK)
+                setStroke(dp(1), 0x77FFFFFF)
             }
         }
-        frame.addView(circle, FrameLayout.LayoutParams(dp(12), dp(12), Gravity.CENTER))
+        frame.addView(circle, FrameLayout.LayoutParams(dp(15), dp(15), Gravity.CENTER))
 
         var startX = 0
         var startY = 0
@@ -252,7 +263,8 @@ class ReaderService : AccessibilityService() {
         val longPress = Runnable {
             if (!moved) {
                 longFired = true
-                setMode(Mode.MENU)
+                frame.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                setMode(Mode.BAR)
             }
         }
         frame.setOnTouchListener { _, e ->
@@ -262,7 +274,7 @@ class ReaderService : AccessibilityService() {
                     touchX = e.rawX; touchY = e.rawY
                     moved = false
                     longFired = false
-                    main.postDelayed(longPress, 650)
+                    main.postDelayed(longPress, 450)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -303,6 +315,52 @@ class ReaderService : AccessibilityService() {
         wm.addView(frame, lp)
         dot = frame
         dotLp = lp
+    }
+
+    /** Short card next to the dot that explains hide mode and how to get back to the sidebar. */
+    private fun hideHint() {
+        val l = dotLp ?: return
+        showAnswer("Hide-läge på\nHåll in pricken för sidebaren", l.x, l.y)
+    }
+
+    fun isHidden() = mode == Mode.HIDE
+
+    // ------------------------------------------------------- reply suggestions
+
+    fun canShowSuggestions() = mode == Mode.BAR
+
+    fun hideSuggestions() = main.post { removeSuggestions() }
+
+    private fun removeSuggestions() {
+        sugView?.let { try { wm.removeView(it) } catch (_: Exception) {} }
+        sugView = null
+    }
+
+    /** Slides a small card with suggested replies out of the sidebar. */
+    fun showSuggestions(list: List<String>) {
+        if (mode != Mode.BAR || closing) return
+        removeSuggestions()
+        val v = SideUi(this).suggestions(list, { pickSuggestion(it) }, { removeSuggestions() })
+        val lp = WindowManager.LayoutParams(
+            min(dp(270), (screenW * 0.82f).toInt()), WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = dp(10); y = barY }
+        try { wm.addView(v, lp) } catch (_: Exception) { return }
+        sugView = v
+        v.translationX = dp(40).toFloat()
+        v.alpha = 0f
+        v.animate().translationX(0f).alpha(1f).setDuration(160).start()
+        main.postDelayed({ if (sugView === v) removeSuggestions() }, 30_000)
+    }
+
+    private fun pickSuggestion(text: String) {
+        removeSuggestions()
+        pool.execute {
+            val r = typeText(text, false)
+            if (!r.startsWith("Skrev")) main.post { android.widget.Toast.makeText(this, "Tryck i textfältet först", android.widget.Toast.LENGTH_SHORT).show() }
+        }
     }
 
     private fun hideDot() {
@@ -411,7 +469,7 @@ class ReaderService : AccessibilityService() {
 
     fun currentPkg(): String = appRoot()?.packageName?.toString() ?: lastPkg
 
-    fun readScreenText(): String {
+    fun readScreenText(skipEditable: Boolean = false): String {
         val root = appRoot() ?: return ""
         val sb = StringBuilder()
         var count = 0
@@ -419,7 +477,7 @@ class ReaderService : AccessibilityService() {
         fun walk(n: AccessibilityNodeInfo?) {
             if (n == null || count > 1500 || sb.length > 8000) return
             count++
-            if (n.isVisibleToUser) {
+            if (n.isVisibleToUser && !(skipEditable && n.isEditable)) {
                 val t = n.text?.toString()?.trim().orEmpty()
                 val d = n.contentDescription?.toString()?.trim().orEmpty()
                 val s = if (t.isNotEmpty()) t else d

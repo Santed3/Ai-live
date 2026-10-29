@@ -18,6 +18,8 @@ object Suggest {
         "com.microsoft.emmx", "com.brave.browser", "com.opera.browser"
     )
 
+    fun isChat(pkg: String) = pkg in chat
+
     fun forScreen(pkg: String, text: String): List<Chip> {
         val out = ArrayList<Chip>()
         when {

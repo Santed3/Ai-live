@@ -242,6 +242,38 @@ object Store {
         return if (s.isEmpty()) "" else "\nSå brukar användaren skriva (stilprov, härma tonen):\n" + s.joinToString("\n") { "- " + it.replace("\n", " ") }
     }
 
+    // ---------------------------------------------------------------- how the user writes in chats (opt-in)
+
+    fun flag(c: Context, key: String): Boolean = p(c).getBoolean(key, false)
+    fun setFlag(c: Context, key: String, v: Boolean) { p(c).edit().putBoolean(key, v).apply() }
+
+    fun chatSamples(c: Context): List<String> = try {
+        val a = JSONArray(p(c).getString("chat_samples", "[]"))
+        (0 until a.length()).map { a.getString(it) }
+    } catch (e: Exception) {
+        emptyList()
+    }
+
+    /** Remembers a message the user actually sent. Returns the total number of samples. */
+    fun addChatSample(c: Context, text: String): Int {
+        val t = text.trim().take(300)
+        val list = chatSamples(c)
+        if (t.length < 2 || isSensitive(t) || list.lastOrNull() == t) return list.size
+        val out = JSONArray()
+        (list + t).takeLast(120).forEach { out.put(it) }
+        p(c).edit().putString("chat_samples", out.toString()).apply()
+        return minOf(list.size + 1, 120)
+    }
+
+    fun styleProfile(c: Context): String = p(c).getString("style_profile", "") ?: ""
+    fun setStyleProfile(c: Context, v: String) { p(c).edit().putString("style_profile", v.take(700)).apply() }
+    fun profileMark(c: Context): Int = p(c).getInt("profile_mark", 0)
+    fun setProfileMark(c: Context, n: Int) { p(c).edit().putInt("profile_mark", n).apply() }
+
+    fun clearWritingStyle(c: Context) {
+        p(c).edit().remove("chat_samples").remove("style_profile").remove("profile_mark").remove("style").apply()
+    }
+
     // ---------------------------------------------------------------- custom quick commands
 
     class Cmd(val id: String, val emoji: String, val name: String, val prompt: String, val screen: Boolean)

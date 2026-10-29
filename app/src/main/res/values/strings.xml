@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="a11y_description">Visar en sidopanel med en AI-assistent. Assistenten läser texten och bilden på skärmen när du ber om det och kan, efter din bekräftelse, öppna appar, trycka, skriva och föreslå svar. Innehållet skickas till OpenAI för att få svar.</string>
+    <string name="a11y_description">Visar en sidopanel med en AI-assistent. Assistenten läser texten och bilden på skärmen när du ber om det och kan, efter din bekräftelse, öppna appar, trycka, skriva och föreslå svar. Om du slår på smarta svar läser tjänsten chattexten i meddelandeappar och kan lära sig hur du skriver, lagrat bara på din telefon. Innehållet skickas till OpenAI för att få svar.</string>
 </resources>

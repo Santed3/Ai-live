@@ -13,10 +13,8 @@ class OpenAiClient(
     private val apiKey: String,
     private val model: String = "gpt-4o"
 ) {
-    private val http = OkHttpClient.Builder()
-        .callTimeout(75, TimeUnit.SECONDS)
-        .readTimeout(75, TimeUnit.SECONDS)
-        .build()
+    // One shared client so TLS connections are reused: every call after the first is much faster.
+    private val http get() = shared
 
     private fun post(body: JSONObject): JSONObject {
         val request = Request.Builder()
@@ -247,7 +245,47 @@ class OpenAiClient(
         }
     }
 
+    /** Fast reply suggestions in the user's own style. Returns an empty list when no reply is expected. */
+    fun suggestReplies(screenTail: String, styleBlock: String): List<String> {
+        val system = "Du föreslår svar åt användaren i en chatt. Du får texten på skärmen (uppifrån och ned, den innehåller också appens knappar och rubriker). " +
+            "Avgör om det SENASTE meddelandet i konversationen kommer från den andra personen och väntar på svar. " +
+            "Om det senaste meddelandet är användarens eget, om det inte är en konversation eller om inget svar behövs: needs_reply=false. " +
+            "Annars ge exakt 3 korta förslag på svar med olika inriktning, till exempel kort och enkelt, varmare, och med en motfråga. " +
+            "Skriv dem EXAKT som användaren skriver, med samma längd, ton, slang, förkortningar, emojis och skiljetecken.$styleBlock\n" +
+            "Samma språk som konversationen. Högst 140 tecken per förslag. " +
+            "Svara bara med JSON: {\"needs_reply\":true,\"suggestions\":[\"...\",\"...\",\"...\"]}"
+        val messages = JSONArray()
+            .put(JSONObject().put("role", "system").put("content", system))
+            .put(JSONObject().put("role", "user").put("content", "Text på skärmen:\n$screenTail"))
+        val raw = contentOf(chat(messages, null, 170, json = true, temperature = 0.7))
+        val j = JSONObject(raw)
+        if (!j.optBoolean("needs_reply", false)) return emptyList()
+        val arr = j.optJSONArray("suggestions") ?: return emptyList()
+        return (0 until minOf(arr.length(), 3)).map { arr.optString(it).trim() }.filter { it.isNotEmpty() }
+    }
+
+    /** Summarises how the user writes, from samples of their own sent messages. */
+    fun styleProfile(samples: List<String>): String {
+        val messages = JSONArray()
+            .put(
+                JSONObject().put("role", "system").put(
+                    "content",
+                    "Du analyserar hur en person skriver i chattar. Beskriv kort (max 450 tecken, på svenska, som torra punkter i en mening vardera) " +
+                        "hur användaren skriver: vilket språk, typisk längd, ton, hälsningar och avslut, förkortningar och slang, emojis, " +
+                        "skiljetecken, stor/liten bokstav, och vanliga fraser. Hitta inte på något som inte syns i proven."
+                )
+            )
+            .put(JSONObject().put("role", "user").put("content", samples.joinToString("\n") { "- " + it.replace("\n", " ") }))
+        return contentOf(chat(messages, null, 260, temperature = 0.2))
+    }
+
     companion object {
+        private val shared: OkHttpClient = OkHttpClient.Builder()
+            .callTimeout(75, TimeUnit.SECONDS)
+            .readTimeout(75, TimeUnit.SECONDS)
+            .connectionPool(okhttp3.ConnectionPool(4, 5, TimeUnit.MINUTES))
+            .build()
+
         private const val QUICK_SYSTEM =
             "Du löser frågor, quiz och uppgifter som syns på en telefonskärm. Du får en skärmbild och ibland texten från skärmen. " +
                 "Bilden visar vad som faktiskt syns (inklusive foton, diagram och bildalternativ); texten hjälper dig läsa exakt.\n" +
