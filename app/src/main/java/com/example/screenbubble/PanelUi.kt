@@ -4,6 +4,10 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.text.Editable
+import android.text.TextWatcher
+import android.widget.ProgressBar
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
@@ -52,7 +56,15 @@ class PanelUi(private val svc: ReaderService) {
     private val draftEdit = EditText(svc)
     private val confirmCard = LinearLayout(svc)
     private val confirmText = TextView(svc)
-    private var statusView: TextView? = null
+    private var statusView: View? = null
+    private var statusText: TextView? = null
+    private var live: TextView? = null
+    private val liveText = StringBuilder()
+    private var welcome: View? = null
+    private val histView = LinearLayout(svc)
+    private val histList = LinearLayout(svc)
+    private val histSearch = EditText(svc)
+    private var histSure = false
     private lateinit var micBtn: TextView
     private lateinit var speakBtn: TextView
     private lateinit var convoBtn: TextView
@@ -70,6 +82,24 @@ class PanelUi(private val svc: ReaderService) {
         }
 
         override fun confirm(t: String): Boolean = askConfirm(t)
+
+        override fun delta(t: String) {
+            main.post {
+                clearStatus()
+                if (live == null) { live = addMsgView(false, ""); liveText.setLength(0) }
+                liveText.append(t)
+                live?.text = styled(liveText.toString())
+                scrollDown()
+            }
+        }
+
+        override fun deltaReset() {
+            main.post {
+                live?.let { chat.removeView(it) }
+                live = null
+                liveText.setLength(0)
+            }
+        }
     }
 
     init {
@@ -109,19 +139,23 @@ class PanelUi(private val svc: ReaderService) {
 
         // header
         val header = LinearLayout(svc).apply { gravity = Gravity.CENTER_VERTICAL }
-        header.addView(pill("‹") { svc.setMode(ReaderService.Mode.MENU) }, lp(-2, -2, r = 8))
+        header.addView(iconPill("‹") { svc.setMode(ReaderService.Mode.MENU) }, lp(-2, -2, r = 2))
+        header.addView(View(svc).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFB9A8FF.toInt(), 0xFF6C47FF.toInt())).apply { shape = GradientDrawable.OVAL }
+        }, LinearLayout.LayoutParams(dp(9), dp(9)).apply { setMargins(dp(2), 0, dp(7), 0) })
         header.addView(TextView(svc).apply {
-            text = "Chatt"
+            text = "ScreenBubble"
             textSize = 15f
             setTextColor(TEXT)
             setTypeface(typeface, Typeface.BOLD)
         }, lp(0, -2, weight = 1f))
-        speakBtn = pill(if (speakOn) "🔊" else "🔇") { toggleSpeak() }
-        convoBtn = pill("Samtal") { toggleConvo() }
-        header.addView(speakBtn, lp(-2, -2, r = 4))
-        header.addView(convoBtn, lp(-2, -2, r = 4))
-        header.addView(pill("Ny") { newConversation() }, lp(-2, -2, r = 4))
-        header.addView(pill("✕", 0x33FF5C5C.toInt()) { svc.setMode(ReaderService.Mode.BAR) })
+        header.addView(iconPill("🕘") { showHistory(true) }, lp(-2, -2))
+        speakBtn = iconPill(if (speakOn) "🔊" else "🔇") { toggleSpeak() }
+        convoBtn = iconPill("🎙") { toggleConvo() }
+        header.addView(speakBtn, lp(-2, -2))
+        header.addView(convoBtn, lp(-2, -2))
+        header.addView(iconPill("＋") { newConversation() }, lp(-2, -2))
+        header.addView(iconPill("✕") { svc.setMode(ReaderService.Mode.BAR) }, lp(-2, -2))
         root.addView(header)
 
         // chips
@@ -197,7 +231,201 @@ class PanelUi(private val svc: ReaderService) {
         row.addView(pill("➤", PRIMARY) { sendFromInput() }, lp(-2, -2, l = 6))
         root.addView(row, lp(-1, -2, t = 8))
 
-        addMsg(false, "Hej! Vad vill du göra?")
+        buildHistory()
+        showWelcome()
+    }
+
+    private fun iconPill(label: String, onClick: () -> Unit): TextView =
+        TextView(svc).apply {
+            text = label
+            textSize = 15f
+            setTextColor(MUTED)
+            gravity = Gravity.CENTER
+            setPadding(dp(8), dp(6), dp(8), dp(6))
+            background = rounded(0x00000000, 14)
+            setOnClickListener { onClick() }
+        }
+
+    // ---------------------------------------------------------------- welcome card
+
+    private fun showWelcome() {
+        val box = LinearLayout(svc).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, dp(14), 0, dp(6))
+        }
+        box.addView(TextView(svc).apply { text = "👋"; textSize = 28f; gravity = Gravity.CENTER })
+        box.addView(TextView(svc).apply {
+            text = "Hej! Vad vill du göra?"
+            textSize = 16f
+            setTextColor(TEXT)
+            setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER
+        }, lp(-2, -2, t = 2))
+        box.addView(TextView(svc).apply {
+            text = "Jag ser din skärm och kan hjälpa dig direkt."
+            textSize = 13f
+            setTextColor(MUTED)
+            gravity = Gravity.CENTER
+        }, lp(-2, -2, t = 2, b = 10))
+        for ((label, prompt) in listOf(
+            "✅  Svara på frågan på skärmen" to "Svara på frågan som syns på skärmen. Ge svaret tydligt.",
+            "📄  Sammanfatta det jag tittar på" to "Sammanfatta det som syns på skärmen kort.",
+            "🔎  Googla något" to ""
+        )) {
+            val b = pill(label, 0x14FFFFFF) {
+                if (prompt.isEmpty()) { input.setText("google "); input.setSelection(7); input.requestFocus() } else send(prompt, false)
+            }
+            b.gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            box.addView(b, lp(-1, -2, t = 6))
+        }
+        welcome = box
+        chat.addView(box)
+    }
+
+    private fun removeWelcome() {
+        welcome?.let { chat.removeView(it) }
+        welcome = null
+    }
+
+    // ---------------------------------------------------------------- history (all conversations, searchable)
+
+    private fun buildHistory() {
+        histView.orientation = LinearLayout.VERTICAL
+        histView.visibility = View.GONE
+        val top = LinearLayout(svc).apply { gravity = Gravity.CENTER_VERTICAL }
+        top.addView(iconPill("‹") { showHistory(false) }, lp(-2, -2, r = 4))
+        histSearch.hint = "Sök i alla konversationer…"
+        histSearch.setHintTextColor(MUTED)
+        histSearch.setTextColor(TEXT)
+        histSearch.textSize = 14f
+        histSearch.maxLines = 1
+        histSearch.inputType = InputType.TYPE_CLASS_TEXT
+        histSearch.background = rounded(0x26FFFFFF, 16)
+        histSearch.setPadding(dp(12), dp(8), dp(12), dp(8))
+        histSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
+            override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                main.removeCallbacks(histRun)
+                main.postDelayed(histRun, 150)
+            }
+        })
+        top.addView(histSearch, lp(0, -2, weight = 1f))
+        val clear = pill("Rensa", 0x26FFFFFF) {}
+        clear.setOnClickListener {
+            if (!histSure) {
+                histSure = true
+                clear.text = "Säker?"
+                main.postDelayed({ histSure = false; clear.text = "Rensa" }, 3000)
+            } else {
+                histSure = false
+                clear.text = "Rensa"
+                Store.archiveClear(svc)
+                renderHistory()
+            }
+        }
+        top.addView(clear, lp(-2, -2, l = 4))
+        histView.addView(top)
+        val sv = ScrollView(svc)
+        histList.orientation = LinearLayout.VERTICAL
+        sv.addView(histList)
+        histView.addView(sv, lp(-1, 0, t = 8, weight = 1f))
+        root.addView(histView, lp(-1, 0, t = 8, weight = 1f))
+    }
+
+    private val histRun = Runnable { renderHistory() }
+
+    private fun showHistory(show: Boolean) {
+        for (i in 1 until root.childCount) {
+            val v = root.getChildAt(i)
+            if (v === histView) continue
+            if (show) v.visibility = View.GONE
+            else if (v !== draftCard && v !== confirmCard) v.visibility = View.VISIBLE
+        }
+        histView.visibility = if (show) View.VISIBLE else View.GONE
+        if (show) { histSearch.setText(""); renderHistory(); histSearch.requestFocus() }
+    }
+
+    private fun highlight(text: String, q: String): CharSequence {
+        val sp = android.text.SpannableString(text)
+        val low = text.lowercase(Locale.ROOT)
+        for (w in q.lowercase(Locale.ROOT).split(Regex("\\s+")).filter { it.isNotEmpty() }) {
+            var i = low.indexOf(w)
+            while (i >= 0) {
+                sp.setSpan(android.text.style.BackgroundColorSpan(0x557CF5C8), i, i + w.length, 0)
+                i = low.indexOf(w, i + w.length)
+            }
+        }
+        return sp
+    }
+
+    private fun dateLabel(ts: Long): String {
+        val cal = java.util.Calendar.getInstance()
+        val today = cal.get(java.util.Calendar.DAY_OF_YEAR) to cal.get(java.util.Calendar.YEAR)
+        cal.timeInMillis = ts
+        val that = cal.get(java.util.Calendar.DAY_OF_YEAR) to cal.get(java.util.Calendar.YEAR)
+        val time = java.text.SimpleDateFormat("HH:mm", Locale("sv", "SE")).format(java.util.Date(ts))
+        return when {
+            that == today -> "Idag $time"
+            that.second == today.second && that.first == today.first - 1 -> "Igår $time"
+            else -> java.text.SimpleDateFormat("d MMM HH:mm", Locale("sv", "SE")).format(java.util.Date(ts))
+        }
+    }
+
+    private fun renderHistory() {
+        val q = histSearch.text.toString().trim()
+        svc.pool.execute {
+            val hits = Store.archiveSearch(svc, q)
+            main.post {
+                histList.removeAllViews()
+                if (hits.isEmpty()) {
+                    histList.addView(TextView(svc).apply {
+                        text = if (q.isEmpty()) "Inga sparade konversationer än." else "Inga träffar."
+                        setTextColor(MUTED); textSize = 13f; gravity = Gravity.CENTER
+                        setPadding(0, dp(24), 0, 0)
+                    }, lp(-1, -2))
+                    return@post
+                }
+                for (h in hits) {
+                    val row = LinearLayout(svc).apply {
+                        gravity = Gravity.CENTER_VERTICAL
+                        background = rounded(0x0DFFFFFF, 14)
+                        setPadding(dp(11), dp(9), dp(8), dp(9))
+                        setOnClickListener { openConversation(h.id) }
+                    }
+                    val col = LinearLayout(svc).apply { orientation = LinearLayout.VERTICAL }
+                    col.addView(TextView(svc).apply {
+                        text = highlight(h.title, q); textSize = 13.5f; setTextColor(TEXT)
+                        setTypeface(typeface, Typeface.BOLD); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
+                    })
+                    if (h.snippet.isNotEmpty()) col.addView(TextView(svc).apply {
+                        text = highlight(h.snippet, q); textSize = 12f; setTextColor(MUTED); maxLines = 2
+                        ellipsize = android.text.TextUtils.TruncateAt.END
+                    })
+                    col.addView(TextView(svc).apply {
+                        text = dateLabel(h.ts) + " · " + h.count + " meddelanden"; textSize = 11f; setTextColor(MUTED)
+                    })
+                    row.addView(col, lp(0, -2, weight = 1f))
+                    row.addView(iconPill("🗑") { Store.archiveDelete(svc, h.id); renderHistory() }, lp(-2, -2))
+                    histList.addView(row, lp(-1, -2, b = 6))
+                }
+            }
+        }
+    }
+
+    private fun openConversation(id: String) {
+        svc.pool.execute {
+            val msgs = Store.archiveOpen(svc, id)
+            main.post {
+                if (msgs == null) return@post
+                chat.removeAllViews()
+                statusView = null; statusText = null; live = null; welcome = null
+                draftCard.visibility = View.GONE
+                for ((role, text) in msgs) addMsgView(role == "user", text)
+                showHistory(false)
+            }
+        }
     }
 
     fun onShown() {
@@ -226,7 +454,7 @@ class PanelUi(private val svc: ReaderService) {
 
     // ------------------------------------------------------------------ chat
 
-    private fun addMsg(user: Boolean, text: String) {
+    private fun styled(text: String): android.text.SpannableStringBuilder {
         val sp = android.text.SpannableStringBuilder()
         var bold = false
         var i = 0
@@ -234,13 +462,22 @@ class PanelUi(private val svc: ReaderService) {
             if (text.startsWith("**", i)) { bold = !bold; i += 2; continue }
             val start = sp.length
             sp.append(text[i])
-            if (bold) sp.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, start + 1, 0)
+            if (bold) sp.setSpan(android.text.style.StyleSpan(Typeface.BOLD), start, start + 1, 0)
             i++
         }
+        return sp
+    }
+
+    private fun addMsg(user: Boolean, text: String) {
+        if (user) removeWelcome()
+        addMsgView(user, text)
+    }
+
+    private fun addMsgView(user: Boolean, text: String): TextView {
         val big = dp(18).toFloat()
         val small = dp(4).toFloat()
         val tv = TextView(svc).apply {
-            this.text = sp
+            this.text = styled(text)
             textSize = 14.5f
             setLineSpacing(0f, 1.12f)
             setTextColor(if (user) Color.WHITE else TEXT)
@@ -262,24 +499,35 @@ class PanelUi(private val svc: ReaderService) {
         chat.addView(tv, p)
         tv.animate().alpha(1f).translationY(0f).setDuration(180).start()
         scrollDown()
+        return tv
     }
 
     private fun setStatus(t: String) {
         if (statusView == null) {
-            statusView = TextView(svc).apply {
-                textSize = 12.5f
-                setTextColor(ACCENT)
-                setPadding(dp(4), dp(4), dp(4), dp(2))
+            val row = LinearLayout(svc).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                background = rounded(0x14FFFFFF, 14)
+                setPadding(dp(10), dp(5), dp(12), dp(5))
             }
-            chat.addView(statusView, lp(-2, -2, t = 4))
+            row.addView(ProgressBar(svc, null, android.R.attr.progressBarStyleSmall).apply {
+                indeterminateTintList = ColorStateList.valueOf(ACCENT)
+            }, LinearLayout.LayoutParams(dp(14), dp(14)).apply { rightMargin = dp(8) })
+            val tv = TextView(svc).apply { textSize = 12.5f; setTextColor(MUTED) }
+            row.addView(tv)
+            statusText = tv
+            statusView = row
+            val p = lp(-2, -2, t = 6)
+            p.gravity = Gravity.START
+            chat.addView(row, p)
         }
-        statusView?.text = t
+        statusText?.text = t
         scrollDown()
     }
 
     private fun clearStatus() {
         statusView?.let { chat.removeView(it) }
         statusView = null
+        statusText = null
     }
 
     private fun scrollDown() {
@@ -289,9 +537,9 @@ class PanelUi(private val svc: ReaderService) {
     private fun newConversation() {
         Store.clearHistory(svc)
         chat.removeAllViews()
-        statusView = null
+        statusView = null; statusText = null; live = null; welcome = null
         draftCard.visibility = View.GONE
-        addMsg(false, "Ny konversation. Vad vill du göra?")
+        showWelcome()
         refreshChips()
     }
 
@@ -312,6 +560,7 @@ class PanelUi(private val svc: ReaderService) {
         if (busy || text.isBlank()) return
         if (noKey()) return
         busy = true
+        live = null
         addMsg(true, text)
         setStatus("Tänker…")
         svc.pool.execute {
@@ -320,11 +569,12 @@ class PanelUi(private val svc: ReaderService) {
                 val ans = Agent(svc, OpenAiClient(svc.apiKey()), svc, ui).run(text, st, shot)
                 main.post {
                     clearStatus()
-                    addMsg(false, ans)
+                    val l = live
+                    if (l != null) { l.text = styled(ans); live = null } else addMsg(false, ans)
                     if (speakOn || voice) speak(ans)
                 }
             } catch (e: Exception) {
-                main.post { clearStatus(); addMsg(false, "Fel: ${e.message}") }
+                main.post { clearStatus(); live?.let { chat.removeView(it) }; live = null; addMsg(false, "Fel: ${e.message}") }
             } finally {
                 busy = false
             }
@@ -360,7 +610,8 @@ class PanelUi(private val svc: ReaderService) {
                 val client = OpenAiClient(svc.apiKey())
                 val reply = client.text(
                     "Du skriver svar åt användaren. Läs mejlet eller konversationen på skärmen (text + bild) och skriv ett naturligt, bra svar som användaren kan skicka. " +
-                        "Matcha språk och ton i konversationen. Svara ENDAST med själva svarstexten: ingen inledning, inga citattecken, ingen förklaring.",
+                        "Matcha språk och ton i konversationen och härma användarens stil om stilprov finns." + Store.styleBlock(svc) +
+                        " Svara ENDAST med själva svarstexten: ingen inledning, inga citattecken, ingen förklaring.",
                     client.content("Text på skärmen:\n${st.take(6000)}", shot), 600
                 )
                 main.post { clearStatus(); showDraft(reply) }
@@ -399,6 +650,7 @@ class PanelUi(private val svc: ReaderService) {
     }
 
     private fun copyDraft() {
+        Store.addStyleSample(svc, draftEdit.text.toString())
         val cm = svc.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         cm.setPrimaryClip(ClipData.newPlainText("svar", draftEdit.text.toString()))
         setStatus("Kopierat.")
@@ -408,6 +660,7 @@ class PanelUi(private val svc: ReaderService) {
     private fun insertDraft(send: Boolean) {
         val text = draftEdit.text.toString()
         if (text.isBlank()) return
+        Store.addStyleSample(svc, text)
         svc.pool.execute {
             if (send && !askConfirm("Skicka det här meddelandet?\n\n$text")) return@execute
             val r = svc.typeText(text, false)
@@ -451,7 +704,7 @@ class PanelUi(private val svc: ReaderService) {
 
     private fun toggleConvo() {
         convo = !convo
-        convoBtn.background = rounded(if (convo) PRIMARY else 0x26FFFFFF, 16)
+        convoBtn.background = rounded(if (convo) PRIMARY else 0x00000000, 14)
         if (convo) {
             speakOn = true
             speakBtn.text = "🔊"

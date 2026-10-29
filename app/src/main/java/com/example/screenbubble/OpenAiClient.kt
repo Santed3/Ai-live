@@ -38,6 +38,94 @@ class OpenAiClient(
         }
     }
 
+    /**
+     * Streaming chat: forwards text deltas while the model talks and accumulates tool calls.
+     * Returns the same message shape as [chat].
+     */
+    fun chatStream(
+        messages: JSONArray,
+        tools: JSONArray?,
+        maxTokens: Int,
+        onDelta: (String) -> Unit,
+        onTool: () -> Unit
+    ): JSONObject {
+        val body = JSONObject().put("model", model).put("messages", messages).put("max_tokens", maxTokens).put("stream", true)
+        if (tools != null && tools.length() > 0) body.put("tools", tools).put("tool_choice", "auto")
+        val request = Request.Builder()
+            .url("https://api.openai.com/v1/chat/completions")
+            .header("Authorization", "Bearer $apiKey")
+            .post(body.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                val text = response.body?.string().orEmpty()
+                val msg = try { JSONObject(text).optJSONObject("error")?.optString("message") } catch (e: Exception) { null }
+                throw RuntimeException("OpenAI ${response.code}: ${msg ?: text.take(200)}")
+            }
+            val src = response.body!!.source()
+            val text = StringBuilder()
+            val ids = java.util.TreeMap<Int, String>()
+            val names = java.util.TreeMap<Int, StringBuilder>()
+            val args = java.util.TreeMap<Int, StringBuilder>()
+            var toolsSeen = false
+            while (true) {
+                val line = src.readUtf8Line() ?: break
+                if (!line.startsWith("data:")) continue
+                val data = line.substring(5).trim()
+                if (data == "[DONE]") break
+                val j = try { JSONObject(data) } catch (e: Exception) { continue }
+                val d = j.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("delta") ?: continue
+                if (d.has("content") && !d.isNull("content")) {
+                    val t = d.getString("content")
+                    if (t.isNotEmpty()) { text.append(t); if (!toolsSeen) onDelta(t) }
+                }
+                val tcs = d.optJSONArray("tool_calls")
+                if (tcs != null) for (k in 0 until tcs.length()) {
+                    if (!toolsSeen) { toolsSeen = true; onTool() }
+                    val tc = tcs.getJSONObject(k)
+                    val idx = tc.optInt("index", 0)
+                    if (tc.has("id") && !tc.isNull("id")) ids[idx] = tc.getString("id")
+                    val fn = tc.optJSONObject("function")
+                    if (fn != null) {
+                        if (fn.has("name") && !fn.isNull("name")) names.getOrPut(idx) { StringBuilder() }.append(fn.getString("name"))
+                        if (fn.has("arguments") && !fn.isNull("arguments")) args.getOrPut(idx) { StringBuilder() }.append(fn.getString("arguments"))
+                    }
+                }
+            }
+            val msg = JSONObject().put("role", "assistant").put("content", text.toString())
+            if (names.isNotEmpty()) {
+                val calls = JSONArray()
+                for (idx in names.keys) {
+                    calls.put(
+                        JSONObject().put("id", ids[idx] ?: "call_$idx").put("type", "function").put(
+                            "function", JSONObject().put("name", names[idx].toString()).put("arguments", args[idx]?.toString() ?: "{}")
+                        )
+                    )
+                }
+                msg.put("tool_calls", calls)
+            }
+            return msg
+        }
+    }
+
+    /** Extracts lasting facts about the user from an exchange (use with the mini model). */
+    fun extractFacts(user: String, answer: String): List<String> {
+        val messages = JSONArray()
+            .put(
+                JSONObject().put("role", "system").put(
+                    "content",
+                    "Du plockar ut VARAKTIGA fakta om användaren ur ett utbyte med en assistent: personer användaren skriver till (namn och relation), " +
+                        "önskad ton eller språk per person, vanor och preferenser. Skriv varje fakta som en kort svensk mening. " +
+                        "Ta ALDRIG med lösenord, kortnummer, personnummer, hälsa, ekonomi eller annat känsligt, och inget tillfälligt. " +
+                        "Svara med JSON {\"facts\":[\"...\"]}. Inget nytt: {\"facts\":[]}."
+                )
+            )
+            .put(JSONObject().put("role", "user").put("content", "Användare: ${user.take(800)}\nAssistent: ${answer.take(600)}"))
+        val raw = contentOf(chat(messages, null, 300, json = true, temperature = 0.0))
+        val arr = JSONObject(raw).optJSONArray("facts") ?: return emptyList()
+        return (0 until minOf(arr.length(), 4)).map { arr.optString(it) }
+    }
+
     /** User message content: text plus optional screenshot. */
     fun content(text: String, shotBase64: String?): JSONArray {
         val c = JSONArray().put(JSONObject().put("type", "text").put("text", text))

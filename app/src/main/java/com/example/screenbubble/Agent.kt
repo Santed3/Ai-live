@@ -17,6 +17,8 @@ class Agent(
     interface Ui {
         fun status(t: String)
         fun confirm(t: String): Boolean
+        fun delta(t: String) {}
+        fun deltaReset() {}
     }
 
     private fun systemPrompt(): String {
@@ -36,12 +38,14 @@ class Agent(
             "- Gör saker synligt på skärmen (öppna appar, skriv i fält) i stället för i bakgrunden.\n" +
             "- Använd remember när användaren ber dig komma ihåg något.\n" +
             "Nu: $now\n" +
-            if (mem.isEmpty()) "" else "Saker användaren bett dig komma ihåg:\n" + mem.joinToString("\n") { "- $it" }
+            (if (mem.isEmpty()) "" else "Det du vet om användaren (använd naturligt, nämn det inte i onödan):\n" + mem.joinToString("\n") { "- $it" }) +
+            Store.styleBlock(ctx)
     }
 
     /** Instant local handling of simple commands, no API round trip. */
     private fun fastCommand(t: String): String? {
         val s = t.trim()
+        Store.memoryCommand(ctx, s)?.let { return it }
         if (Regex("sammanfatta|jämför|förklara|berätta|research|och sedan|och sen", RegexOption.IGNORE_CASE).containsMatchIn(s)) return null
         Regex("^(?:google|googla|sök(?: efter| på)?(?: google)?)\\s+(.+)$", RegexOption.IGNORE_CASE).find(s)?.let {
             val q = it.groupValues[1].trim()
@@ -68,7 +72,7 @@ class Agent(
 
         var answer = ""
         for (step in 0 until 10) {
-            val msg = client.chat(messages, TOOLS, 900)
+            val msg = client.chatStream(messages, TOOLS, 900, { ui.delta(it) }, { ui.deltaReset() })
             val calls = msg.optJSONArray("tool_calls")
             if (calls == null || calls.length() == 0) {
                 answer = if (msg.isNull("content")) "" else msg.getString("content").trim()
@@ -100,7 +104,21 @@ class Agent(
         if (answer.isEmpty()) answer = "Jag hann inte klart. Försök igen eller dela upp uppgiften."
         Store.addHistory(ctx, "user", userText)
         Store.addHistory(ctx, "assistant", answer)
+        learn(userText, answer)
         return answer
+    }
+
+    /** Quietly learns lasting facts (people, tone, habits) in the background. Never throws. */
+    private fun learn(userText: String, answer: String) {
+        if (userText.length < 12 || Store.isSensitive(userText)) return
+        val key = svc.apiKey()
+        if (key.isEmpty()) return
+        svc.pool.execute {
+            try {
+                val facts = OpenAiClient(key, "gpt-4o-mini").extractFacts(userText, answer)
+                if (facts.isNotEmpty()) Store.mergeMemory(ctx, facts, false)
+            } catch (_: Exception) {}
+        }
     }
 
     private val sensitive = Regex(

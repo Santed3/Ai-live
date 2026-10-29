@@ -80,6 +80,12 @@ class ReaderService : AccessibilityService() {
         screenW = b.width()
         screenH = b.height()
         setMode(if (Store.mode(this) == "HIDE") Mode.HIDE else Mode.BAR)
+        pool.execute {
+            val n = Updater.checkIfDue(this)
+            if (n != null) main.post {
+                android.widget.Toast.makeText(this, "Ny version av ScreenBubble finns. Öppna appen för att uppdatera.", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {

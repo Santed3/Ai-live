@@ -50,8 +50,10 @@ jobs:
           fi
           exit $code
 
-      - name: Döp om filen
-        run: cp app/build/outputs/apk/release/app-release.apk ScreenBubble.apk
+      - name: Döp om filen och skriv versionsfil
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk ScreenBubble.apk
+          echo $((100 + ${{ github.run_number }})) > version.txt
 
       - name: Publicera som release
         uses: softprops/action-gh-release@v2
@@ -59,4 +61,6 @@ jobs:
           tag_name: latest-build
           name: ScreenBubble (senaste version)
           make_latest: true
-          files: ScreenBubble.apk
+          files: |
+            ScreenBubble.apk
+            version.txt

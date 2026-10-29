@@ -2,99 +2,74 @@ package com.example.screenbubble
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.text.InputType
+import android.view.Gravity
+import android.view.View
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 
+/** Start screen: setup checklist, updates, custom commands, memory. */
 class MainActivity : Activity() {
 
+    private val BG = 0xFF0E0F14.toInt()
+    private val CARD = 0xFF181A22.toInt()
+    private val TEXT = 0xFFECEFF8.toInt()
+    private val MUTED = 0xFF8D95AD.toInt()
+    private val ACCENT = 0xFF7CF5C8.toInt()
+    private val PRIMARY = 0xFF6C47FF.toInt()
+
+    private lateinit var content: LinearLayout
     private var keyInput: EditText? = null
-    private lateinit var status: TextView
+    private var newerBuild: Long? = null
+    private var updateText: String? = null
+    private var updating = false
+
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+    private fun rounded(color: Int, r: Int) = GradientDrawable().apply { setColor(color); cornerRadius = dp(r).toFloat() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        val pad = (20 * resources.displayMetrics.density).toInt()
-        val root = LinearLayout(this).apply {
+        window.statusBarColor = BG
+        window.navigationBarColor = BG
+        content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad * 2, pad, pad)
-            setBackgroundColor(Color.WHITE)
+            setPadding(dp(16), dp(36), dp(16), dp(28))
         }
+        setContentView(ScrollView(this).apply { setBackgroundColor(BG); addView(content) })
+        render()
+        handleIntent(intent)
+    }
 
-        root.addView(TextView(this).apply {
-            text = "ScreenBubble"
-            textSize = 28f
-            setTextColor(Color.BLACK)
-        })
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
 
-        status = TextView(this).apply {
-            textSize = 14f
-            setPadding(0, pad / 2, 0, pad / 2)
-        }
-        root.addView(status)
-
-        if (Config.embeddedKey().isEmpty()) {
-            val et = EditText(this).apply {
-                hint = "OpenAI API-nyckel (sk-...)"
-                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-                setText(getSharedPreferences("prefs", MODE_PRIVATE).getString("api_key", ""))
-            }
-            keyInput = et
-            root.addView(et)
-        }
-
-        root.addView(Button(this).apply {
-            text = "1. Tillåt begränsade inställningar (appinfo)"
-            setOnClickListener {
-                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-            }
-        })
-        root.addView(Button(this).apply {
-            text = "2. Slå på ScreenBubble i Tillgänglighet"
-            setOnClickListener {
-                saveKey()
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            }
-        })
-        root.addView(Button(this).apply {
-            text = "3. Tillåt mikrofon (för röst)"
-            setOnClickListener { requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1) }
-        })
-        root.addView(Button(this).apply {
-            text = "Visa sidebaren"
-            setOnClickListener { saveKey(); ReaderService.instance?.setMode(ReaderService.Mode.BAR) }
-        })
-        root.addView(Button(this).apply {
-            text = "Hide-läge (bara svart prick)"
-            setOnClickListener { saveKey(); ReaderService.instance?.setMode(ReaderService.Mode.HIDE) }
-        })
-
-        val help = TextView(this).apply {
-            text = "Så funkar det\n\n" +
-                "Sidebaren: ett litet streck vid kanten av skärmen. Tryck på det för en meny med snabbkommandon: chatt, svara på frågan, lös uppgiften, Google, skriv, svara på meddelande, sammanfatta, översätt, röst och hide-läge. Dra strecket för att flytta det. Skicka och andra känsliga åtgärder kräver alltid att du bekräftar.\n\n" +
-                "Hide-läge: välj Hide-läge i menyn. Då visas bara en liten svart prick. Ett tryck ger ett kort svar på frågor på skärmen, håll in pricken för att öppna menyn, dubbeltryck stänger av.\n\n" +
-                "Android 13 och nyare: tryck ⋮ i appinfo och välj \"Tillåt begränsade inställningar\" före steg 2.\n\n" +
-                "Skärmens innehåll skickas till OpenAI när du ställer en fråga. Använd inte appen där hjälpmedel är förbjudna, till exempel på prov."
-            textSize = 14f
-            setPadding(0, pad, 0, 0)
-        }
-        root.addView(help)
-
-        setContentView(ScrollView(this).apply { addView(root) })
+    private fun handleIntent(i: Intent?) {
+        if (i == null) return
+        if (i.getBooleanExtra("newcmd", false)) { i.removeExtra("newcmd"); commandDialog(null) }
+        if (i.getBooleanExtra("checkupdate", false)) { i.removeExtra("checkupdate"); checkUpdate(true) }
     }
 
     override fun onResume() {
         super.onResume()
-        refreshStatus()
+        render()
+        checkUpdate(false)
     }
 
     override fun onPause() {
@@ -102,18 +77,239 @@ class MainActivity : Activity() {
         super.onPause()
     }
 
+    // ------------------------------------------------------------------ helpers
+
     private fun saveKey() {
         val et = keyInput ?: return
         getSharedPreferences("prefs", MODE_PRIVATE).edit().putString("api_key", et.text.toString().trim()).apply()
     }
 
-    private fun refreshStatus() {
-        val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
+    private fun text(t: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
+        this.text = t
+        textSize = size
+        setTextColor(color)
+        if (bold) setTypeface(typeface, Typeface.BOLD)
+    }
+
+    private fun card(title: String?, sub: String? = null): LinearLayout {
+        val c = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rounded(CARD, 18)
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+        }
+        if (title != null) c.addView(text(title, 16f, TEXT, true))
+        if (sub != null) c.addView(text(sub, 13f, MUTED).apply { setPadding(0, dp(2), 0, dp(4)) })
+        content.addView(c, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+        return c
+    }
+
+    private fun button(label: String, primary: Boolean = false, onClick: () -> Unit) = Button(this).apply {
+        this.text = label
+        isAllCaps = false
+        textSize = 13.5f
+        setTextColor(if (primary) Color.WHITE else TEXT)
+        background = rounded(if (primary) PRIMARY else 0x1FFFFFFF, 14)
+        stateListAnimator = null
+        minHeight = dp(40)
+        minimumHeight = dp(40)
+        setPadding(dp(14), 0, dp(14), 0)
+        setOnClickListener { onClick() }
+    }
+
+    private fun small(label: String, onClick: () -> Unit) = TextView(this).apply {
+        this.text = label
+        textSize = 14f
+        setTextColor(MUTED)
+        gravity = Gravity.CENTER
+        setPadding(dp(10), dp(6), dp(10), dp(6))
+        setOnClickListener { onClick() }
+    }
+
+    private fun step(parent: LinearLayout, done: Boolean?, title: String, sub: String, action: String, onClick: () -> Unit) {
+        val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(8), 0, dp(4)) }
+        row.addView(TextView(this).apply {
+            this.text = when (done) { true -> "✓"; false -> "○"; null -> "•" }
+            textSize = 17f
+            gravity = Gravity.CENTER
+            setTextColor(if (done == true) ACCENT else MUTED)
+        }, LinearLayout.LayoutParams(dp(28), -2))
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        col.addView(text(title, 14.5f, TEXT, true))
+        col.addView(text(sub, 12.5f, MUTED))
+        row.addView(col, LinearLayout.LayoutParams(0, -2, 1f))
+        if (done != true) row.addView(button(action, false, onClick), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
+        parent.addView(row)
+    }
+
+    // ------------------------------------------------------------------ screen
+
+    private fun render() {
+        content.removeAllViews()
+        keyInput = null
+        val ver = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { "" }
         val on = ReaderService.instance != null
         val mic = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
+
+        // header
+        val head = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        head.addView(View(this).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFB9A8FF.toInt(), 0xFF6C47FF.toInt())).apply { shape = GradientDrawable.OVAL }
+        }, LinearLayout.LayoutParams(dp(14), dp(14)).apply { rightMargin = dp(10) })
+        head.addView(text("ScreenBubble", 28f, TEXT, true))
+        content.addView(head)
+        content.addView(text("AI-assistent som ser din skärm · v$ver", 13f, MUTED).apply { setPadding(0, dp(2), 0, 0) })
+
+        // update
+        val nb = newerBuild
+        if (nb != null || updateText != null) {
+            val c = card(if (nb != null) "Ny version finns" else "Uppdatering")
+            c.setBackgroundColor(Color.TRANSPARENT)
+            c.background = rounded(0xFF12302A.toInt(), 18)
+            c.addView(text(updateText ?: "Version 1.0.${nb!! - 100} är redo. Din data och inställningar behålls.", 13f, 0xFFCFEEE2.toInt()).apply { setPadding(0, dp(2), 0, dp(8)) })
+            if (!updating) c.addView(button("Uppdatera nu", true) { startUpdate() })
+        }
+
+        // setup
+        val setup = card("Kom igång", if (on) "Allt viktigt är på." else "Tre steg tar dig hela vägen.")
+        step(setup, null, "Tillåt begränsade inställningar", "Android 13+: ⋮ i appinfo, välj \"Tillåt begränsade inställningar\".", "Appinfo") {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+        }
+        step(setup, on, "Slå på tjänsten", "Tillgänglighet → ScreenBubble → På.", "Öppna") {
+            saveKey(); startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
+        step(setup, mic, "Tillåt mikrofon", "För röststyrning och samtal.", "Tillåt") {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1)
+        }
+        step(setup, Updater.canInstall(this), "Tillåt uppdateringar", "Så kan appen uppdatera sig själv.", "Tillåt") {
+            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+        }
+
+        if (Config.embeddedKey().isEmpty()) {
+            val k = card("OpenAI API-nyckel", "Krävs för att assistenten ska svara.")
+            val et = EditText(this).apply {
+                hint = "sk-..."
+                setHintTextColor(MUTED)
+                setTextColor(TEXT)
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                background = rounded(0x1FFFFFFF, 12)
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                setText(prefs.getString("api_key", ""))
+            }
+            keyInput = et
+            k.addView(et)
+        }
+
+        // actions
+        val act = card("Använd", "Sidebaren sitter vid skärmkanten. Tryck på den för menyn.")
+        val row = LinearLayout(this)
+        row.addView(button("Öppna menyn", true) { saveKey(); ReaderService.instance?.setMode(ReaderService.Mode.MENU) ?: toast("Slå på tjänsten först") }, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
+        row.addView(button("Hide-läge") { saveKey(); ReaderService.instance?.setMode(ReaderService.Mode.HIDE) ?: toast("Slå på tjänsten först") }, LinearLayout.LayoutParams(0, -2, 1f))
+        act.addView(row, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+        act.addView(text("Markera text i valfri app och välj \"Fråga ScreenBubble\" för att få den förklarad.", 12.5f, MUTED).apply { setPadding(0, dp(10), 0, 0) })
+
+        // custom commands
+        val cmds = Store.commands(this)
+        val cc = card("Egna snabbkommandon", "Knappar i menyn som kör din egen instruktion, t.ex. \"Svara artigt på svenska\".")
+        for (c in cmds) {
+            val r = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(4), 0, dp(4)) }
+            r.addView(text(c.emoji, 20f, TEXT), LinearLayout.LayoutParams(dp(32), -2))
+            val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            col.addView(text(c.name, 14.5f, TEXT, true))
+            col.addView(text(c.prompt.take(70), 12f, MUTED).apply { maxLines = 1 })
+            r.addView(col, LinearLayout.LayoutParams(0, -2, 1f))
+            r.addView(small("✎") { commandDialog(c) })
+            r.addView(small("✕") { Store.deleteCommand(this, c.id); render() })
+            cc.addView(r)
+        }
+        cc.addView(button("＋ Nytt kommando") { commandDialog(null) }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(6) })
+
+        // memory
+        val mem = Store.memory(this)
+        val mc = card("Minne", if (mem.isEmpty()) "Jag lär mig av våra samtal vem du skriver till och hur du brukar svara." else "Det här har jag lärt mig om dig:")
+        mem.forEachIndexed { i, m ->
+            val r = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            r.addView(text(m, 13f, TEXT), LinearLayout.LayoutParams(0, -2, 1f))
+            r.addView(small("✕") { Store.setMemory(this, mem.filterIndexed { j, _ -> j != i }); render() })
+            mc.addView(r)
+        }
+        if (mem.isNotEmpty()) mc.addView(button("Glöm allt") { Store.setMemory(this, emptyList()); render() }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(6) })
+
+        // status + help
         val err = prefs.getString("last_error", "").orEmpty()
-        status.text = (if (on) "Tjänst: på" else "Tjänst: av (slå på i Tillgänglighet)") +
-            "\nMikrofon: " + (if (mic) "tillåten" else "inte tillåten") +
-            (if (err.isNotEmpty()) "\nSenaste fel: $err" else "")
+        if (err.isNotEmpty()) card("Senaste fel", err)
+        val help = card("Så funkar det")
+        help.addView(text(
+            "Sidebaren: tryck på listen vid kanten för menyn. Där finns chatt, snabbsvar på frågor, hide-läge, uppgifter och dina egna kommandon.\n\n" +
+                "Hide-läge: bara en liten svart prick. Ett tryck ger ett kort svar, håll in för menyn, dubbeltryck stänger av.\n\n" +
+                "Skicka och andra känsliga åtgärder kräver alltid att du bekräftar.\n\n" +
+                "Skärmens innehåll skickas till OpenAI när du ställer en fråga. Använd inte appen där hjälpmedel är förbjudna, till exempel på prov.",
+            13f, MUTED
+        ))
+    }
+
+    private fun toast(t: String) = Toast.makeText(this, t, Toast.LENGTH_SHORT).show()
+
+    // ------------------------------------------------------------------ custom command dialog
+
+    private fun commandDialog(c: Store.Cmd?) {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
+        val emoji = EditText(this).apply { hint = "Emoji (valfri)"; setText(c?.emoji ?: ""); filters = arrayOf(android.text.InputFilter.LengthFilter(4)) }
+        val name = EditText(this).apply { hint = "Namn, t.ex. Svara artigt"; setText(c?.name ?: ""); filters = arrayOf(android.text.InputFilter.LengthFilter(30)) }
+        val prompt = EditText(this).apply {
+            hint = "Instruktion, t.ex. Skriv ett artigt svar på svenska till meddelandet på skärmen."
+            setText(c?.prompt ?: ""); minLines = 3
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        }
+        val screen = CheckBox(this).apply { text = "Använd skärmen"; isChecked = c?.screen ?: true }
+        box.addView(emoji); box.addView(name); box.addView(prompt); box.addView(screen)
+        AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+            .setTitle(if (c == null) "Nytt snabbkommando" else "Redigera snabbkommando")
+            .setView(box)
+            .setPositiveButton("Spara") { _, _ ->
+                val n = name.text.toString().trim().take(30)
+                val p = prompt.text.toString().trim().take(800)
+                if (n.isNotEmpty() && p.isNotEmpty()) {
+                    val e = emoji.text.toString().trim().let { if (it.isEmpty()) "⚡" else String(Character.toChars(it.codePointAt(0))) }
+                    Store.saveCommand(this, Store.Cmd(c?.id ?: "c" + System.currentTimeMillis(), e, n, p, screen.isChecked))
+                    render()
+                } else toast("Fyll i namn och instruktion")
+            }
+            .setNegativeButton("Avbryt", null)
+            .show()
+    }
+
+    // ------------------------------------------------------------------ updates
+
+    private fun checkUpdate(manual: Boolean) {
+        Thread {
+            val l = Updater.latest()
+            val cur = Updater.current(this)
+            runOnUiThread {
+                if (l != null && l > cur) { newerBuild = l; if (!updating) updateText = null; render() }
+                else if (manual) toast(if (l == null) "Kunde inte söka just nu" else "Du har senaste versionen")
+            }
+        }.start()
+    }
+
+    private fun startUpdate() {
+        if (!Updater.canInstall(this)) {
+            toast("Tillåt installation, gå tillbaka och tryck igen")
+            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+            return
+        }
+        updating = true
+        updateText = "Hämtar… 0 %"
+        render()
+        Thread {
+            try {
+                Updater.downloadAndInstall(this) { pct ->
+                    runOnUiThread { updateText = "Hämtar… $pct %"; render() }
+                }
+                runOnUiThread { updateText = "Klart att installera. Bekräfta i rutan som visas."; updating = false; render() }
+            } catch (e: Exception) {
+                runOnUiThread { updateText = "Misslyckades: ${e.message}"; updating = false; render() }
+            }
+        }.start()
     }
 }

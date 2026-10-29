@@ -11,8 +11,9 @@ android {
         applicationId = "com.example.screenbubble"
         minSdk = 30
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0"
+        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = 100 + build
+        versionName = "1.0.$build"
     }
 
     signingConfigs {
