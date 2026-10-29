@@ -58,13 +58,16 @@ object Store {
         val arr = readArchive(c)
         val now = System.currentTimeMillis()
         var id = p(c).getString("conv", "") ?: ""
-        var conv: JSONObject? = null
+        var existing: JSONObject? = null
         val others = JSONArray()
         for (i in 0 until arr.length()) {
             val o = arr.getJSONObject(i)
-            if (id.isNotEmpty() && o.optString("id") == id) conv = o else others.put(o)
+            if (id.isNotEmpty() && o.optString("id") == id) existing = o else others.put(o)
         }
-        if (conv == null) {
+        val conv: JSONObject
+        if (existing != null) {
+            conv = existing
+        } else {
             id = now.toString() + (1000..9999).random()
             conv = JSONObject().put("id", id).put("title", "Ny konversation").put("ts", now).put("messages", JSONArray())
             p(c).edit().putString("conv", id).apply()
