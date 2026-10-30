@@ -164,6 +164,7 @@ class ReaderService : AccessibilityService() {
     }
 
     private fun showBar() {
+        if (Store.assistantDisplay(this) != "sidebar") { showBubble(); return }
         removeSide()
         val lp = WindowManager.LayoutParams(
             dp(22), dp(96),
@@ -172,6 +173,26 @@ class ReaderService : AccessibilityService() {
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; y = barY }
         val v = SideUi(this).bar(lp) { barY = lp.y; try { wm.updateViewLayout(side, lp) } catch (_: Exception) {} }
+        wm.addView(v, lp)
+        side = v; sideLp = lp
+    }
+
+    private fun showBubble() {
+        removeSide()
+        val lp = WindowManager.LayoutParams(
+            dp(48), dp(48),
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
+        val ui = SideUi(this)
+        val v = ui.bubble(lp, {
+            try { wm.updateViewLayout(side, lp) } catch (_: Exception) {}
+        }, {
+            setMode(Mode.MENU)
+        }, { direction ->
+            if (direction == Store.assistantSwipe(this)) setMode(Mode.MENU) else openChat(null, false)
+        })
         wm.addView(v, lp)
         side = v; sideLp = lp
     }
