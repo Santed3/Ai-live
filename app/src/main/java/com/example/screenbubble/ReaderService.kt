@@ -368,7 +368,7 @@ class ReaderService : AccessibilityService() {
             val v = SideUi(this).activeHelp(title, detail, {
                 removeSuggestions()
                 openChat(prompt, true)
-            }, { removeSuggestions() })
+            }, { activeHelp.dismiss() })
             val lp = WindowManager.LayoutParams(
                 min(dp(292), (screenW * 0.86f).toInt()), WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
