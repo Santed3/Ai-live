@@ -27,17 +27,6 @@ jobs:
         with:
           gradle-version: 8.7
 
-      - name: Lägg in API-nyckeln (valfritt)
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          if [ -n "$OPENAI_API_KEY" ]; then
-            sed -i "s|__OPENAI_KEY__|$OPENAI_API_KEY|" app/src/main/java/com/example/screenbubble/Config.kt
-            echo "::notice title=Nyckel::Nyckel inbyggd i APK"
-          else
-            echo "::warning title=Nyckel::Ingen secret satt, appen frågar efter nyckeln"
-          fi
-
       - name: Bygg APK
         run: |
           set +e
