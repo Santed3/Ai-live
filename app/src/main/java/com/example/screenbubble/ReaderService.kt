@@ -359,10 +359,10 @@ class ReaderService : AccessibilityService() {
     }
 
     /** Compact reply suggestions float beside the sidebar, directly over the active app. */
-    fun showSuggestions(list: List<String>) {
+    fun showSuggestions(list: List<String>, title: String = "Förslag på svar") {
         if (mode != Mode.BAR || closing) return
         removeSuggestions()
-        val v = SideUi(this).suggestions(list, { pickSuggestion(it) }, { removeSuggestions() })
+        val v = SideUi(this).suggestions(list, title, { pickSuggestion(it) }, { removeSuggestions() })
         val lp = WindowManager.LayoutParams(
             min(dp(270), (screenW * 0.82f).toInt()), WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
