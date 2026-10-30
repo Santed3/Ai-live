@@ -79,19 +79,21 @@ const FEATURE_META = [
 const MAIL = ['outlook', 'olk', 'thunderbird', 'hxoutlook'];
 const CHAT = ['whatsapp', 'telegram', 'discord', 'slack', 'teams', 'ms-teams', 'signal', 'messenger'];
 const WEB = ['chrome', 'msedge', 'firefox', 'brave', 'opera', 'vivaldi'];
-function chipsFor(title, proc) {
+function chipsFor(title, proc, smartAllowed) {
   const t = (title || '').toLowerCase(), p = (proc || '').toLowerCase(), out = [];
   const isMail = MAIL.includes(p) || /gmail|inbox|outlook|mail/.test(t);
-  const isChat = CHAT.includes(p) || /whatsapp|messenger|telegram|discord|slack|teams/.test(t);
+  const isChat = CHAT.includes(p) || /whatsapp|messenger|telegram|discord|slack|teams|signal/.test(t);
   const isWeb = WEB.includes(p);
-  if (features.contextualSuggestions && isMail) out.push(['Smart Reply', null, true], ['Sammanfatta mejlet', 'Sammanfatta mejlet på skärmen i några punkter och säg vad som förväntas av mig.'], ['Skriv nytt mejl', 'Hjälp mig skriva ett nytt mejl. Fråga vad det ska handla om och till vem.']);
-  else if (features.contextualSuggestions && isChat) out.push(['Smart Reply', null, true], ['Sammanfatta chatten', 'Sammanfatta konversationen på skärmen kort.'], ['Översätt', 'Översätt de senaste meddelandena på skärmen till svenska (eller engelska om de redan är på svenska).']);
-  else if (features.contextualSuggestions && isWeb) out.push(['Sammanfatta sidan', 'Sammanfatta sidan på skärmen i korta punkter.'], ['Sök mer om detta', 'Sök på webben efter mer information om ämnet på skärmen och sammanfatta vad du hittar.'], ['Förklara', 'Förklara enkelt det som står på skärmen.']);
-  out.push(['Svara på frågan', 'Svara på frågan som syns på skärmen. Ge svaret tydligt.'], ['Sök på Google', 'Sök på webben efter svaret på frågan på skärmen och förklara det kort.'],
-    ['Förklara skärmen', 'Förklara kort vad som visas på skärmen.'], ['Sammanfatta', 'Sammanfatta texten på skärmen kort.'],
-    ['Översätt', 'Översätt texten på skärmen till svenska (eller engelska om den redan är svenska).'], ['Skriv text', 'Hjälp mig skriva en text utifrån det som visas på skärmen. Fråga om något saknas.'],
-    ['Fixa', 'Hitta fel i texten på skärmen (stavning, fakta, logik) och föreslå rättelser.']);
-  if (!features.contextualSuggestions) return [];
+  if (features.smartReply && smartAllowed && (isMail || isChat)) out.push(['Smart Reply', null, true]);
+  if (features.contextualSuggestions) {
+    if (isMail) out.push(['Sammanfatta mejlet', 'Sammanfatta mejlet på skärmen i några punkter och säg vad som förväntas av mig.'], ['Skriv nytt mejl', 'Hjälp mig skriva ett nytt mejl. Fråga vad det ska handla om och till vem.']);
+    else if (isChat) out.push(['Sammanfatta chatten', 'Sammanfatta konversationen på skärmen kort.'], ['Översätt', 'Översätt de senaste meddelandena på skärmen till svenska (eller engelska om de redan är på svenska).']);
+    else if (isWeb) out.push(['Sammanfatta sidan', 'Sammanfatta sidan på skärmen i korta punkter.'], ['Sök mer om detta', 'Sök på webben efter mer information om ämnet på skärmen och sammanfatta vad du hittar.'], ['Förklara', 'Förklara enkelt det som står på skärmen.']);
+    out.push(['Svara på frågan', 'Svara på frågan som syns på skärmen. Ge svaret tydligt.'], ['Sök på Google', 'Sök på webben efter svaret på frågan på skärmen och förklara det kort.'],
+      ['Förklara skärmen', 'Förklara kort vad som visas på skärmen.'], ['Sammanfatta', 'Sammanfatta texten på skärmen kort.'],
+      ['Översätt', 'Översätt texten på skärmen till svenska (eller engelska om den redan är svenska).'], ['Skriv text', 'Hjälp mig skriva en text utifrån det som visas på skärmen. Fråga om något saknas.'],
+      ['Fixa', 'Hitta fel i texten på skärmen (stavning, fakta, logik) och föreslå rättelser.']);
+  }
   const gated = out.filter(([label]) => {
     if (/Översätt/i.test(label)) return features.smartTranslate;
     if (/Sök|Google/i.test(label)) return features.webResearch;
@@ -105,7 +107,7 @@ async function refreshChips() {
   const info = await api.chips();
   const box = $('chips');
   box.textContent = '';
-  for (const [label, prompt, reply] of chipsFor(info.title, info.proc)) {
+  for (const [label, prompt, reply] of chipsFor(info.title, info.proc, info.smartReplyAllowed)) {
     const b = document.createElement('button');
     b.textContent = label;
     b.onclick = () => (reply ? makeReply() : send(prompt, false));
@@ -157,16 +159,17 @@ async function makeReply() {
     const head = document.createElement('div'); head.className = 'reply-brand';
     const mark = document.createElement('span'); mark.className = 'reply-mark'; mark.textContent = 'S';
     const brand = document.createElement('span'); brand.textContent = 'ScreenBubble';
-    const tag = document.createElement('span'); tag.className = 'reply-tag'; tag.textContent = 'SMART REPLY';
+    const isDraft = r.mode === 'draft';
+    const tag = document.createElement('span'); tag.className = 'reply-tag'; tag.textContent = isDraft ? 'FÖRBÄTTRAT UTKAST' : 'SMART REPLY';
     head.append(mark, brand, tag);
     const body = document.createElement('div'); body.className = 'reply-text'; body.textContent = r.text;
     const actions = document.createElement('div'); actions.className = 'reply-actions';
-    const insertButton = document.createElement('button'); insertButton.className = 'p'; insertButton.textContent = 'Infoga svar';
+    const insertButton = document.createElement('button'); insertButton.className = 'p'; insertButton.textContent = isDraft ? 'Ersätt mitt utkast' : 'Infoga svar';
     insertButton.onclick = async () => {
       insertButton.disabled = true;
-      const result = await api.insert(r.text, false);
+      const result = await api.insert(r.text, false, isDraft);
       insertButton.disabled = false;
-      setStatus(result.ok ? 'Svaret har infogats i textfältet.' : result.error);
+      setStatus(result.ok ? (isDraft ? 'Utkastet har ersatts.' : 'Svaret har infogats i textfältet.') : result.error);
       setTimeout(clearStatus, 2200);
     };
     actions.appendChild(insertButton);
