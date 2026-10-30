@@ -294,8 +294,10 @@ class SideUi(private val svc: ReaderService) {
         )
 
         val list = LinearLayout(svc).apply { orientation = LinearLayout.VERTICAL }
+        val more = LinearLayout(svc).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
         for ((title, tiles) in groups) {
-            list.addView(TextView(svc).apply {
+            val destination = if (title == "Svara") list else more
+            destination.addView(TextView(svc).apply {
                 this.text = title.uppercase()
                 textSize = 10.5f
                 letterSpacing = 0.08f
@@ -335,8 +337,21 @@ class SideUi(private val svc: ReaderService) {
                 }
                 grid.addView(cell, glp)
             }
-            list.addView(grid)
+            destination.addView(grid)
         }
+        list.addView(TextView(svc).apply {
+            text = "… Fler funktioner"
+            textSize = 12f
+            setTextColor(0xFFD5CAFF.toInt())
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply { setColor(0x227F68FF); cornerRadius = dp(12).toFloat() }
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            setOnClickListener {
+                more.visibility = if (more.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+                text = if (more.visibility == View.VISIBLE) "‹ Färre funktioner" else "… Fler funktioner"
+            }
+        }.apply { setPadding(dp(4), dp(10), dp(4), dp(2)) })
+        list.addView(more)
         val maxH = (svc.resources.displayMetrics.heightPixels * 0.72f).toInt()
         card.addView(CappedScroll(svc, maxH).apply { isVerticalScrollBarEnabled = false; addView(list) })
         card.setOnTouchListener { _, e -> if (e.action == MotionEvent.ACTION_OUTSIDE) onOutside(); false }
