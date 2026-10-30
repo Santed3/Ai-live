@@ -496,14 +496,15 @@ function showAnswer(text, duration) {
   const cpl = Math.max(1, Math.floor((w - 20) / 7.6));
   const nl = lines.reduce((n, l) => n + Math.max(1, Math.ceil(l.length / cpl)), 0);
   const h = nl * 19 + 14;
-  const b = (mode === 'hide' && dot) ? dot.getBounds() : panel.getBounds();
+  const useDot = !!dot && (mode === 'hide' || (mode === 'bar' && assistantAppearance().display !== 'sidebar'));
+  const b = useDot ? dot.getBounds() : panel.getBounds();
   const wa = screen.getDisplayNearestPoint({ x: b.x, y: b.y }).workArea;
   let x = b.x > wa.x + wa.width / 2 ? b.x - w : b.x + b.width;
   x = Math.min(Math.max(wa.x, x), wa.x + wa.width - w);
   const y = Math.min(Math.max(wa.y, b.y + Math.round((b.height - h) / 2)), wa.y + wa.height - h);
   answerWin.setBounds({ x, y, width: w, height: h });
   answerWin.webContents.send('answer-text', clean);
-  if (mode === 'hide' && dot) dot.hide();
+  if (useDot && dot) dot.hide();
   answerWin.showInactive();
   clearTimeout(answerTimer);
   answerTimer = setTimeout(endAnswer, duration || Math.min(10000, 5000 + (lines.length - 1) * 1500));
@@ -511,7 +512,7 @@ function showAnswer(text, duration) {
 function endAnswer() {
   clearTimeout(answerTimer);
   if (answerWin) answerWin.hide();
-  if (mode === 'hide' && dot) dot.showInactive();
+  if (dot && (mode === 'hide' || (mode === 'bar' && assistantAppearance().display !== 'sidebar'))) dot.showInactive();
 }
 
 // ------------------------------------------------------------------ capture
