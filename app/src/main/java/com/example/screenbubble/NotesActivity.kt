@@ -37,7 +37,7 @@ class NotesActivity : Activity() {
     private var listening = false
     private var processing = false
     private val main = Handler(Looper.getMainLooper())
-    private val noteId = "note_" + System.currentTimeMillis()
+    private var noteId = ""
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
     private fun rounded(color: Int, radius: Int) = GradientDrawable().apply {
@@ -54,6 +54,7 @@ class NotesActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        noteId = intent.getStringExtra("note_id") ?: ("note_" + System.currentTimeMillis())
         window.statusBarColor = bg
         window.navigationBarColor = bg
         val root = LinearLayout(this).apply {
@@ -70,8 +71,12 @@ class NotesActivity : Activity() {
         heading.addView(label("Anteckningar", 21f, fg, true))
         heading.addView(label("Diktera fritt. Jag gör texten tydlig.", 12f, muted))
         header.addView(heading, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(label("Alla", 14f, muted, true).apply {
+            setPadding(dp(8), dp(10), dp(10), dp(10))
+            setOnClickListener { saveNote(); startActivity(Intent(this@NotesActivity, NotesLibraryActivity::class.java)); finish() }
+        })
         header.addView(label("Spara", 14f, accent, true).apply {
-            setPadding(dp(12), dp(10), dp(4), dp(10))
+            setPadding(dp(8), dp(10), dp(4), dp(10))
             setOnClickListener { saveNote(); Toast.makeText(this@NotesActivity, "Anteckningen är sparad.", Toast.LENGTH_SHORT).show() }
         })
         root.addView(header)
@@ -108,6 +113,7 @@ class NotesActivity : Activity() {
         }
         root.addView(dictationButton, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(6) })
         setContentView(root)
+        loadExistingNote()
         editor.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { saveNote() }
@@ -203,6 +209,18 @@ class NotesActivity : Activity() {
                 raw, 900
             ).trim().ifBlank { fallback }
         } catch (_: Exception) { fallback }
+    }
+
+    private fun loadExistingNote() {
+        val old = try { JSONArray(getSharedPreferences("prefs", MODE_PRIVATE).getString("notes", "[]")) } catch (_: Exception) { JSONArray() }
+        for (i in 0 until old.length()) {
+            val item = old.optJSONObject(i) ?: continue
+            if (item.optString("id") == noteId) {
+                editor.setText(item.optString("text"))
+                editor.setSelection(editor.text.length)
+                break
+            }
+        }
     }
 
     private fun saveNote() {
