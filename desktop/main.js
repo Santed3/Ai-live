@@ -58,6 +58,28 @@ const FEATURE_DEFAULTS = {
 };
 function featureSettings() { return { ...FEATURE_DEFAULTS, ...(readJson('settings.json', {}).features || {}) }; }
 
+const SMART_REPLY_APPS = {
+  outlook: 'Outlook',
+  thunderbird: 'Thunderbird',
+  whatsapp: 'WhatsApp',
+  telegram: 'Telegram',
+  discord: 'Discord',
+  slack: 'Slack',
+  teams: 'Microsoft Teams',
+  signal: 'Signal',
+  browser: 'Webbläsare (Gmail, Outlook, WhatsApp Web m.fl.)',
+};
+function smartReplyApps() {
+  const saved = readJson('settings.json', {}).smartReplyApps;
+  return Array.isArray(saved) ? saved.filter((x) => Object.prototype.hasOwnProperty.call(SMART_REPLY_APPS, x)) : Object.keys(SMART_REPLY_APPS);
+}
+function smartReplyAllowed(proc, title) {
+  const p = String(proc || '').toLowerCase(), t = String(title || '').toLowerCase(), enabled = smartReplyApps();
+  const browsers = ['chrome', 'msedge', 'firefox', 'brave', 'opera', 'vivaldi'];
+  if (browsers.includes(p)) return enabled.includes('browser') && /(gmail|outlook|mail|whatsapp|messenger|telegram|discord|slack|teams|signal)/.test(t);
+  return enabled.includes(p);
+}
+
 // ------------------------------------------------------------------- OpenAI
 async function post(url, body) {
   const r = await fetch(url, {
