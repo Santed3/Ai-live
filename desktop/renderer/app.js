@@ -121,12 +121,13 @@ async function send(text, voice) {
   text = String(text || '').trim();
   if (!text || busy) return;
   busy = true;
+  const assistantMode = $('assistantMode')?.value || 'general';
   const w = chat.querySelector('.welcome'); if (w) w.remove();
   addMsg(true, text);
   live = null; liveText = '';
   showDots();
   try {
-    const r = await api.chat(text, voice);
+    const r = await api.chat(text, voice, assistantMode);
     clearStatus(); clearDots();
     if (live && r.ok) { live.innerHTML = md(r.reply); live = null; } else { if (live) { live.remove(); live = null; } addMsg(false, r.ok ? r.reply : 'Fel: ' + r.error); }
     if (r.ok && features.readAloud && (speakOn || voice)) speak(r.reply);
@@ -135,6 +136,10 @@ async function send(text, voice) {
 }
 api.onStatus(setStatus);
 $('go').onclick = () => { const t = inp.value; inp.value = ''; send(t, false); };
+$('assistantMode').onchange = () => {
+  const labels = { general:'Allmänt', study:'Studier', work:'Arbete', code:'Programmering', writing:'Skrivande' };
+  setStatus('Aktivt läge: ' + labels[$('assistantMode').value]); setTimeout(clearStatus, 1400);
+};
 inp.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('go').click(); }
 });
