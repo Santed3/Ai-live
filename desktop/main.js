@@ -60,12 +60,14 @@ function featureSettings() { return { ...FEATURE_DEFAULTS, ...(readJson('setting
 
 const SMART_REPLY_APPS = {
   outlook: 'Outlook',
+  olk: 'Outlook (new)',
   thunderbird: 'Thunderbird',
   whatsapp: 'WhatsApp',
   telegram: 'Telegram',
   discord: 'Discord',
   slack: 'Slack',
   teams: 'Microsoft Teams',
+  'ms-teams': 'Microsoft Teams (new)',
   signal: 'Signal',
   browser: 'Webbläsare (Gmail, Outlook, WhatsApp Web m.fl.)',
 };
