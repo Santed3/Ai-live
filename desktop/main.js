@@ -325,7 +325,14 @@ function inspectForActiveHelp(title, proc, snapshot) {
     'upload failed', "couldn't upload", 'could not upload', 'kunde inte ladda upp', 'uppladdningen misslyckades',
     'file type not supported', 'unsupported file type', 'filtypen stöds inte', 'ogiltig e-postadress',
     'invalid email address', 'required field', 'field is required', 'obligatoriskt fält', 'fältet är obligatoriskt',
-    'server error', 'form submission failed', 'kunde inte skicka formuläret'
+    'server error', 'form submission failed', 'kunde inte skicka formuläret',
+    'session expired', 'session has expired', 'logga in igen', 'sessionen har gått ut',
+    'sync failed', 'synchronization failed', 'synkronisering misslyckades', "couldn't sync",
+    'not enough storage', 'disk full', 'storage full', 'ont om lagringsutrymme',
+    'printer offline', 'printer not responding', 'skrivaren är offline',
+    'service unavailable', 'server unavailable', 'temporarily unavailable', 'tillfälligt otillgänglig',
+    'too many attempts', 'för många försök', 'account locked', 'kontot är låst',
+    "can't connect", 'could not connect', 'kunde inte ansluta'
   ].some((phrase) => text.includes(phrase));
   const stalled = download && /(0\s*(b\/s|kb\/s|mb\/s)|0%|paused|pausad|stalled|väntar)/i.test(text);
   const soft = /(try again|retry|försök igen|couldn't|kunde inte|failed|misslyckades|error|fel)/i.test(text);
