@@ -143,6 +143,24 @@ class ReaderService : AccessibilityService() {
     private var pendingVoice = false
     fun voiceSoon() { pendingVoice = true }
 
+    /** Dictate into a focused editable field, otherwise open a new note. */
+    fun startDictation() {
+        if (hasFocusedEditableInput()) {
+            setMode(Mode.CHAT)
+            main.postDelayed({ panel?.startDictation() }, 220)
+        } else openNotes()
+    }
+
+    fun openNotes() {
+        startActivity(Intent(this, NotesActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        setMode(Mode.BAR)
+    }
+
+    fun hasFocusedEditableInput(): Boolean {
+        val root = appRoot() ?: return false
+        val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return false
+        return focused.isEditable && !focused.isPassword && focused.isVisibleToUser
+    }
     /** Open the compact chat, optionally with a preset message. */
     fun openChat(preset: String?, auto: Boolean) {
         setMode(Mode.CHAT)
@@ -782,8 +800,16 @@ class ReaderService : AccessibilityService() {
         return if (f != null && f.isEditable) f else findEditable(root)
     }
 
-    fun typeText(text: String, append: Boolean): String {
-        val t = inputTarget() ?: return "Hittade inget textfält att skriva i."
+    fun insertDictatedText(text: String): String {
+        val target = inputTarget() ?: return "Textfältet är inte längre aktivt. Starta dikteringen igen."
+        if (target.isPassword) return "Diktering är avstängd i lösenordsfält."
+        val current = if (target.isShowingHintText) "" else target.text?.toString().orEmpty()
+        val separator = if (current.isBlank() || current.last().isWhitespace() || current.last() in ".!?") "" else " "
+        val args = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, current + separator + text) }
+        return if (target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) "Skrev texten." else "Kunde inte skriva i fältet."
+    }
+
+    fun typeText(text: String, append: Boolean): String {        val t = inputTarget() ?: return "Hittade inget textfält att skriva i."
         val cur = if (append && !t.isShowingHintText) t.text?.toString().orEmpty() else ""
         val args = Bundle().apply {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, cur + text)
