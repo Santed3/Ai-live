@@ -311,6 +311,9 @@ class MainActivity : Activity() {
         }
         cc.addView(button("＋ Nytt kommando") { commandDialog(null) }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(6) })
 
+        val notes = card("Anteckningar", "Alla dina dikteringar och egna anteckningar samlade på ett ställe.")
+        notes.addView(button("Öppna anteckningsbibliotek", true) { startActivity(Intent(this, NotesLibraryActivity::class.java)) })
+
         // memory
         val mem = Store.memory(this)
         val mc = card("Minne", if (mem.isEmpty()) "Du bestämmer vad ScreenBubble ska komma ihåg. Du kan granska och radera sparade uppgifter här." else "Det här har jag lärt mig om dig:")
@@ -347,7 +350,7 @@ class MainActivity : Activity() {
     private fun shouldShowCard(title: String?): Boolean = when (activeTab) {
         "home" -> title in setOf("Ny version finns", "Uppdatering", "Kom igång", "Använd", "Senaste fel", "Så funkar det")
         "assistant" -> title in setOf("Assistentens utseende", "Smarta svar", "Appprofiler")
-        else -> title in setOf("Egna snabbkommandon", "Minne")
+        else -> title in setOf("Egna snabbkommandon", "Anteckningar", "Minne")
     }
 
     private fun addTabs() {

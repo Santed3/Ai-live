@@ -61,7 +61,7 @@ function clearStatus() { if (statusEl) { statusEl.remove(); statusEl = null; } }
 // ---------------------------------------------------------------- chips
 const FEATURE_DEFAULTS = {
   smartReply:true, activeHelp:true, contextualSuggestions:true, screenActions:true, smartTranslate:true,
-  studyMode:true, writingMode:true, webResearch:true, appProfiles:true, selectionAsk:true, voice:true, readAloud:true
+  studyMode:true, writingMode:true, webResearch:true, appProfiles:true, selectionAsk:true, voice:true, dictation:true, readAloud:true
 };
 let features = { ...FEATURE_DEFAULTS };
 const FEATURE_META = [
@@ -76,6 +76,7 @@ const FEATURE_META = [
   ['appProfiles','🧩','App Profiles','Anpassar förslag efter aktiv app och arbetsflöde.'],
   ['selectionAsk','🖱️','Markera och fråga','Markera text och använd Ctrl + Alt + C för att fråga om den.'],
   ['voice','🎙','Röstassistent','Aktiverar mikrofon och samtal i realtid.'],
+  ['dictation','✍️','Diktera','Skriv talad text direkt i det aktiva fältet och finskriv den med AI.'],
   ['readAloud','🔊','Läs upp svar','Läser upp AI-svar automatiskt när det är aktiverat.'],
 ];
 const MAIL = ['outlook', 'olk', 'thunderbird', 'hxoutlook'];
@@ -282,13 +283,16 @@ function speak(text) {
     speechSynthesis.speak(u);
   } catch {}
 }
-let rec = null, recording = false;
-async function toggleMic() {
+let rec = null, recording = false, dictationMode = false, dictationRestart = null;
+async function toggleMic(dictationSegment = false) {
   if (recording) { rec && rec.stop(); return; }
   speechSynthesis.cancel();
   let stream;
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-  catch { addMsg(false, 'Mikrofonen nekades eller saknas.'); return; }
+  catch {
+    if (dictationSegment) { dictationMode = false; $('dictate').classList.remove('on'); $('dictate').textContent = '✍️'; }
+    addMsg(false, 'Mikrofonen nekades eller saknas.'); return;
+  }
   const chunks = [];
   rec = new MediaRecorder(stream, { mimeType: 'audio/webm' });
   const ctx = new AudioContext();
@@ -298,17 +302,48 @@ async function toggleMic() {
   let heard = false, silentSince = Date.now(), startedAt = Date.now();
   const timer = setInterval(() => {
     an.getByteTimeDomainData(buf);
-    let s = 0; for (const v of buf) s += (v - 128) * (v - 128);
-    const rms = Math.sqrt(s / buf.length);
+    let sum = 0; for (const v of buf) sum += (v - 128) * (v - 128);
+    const rms = Math.sqrt(sum / buf.length);
     if (rms > 6) { heard = true; silentSince = Date.now(); }
     const silent = Date.now() - silentSince;
-    if ((heard && silent > 1300) || (!heard && Date.now() - startedAt > 7000) || Date.now() - startedAt > 30000) rec.stop();
+    if ((heard && silent > 1250) || (!heard && Date.now() - startedAt > 9000) || Date.now() - startedAt > 28000) {
+      if (rec && rec.state === 'recording') rec.stop();
+    }
   }, 100);
   rec.ondataavailable = (e) => chunks.push(e.data);
   rec.onstop = async () => {
-    clearInterval(timer); ctx.close();
+    clearInterval(timer); try { await ctx.close(); } catch {}
     stream.getTracks().forEach((t) => t.stop());
     recording = false; $('mic').textContent = '🎤'; $('mic').classList.remove('on');
+    if (dictationSegment) {
+      if (!heard) {
+        if (dictationMode) {
+          setStatus('Dikteringen är aktiv. Jag lyssnar vidare…');
+          dictationRestart = setTimeout(() => { if (dictationMode && !recording) toggleMic(true); }, 350);
+        } else clearStatus();
+        return;
+      }
+      setStatus('Transkriberar talet…');
+      try {
+        const speech = await api.stt(await new Blob(chunks, { type: 'audio/webm' }).arrayBuffer());
+        if (!speech.ok) throw new Error(speech.error || 'Taligenkänningen misslyckades.');
+        if (speech.text) {
+          setStatus('Tar bort utfyllnadsord och finskriver…');
+          const fallback = String(speech.text).replace(/(^|[\s,])(?:eh+|öh+|öö+h|ee+h|mmm+)(?=[\s,.;!?]|$)/gi, '$1').replace(/\s+/g, ' ').trim();
+          const polished = await api.transform('Finskriv den här talade texten på samma språk. Ta bort utfyllnadsord som eh, öh, ööööh och eeeh samt onödiga upprepningar. Rätta stavning, grammatik och interpunktion. Behåll betydelse, namn, siffror och fakta exakt. Lägg inte till information. Svara endast med färdig text.', fallback);
+          const finalText = polished.ok && polished.text.trim() ? polished.text.trim() : fallback;
+          const inserted = await api.insert(finalText, false, false);
+          if (!inserted.ok) throw new Error(inserted.error || 'Kunde inte infoga texten.');
+          setStatus('Text infogad. Fortsätter diktera…');
+        }
+      } catch (e) {
+        setStatus('Dikteringen kunde inte slutföras: ' + String(e.message || e));
+        if (!dictationMode) setTimeout(clearStatus, 3500);
+      }
+      if (dictationMode) dictationRestart = setTimeout(() => { if (dictationMode && !recording) toggleMic(true); }, 500);
+      else { $('dictate').classList.remove('on'); $('dictate').textContent = '✍️'; setTimeout(clearStatus, 2500); }
+      return;
+    }
     if (!heard) { if (convo) { convo = false; $('convo').classList.remove('on'); } return; }
     setStatus('Lyssnar…');
     const r = await api.stt(await new Blob(chunks, { type: 'audio/webm' }).arrayBuffer());
@@ -316,8 +351,23 @@ async function toggleMic() {
     if (r.ok && r.text) send(r.text, true); else if (!r.ok) addMsg(false, 'Fel: ' + r.error);
   };
   rec.start(); recording = true; $('mic').textContent = '●'; $('mic').classList.add('on');
+  if (dictationSegment) $('dictate').classList.add('on');
 }
-$('mic').onclick = toggleMic;
+async function toggleDictation() {
+  if (dictationMode) {
+    dictationMode = false; clearTimeout(dictationRestart);
+    if (recording && rec && rec.state === 'recording') rec.stop();
+    $('dictate').classList.remove('on'); $('dictate').textContent = '✍️';
+    setStatus('Dikteringen är pausad.'); setTimeout(clearStatus, 2200);
+    return;
+  }
+  dictationMode = true; convo = false; $('convo').classList.remove('on');
+  $('dictate').classList.add('on'); $('dictate').textContent = '■';
+  setStatus('Diktering aktiv. Tala naturligt, jag infogar texten där markören står.');
+  if (!recording) await toggleMic(true);
+}
+$('mic').onclick = () => toggleMic(false);
+$('dictate').onclick = toggleDictation;
 $('speak').onclick = () => { speakOn = !speakOn; $('speak').textContent = speakOn ? '🔊' : '🔇'; if (!speakOn) speechSynthesis.cancel(); };
 $('convo').onclick = () => {
   convo = !convo; $('convo').classList.toggle('on', convo);
@@ -367,6 +417,7 @@ const BUILTIN = [
     ['✅', 'Svara på skärmen', () => api.quick()],
     ['⚡', 'AI Actions', () => go('Hjälp mig genomföra uppgiften på skärmen steg för steg. Planera först och be om bekräftelse innan du skickar, raderar, köper eller publicerar.', true), 'screenActions'],
     ['▧', 'Markera område', () => api.captureRegion(), 'selectionAsk'],
+    ['✍️', 'Diktera', () => toggleDictation(), 'dictation'],
   ]],
   ['AI-VERKTYG', [
     ['🌐', 'Smart Translate', () => go('Översätt den viktigaste texten på skärmen till svenska. Behåll struktur, ton och sammanhang.', true), 'smartTranslate'],
@@ -442,6 +493,7 @@ function renderFeatureToggles() {
 function applyFeatureVisibility() {
   $('mic').hidden = !features.voice;
   $('convo').hidden = !features.voice;
+  $('dictate').hidden = !features.dictation;
   $('speak').hidden = !features.readAloud;
 }
 function openSettings() {

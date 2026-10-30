@@ -156,6 +156,11 @@ class ReaderService : AccessibilityService() {
         setMode(Mode.BAR)
     }
 
+    fun openNotesLibrary() {
+        startActivity(Intent(this, NotesLibraryActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        setMode(Mode.BAR)
+    }
+
     fun hasFocusedEditableInput(): Boolean {
         val root = appRoot() ?: return false
         val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return false

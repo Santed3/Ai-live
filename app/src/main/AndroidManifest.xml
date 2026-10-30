@@ -36,6 +36,7 @@
         </activity>
 
         <activity android:name=".NotesActivity" android:exported="false" android:label="Anteckningar" />
+        <activity android:name=".NotesLibraryActivity" android:exported="false" android:label="Mina anteckningar" />
 
         <activity
             android:name=".ProcessTextActivity"
