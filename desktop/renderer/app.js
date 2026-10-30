@@ -158,17 +158,13 @@ async function addFiles(list) {
     if (file.size > 8 * 1024 * 1024) { setStatus(file.name + ' är större än 8 MB.'); continue; }
     const ext = file.name.split('.').pop().toLowerCase();
     const image = ['jpg','jpeg','png','webp'].includes(ext);
-    const documentFile = ['pdf','docx'].includes(ext);
     const textFile = ['txt','md','csv','tsv','json','html','htm','xml','log','js','ts','jsx','tsx','py','kt','java','css','scss','yml','yaml','toml','sql','sh','ps1','ini','properties'].includes(ext);
-    if (!image && !textFile && !documentFile) { setStatus('Välj PDF, Word, bild eller text-/kodfil.'); continue; }
-    if (image || documentFile) {
+    if (!image && !textFile) { setStatus('Välj en bild eller text-/kodfil.'); continue; }
+    if (image) {
       const bytes = new Uint8Array(await file.arrayBuffer());
       let binary = '';
       for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-      const encoded = btoa(binary);
-      pendingAttachments.push(image
-        ? { name: file.name, image: encoded, text: '' }
-        : { name: file.name, raw: encoded, image: '', text: '' });
+      pendingAttachments.push({ name: file.name, image: btoa(binary), text: '' });
     } else pendingAttachments.push({ name: file.name, image: '', text: (await file.text()).slice(0, 18000) });
     renderAttachmentTray();
   }
