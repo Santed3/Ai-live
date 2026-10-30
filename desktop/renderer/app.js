@@ -484,8 +484,7 @@ api.onView((v) => {
 
 let autoDraftLoading = null;
 api.onSmartDraftLoading((active) => {
-  if (document.body.dataset.v !== 'chat') return;
-  if (active && !autoDraftLoading) {
+  if (active && document.body.dataset.v === 'chat' && !autoDraftLoading) {
     autoDraftLoading = document.createElement('div');
     autoDraftLoading.className = 's';
     autoDraftLoading.innerHTML = '<span class="reply-mark">S</span><span>ScreenBubble förbättrar din text</span><span class="reply-dots"><i></i><i></i><i></i></span>';
