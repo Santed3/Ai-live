@@ -321,6 +321,16 @@ object Store {
         p(c).edit().putString("mode", m).apply()
     }
 
+    fun assistantDisplay(c: Context): String {
+        val v = p(c).getString("assistant_display", "sidebar") ?: "sidebar"
+        return if (v in setOf("sidebar", "bubble", "swipe")) v else "sidebar"
+    }
+    fun setAssistantDisplay(c: Context, v: String) {
+        p(c).edit().putString("assistant_display", if (v in setOf("sidebar", "bubble", "swipe")) v else "sidebar").apply()
+    }
+    fun assistantSwipe(c: Context): String = if (p(c).getString("assistant_swipe", "left") == "right") "right" else "left"
+    fun setAssistantSwipe(c: Context, v: String) { p(c).edit().putString("assistant_swipe", if (v == "right") "right" else "left").apply() }
+
     fun speak(c: Context): Boolean = p(c).getBoolean("speak", false)
     fun setSpeak(c: Context, v: Boolean) {
         p(c).edit().putBoolean("speak", v).apply()
