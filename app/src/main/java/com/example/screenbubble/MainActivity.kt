@@ -314,8 +314,16 @@ class MainActivity : Activity() {
             val l = Updater.latest()
             val cur = Updater.current(this)
             runOnUiThread {
-                if (l != null && l > cur) { newerBuild = l; if (!updating) updateText = null; render() }
-                else if (manual) toast(if (l == null) "Kunde inte söka just nu" else "Du har senaste versionen")
+                if (l != null && l > cur) {
+                    newerBuild = l
+                    if (!updating) {
+                        updateText = null
+                        render()
+                        // Start the update immediately when Android permits installs.
+                        // Android still requires the system confirmation dialog.
+                        if (Updater.canInstall(this)) startUpdate()
+                    }
+                } else if (manual) toast(if (l == null) "Kunde inte söka just nu" else "Du har senaste versionen")
             }
         }.start()
     }
