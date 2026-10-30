@@ -693,8 +693,8 @@ function systemPrompt(assistantMode = 'general') {
 function send2(ch, v) { if (panel && !panel.isDestroyed()) panel.webContents.send(ch, v); }
 function status(t) { if (panel && !panel.isDestroyed()) panel.webContents.send('status', t); }
 
-async function runAgent(userText) {
-  const messages = [{ role: 'system', content: systemPrompt() }, ...history()];
+async function runAgent(userText, assistantMode = 'general') {
+  const messages = [{ role: 'system', content: systemPrompt(assistantMode) }, ...history()];
   const shot0 = await captureScreen(true);
   messages.push({
     role: 'user',
@@ -796,14 +796,14 @@ async function fastCommand(t) {
   if (m) return await openApp(m[1].trim());
   return null;
 }
-ipcMain.handle('chat', async (_e, { text }) => {
+ipcMain.handle('chat', async (_e, { text, assistantMode }) => {
   const mc = Lib.parseMemoryCommand(text, memory());
   if (mc) { if (mc.mem) writeJson('memory.json', mc.mem); return { ok: true, reply: mc.reply }; }
   try { const f = await fastCommand(text); if (f) return { ok: true, reply: f }; } catch (_) {}
   if (busy) return { ok: false, error: 'Jag jobbar fortfarande med förra uppgiften.' };
   if (!apiKey()) return { ok: false, error: 'Ingen API-nyckel. Skriv in den under inställningar.' };
   busy = true;
-  try { return { ok: true, reply: await runAgent(String(text || '')) }; }
+  try { return { ok: true, reply: await runAgent(String(text || ''), assistantMode) }; }
   catch (e) { return { ok: false, error: String(e.message || e) }; }
   finally { busy = false; }
 });
