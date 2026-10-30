@@ -155,6 +155,9 @@ header button{width:30px;height:30px;border-radius:10px;display:grid;place-items
 #inrow:focus-within{border-color:rgba(143,119,255,.75);box-shadow:0 0 0 4px rgba(120,87,255,.12)}
 #inp{font-size:13px;line-height:1.5}#inrow button{width:35px;height:35px}
 #inrow button.p{background:linear-gradient(135deg,#8a6bff,#6241e8);box-shadow:0 4px 14px rgba(100,70,230,.28)}
+#dictate{width:auto!important;min-width:37px;padding:0 9px!important;border-radius:11px!important;font-size:13px!important;background:rgba(141,245,208,.09);border:1px solid rgba(141,245,208,.16);color:#b8fbe4}
+#dictate.on{background:linear-gradient(135deg,#18a77b,#08795b);border-color:rgba(141,245,208,.55);color:#fff;box-shadow:0 0 0 3px rgba(141,245,208,.1)}
+#dictate[hidden]{display:none!important}
 .card{background:linear-gradient(145deg,rgba(31,36,53,.98),rgba(22,25,37,.98));border-color:rgba(255,255,255,.085);border-radius:17px;padding:12px}
 #confirm{background:linear-gradient(145deg,#392b18,#241c13);border-color:rgba(255,190,80,.25)}
 #menu{border-radius:23px;padding:16px}#mhead{margin:1px 4px 9px}#mhead h2{font-size:15px;letter-spacing:-.02em}
@@ -327,7 +330,7 @@ button:focus-visible,.tile:focus-visible{outline:2px solid #b2a3ff;outline-offse
   </div>
   <div id="attachmentTray" hidden aria-live="polite"></div>
   <div id="modeRow"><label for="assistantMode">AI-läge</label><select id="assistantMode"><option value="general">Allmänt</option><option value="study">Studier</option><option value="work">Arbete</option><option value="code">Programmering</option><option value="writing">Skrivande</option></select></div>
-  <div id="inrow"><input id="fileInput" type="file" multiple accept=".txt,.md,.csv,.tsv,.json,.html,.htm,.xml,.log,.js,.ts,.jsx,.tsx,.py,.kt,.java,.css,.scss,.yml,.yaml,.toml,.sql,.sh,.ps1,.ini,.properties,.jpg,.jpeg,.png,.webp"><button id="attach" title="Bifoga filer">＋</button><textarea id="inp" rows="1" placeholder="Skriv vad du vill ha hjälp med…"></textarea><button id="mic">🎤</button><button id="go" class="p">➤</button></div></div>
+  <div id="inrow"><input id="fileInput" type="file" multiple accept=".txt,.md,.csv,.tsv,.json,.html,.htm,.xml,.log,.js,.ts,.jsx,.tsx,.py,.kt,.java,.css,.scss,.yml,.yaml,.toml,.sql,.sh,.ps1,.ini,.properties,.jpg,.jpeg,.png,.webp"><button id="attach" title="Bifoga filer">＋</button><textarea id="inp" rows="1" placeholder="Skriv vad du vill ha hjälp med…"></textarea><button id="dictate" title="Starta eller stoppa diktering" aria-label="Diktera">✍️</button><button id="mic" title="Tala in ett meddelande">🎤</button><button id="go" class="p">➤</button></div></div>
 </div>
 <script src="lib.js"></script>
 <script src="app.js"></script>
