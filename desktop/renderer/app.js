@@ -61,7 +61,7 @@ function clearStatus() { if (statusEl) { statusEl.remove(); statusEl = null; } }
 // ---------------------------------------------------------------- chips
 const FEATURE_DEFAULTS = {
   smartReply:true, activeHelp:true, contextualSuggestions:true, screenActions:true, smartTranslate:true,
-  studyMode:true, writingMode:true, webResearch:true, appProfiles:true, selectionAsk:true, voice:true, readAloud:true
+  studyMode:true, writingMode:true, webResearch:true, appProfiles:true, selectionAsk:true, voice:true, dictation:true, readAloud:true
 };
 let features = { ...FEATURE_DEFAULTS };
 const FEATURE_META = [
