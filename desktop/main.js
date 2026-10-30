@@ -51,6 +51,12 @@ async function learn(userText, answer) {
   } catch {}
 }
 function commands() { return readJson('commands.json', []).map(Lib.sanitizeCommand).filter(Boolean); }
+const FEATURE_DEFAULTS = {
+  smartReply: true, contextualSuggestions: true, screenActions: true,
+  smartTranslate: true, studyMode: true, writingMode: true,
+  webResearch: true, appProfiles: true, voice: true, readAloud: true,
+};
+function featureSettings() { return { ...FEATURE_DEFAULTS, ...(readJson('settings.json', {}).features || {}) }; }
 
 // ------------------------------------------------------------------- OpenAI
 async function post(url, body) {
@@ -284,7 +290,7 @@ async function pollForeground() {
 let panel = null, dot = null, answerWin = null, mode = 'bar', answerTimer = null, qaBusy = false;
 
 let barOff = 0;
-const SIZES = { bar: [22, 96], menu: [340, 520], chat: [380, 560] };
+const SIZES = { bar: [22, 96], menu: [390, 680], chat: [410, 650] };
 function layout(v) {
   const wa = screen.getPrimaryDisplay().workArea;
   let [w, h] = SIZES[v] || SIZES.bar;
@@ -529,8 +535,11 @@ function systemPrompt() {
     /code|devenv|idea|studio|cursor|windsurf/.test(proc) ? 'UTVECKLING: hjälp med kod och felsökning. Var exakt och ändra inte filer utan uttrycklig begäran.' :
     /excel|winword|powerpnt/.test(proc) || /excel|word|powerpoint/.test(lowTitle) ? 'OFFICE: hjälp med formler, dokument, presentationer och struktur.' :
     'ALLMÄNT: identifiera uppgiftstypen på skärmen och välj det mest användbara arbetssättet.';
+  const profileEnabled = featureSettings().appProfiles;
   return 'Du är ScreenBubble, en snabb och vänlig assistent på användarens Windows-dator, ungefär som Siri fast mycket smartare. ' +
-    'Du ser skärmen (bild) och kan styra datorn med verktyg.\nRegler:\n' +
+    'Du ser skärmen (bild) och kan styra datorn med verktyg.\n' +
+    (profileEnabled ? 'Aktiv app: ' + (lastExternal.proc || 'okänd') + '. Fönstertitel: ' + (lastExternal.title || 'okänd') + '. App-profil: ' + appProfile + '\nAnpassa exempel, ton och rekommenderade arbetsflöden efter denna app.\n' : '') +
+    'Regler:\n' +
     '- Svara kort, naturligt och på användarens språk. Använd inte markdown.\n' +
     '- Använd verktyg bara när användaren vill att något ska göras eller du behöver mer information. Annars svara direkt.\n' +
     '- Efter varje handling får du en ny skärmbild. Kontrollera att det blev rätt innan du går vidare. Max 10 steg.\n' +
@@ -712,6 +721,13 @@ ipcMain.handle('memory-get', () => memory());
 ipcMain.handle('memory-set', (_e, list) => { writeJson('memory.json', Array.isArray(list) ? list.map(String).slice(0, 40) : []); return true; });
 ipcMain.handle('memory-auto-get', () => readJson('settings.json', {}).memoryAuto === true);
 ipcMain.handle('memory-auto-set', (_e, on) => { const s = readJson('settings.json', {}); s.memoryAuto = !!on; writeJson('settings.json', s); return !!s.memoryAuto; });
+ipcMain.handle('features-get', () => featureSettings());
+ipcMain.handle('features-set', (_e, next) => {
+  const s = readJson('settings.json', {});
+  const clean = { ...FEATURE_DEFAULTS };
+  if (next && typeof next === 'object') for (const k of Object.keys(clean)) if (typeof next[k] === 'boolean') clean[k] = next[k];
+  s.features = clean; writeJson('settings.json', s); return clean;
+});
 ipcMain.handle('set-mode', (_e, m) => { setMode(m); return true; });
 ipcMain.on('bar-move', (_e, { y }) => {
   const wa = screen.getPrimaryDisplay().workArea;
