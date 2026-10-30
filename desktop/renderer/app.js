@@ -60,7 +60,7 @@ function clearStatus() { if (statusEl) { statusEl.remove(); statusEl = null; } }
 // ---------------------------------------------------------------- chips
 const FEATURE_DEFAULTS = {
   smartReply:true, contextualSuggestions:true, screenActions:true, smartTranslate:true,
-  studyMode:true, writingMode:true, webResearch:true, appProfiles:true, voice:true, readAloud:true
+  studyMode:true, writingMode:true, webResearch:true, appProfiles:true, selectionAsk:true, voice:true, readAloud:true
 };
 let features = { ...FEATURE_DEFAULTS };
 const FEATURE_META = [
@@ -72,6 +72,7 @@ const FEATURE_META = [
   ['writingMode','✍️','Writing Mode','Skriver, förbättrar och anpassar texter efter din ton.'],
   ['webResearch','🔎','Web Research','Söker, jämför källor och sammanfattar ämnen.'],
   ['appProfiles','🧩','App Profiles','Anpassar förslag efter aktiv app och arbetsflöde.'],
+  ['selectionAsk','🖱️','Markera och fråga','Markera text och använd Ctrl + Alt + C för att fråga om den.'],
   ['voice','🎙','Röstassistent','Aktiverar mikrofon och samtal i realtid.'],
   ['readAloud','🔊','Läs upp svar','Läser upp AI-svar automatiskt när det är aktiverat.'],
 ];
@@ -148,7 +149,9 @@ async function makeReply() {
 }
 const TOOLS = [
   ['Kortare', 'Gör texten kortare men behåll innebörden.'], ['Professionell', 'Skriv om i en professionell, artig ton.'],
-  ['Vänligare', 'Skriv om i en varmare, vänligare ton.'], ['Översätt', 'Översätt till engelska. Om texten redan är engelska: översätt till svenska.'],
+  ['Vänligare', 'Skriv om i en varmare, vänligare ton.'], ['Kort svar', 'Gör svaret kort och naturligt, som ett vanligt snabbt meddelande.'],
+  ['Mer avslappnat', 'Skriv mer avslappnat och mänskligt utan att bli slarvig.'], ['Mer professionellt', 'Skriv mer professionellt och tydligt, men behåll en naturlig ton.'],
+  ['Översätt', 'Översätt till engelska. Om texten redan är engelska: översätt till svenska.'],
   ['Skriv om', 'Skriv om med annan formulering men samma innebörd.'], ['Längre', 'Gör texten något mer utförlig och tydlig.'],
 ];
 for (const [label, instr] of TOOLS) {
