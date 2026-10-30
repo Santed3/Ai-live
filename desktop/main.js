@@ -341,7 +341,7 @@ async function pollForeground() {
   const r = await ps([...WIN32,
     '$h=[W32]::GetForegroundWindow(); $sb=New-Object System.Text.StringBuilder 512; [void][W32]::GetWindowText($h,$sb,512)',
     '$p=0; [void][W32]::GetWindowThreadProcessId($h,[ref]$p); $n=(Get-Process -Id $p -ErrorAction SilentlyContinue).ProcessName',
-    '$v=""; try { Add-Type -AssemblyName UIAutomationClient -ErrorAction Stop; $e=[System.Windows.Automation.AutomationElement]::FocusedElement; $pat=$null; if($e -and $e.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pat)){ $v=$pat.Current.Value } elseif($e -and $e.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern,[ref]$pat)){ $v=$pat.DocumentRange.GetText(1200) } } catch {}',
+    '$v=""; try { Add-Type -AssemblyName UIAutomationClient -ErrorAction Stop; $e=[System.Windows.Automation.AutomationElement]::FocusedElement; $pat=$null; if($e -and -not $e.Current.IsPassword -and $e.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pat)){ $v=$pat.Current.Value } elseif($e -and -not $e.Current.IsPassword -and $e.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern,[ref]$pat)){ $v=$pat.DocumentRange.GetText(1200) } } catch {}',
     '$enc=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($v)); $sb.ToString() + "|" + $n + "|" + $enc'], 7000);
   if (r.ok && r.out.includes('|')) {
     const last = r.out.lastIndexOf('|'), prev = r.out.lastIndexOf('|', last - 1);
