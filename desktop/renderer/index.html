@@ -64,6 +64,7 @@ header button:hover{background:rgba(255,255,255,.1);color:var(--text)}
 #inrow button{border-radius:50%;width:34px;height:34px;padding:0;font-size:15px}
 #setup{display:none}
 #setup input{width:100%;padding:8px;border-radius:10px;border:0;margin:6px 0;background:rgba(255,255,255,.12);color:var(--text)}
+.setup-intro{display:flex;align-items:center;gap:10px;margin-bottom:10px}.setup-mark{width:38px;height:38px;display:grid;place-items:center;border-radius:13px;background:linear-gradient(145deg,#a18aff,#6241e8);font-weight:800;font-size:17px;box-shadow:0 6px 18px rgba(98,65,232,.25)}.setup-intro b{display:block;font-size:13px}.setup-intro small{display:block;color:var(--muted);font-size:10.5px;margin-top:2px}.setup-copy{font-size:11.5px;color:var(--muted);line-height:1.55;margin:0 0 10px}.setup-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.setup-actions span{font-size:9.5px;color:var(--muted)}
 
 #app{position:relative}
 #mhead{display:flex;align-items:baseline;justify-content:space-between;margin:0 4px 6px}
@@ -313,7 +314,7 @@ button:focus-visible,.tile:focus-visible{outline:2px solid #b2a3ff;outline-offse
         <button id="quit" class="x" title="Minimera">✕</button>
   </header>
   <div class="banner" id="upd-c"></div>
-  <div id="chatDock"><div id="setup" class="card show"><label>OpenAI API-nyckel krävs</label><input id="key" type="password" placeholder="sk-..."><button id="savekey" class="p">Spara</button></div><div id="chips"></div>
+  <div id="chatDock"><div id="setup" class="card show"><div class="setup-intro"><span class="setup-mark">S</span><div><b>Välkommen till ScreenBubble</b><small>Din AI-assistent, precis där du arbetar.</small></div></div><p class="setup-copy">Börja med att ansluta din OpenAI API-nyckel. Sedan kan du använda skärmhjälp, Smart Reply, röst och diktering direkt från panelen.</p><label for="key">OpenAI API-nyckel</label><input id="key" type="password" placeholder="sk-..."><div class="setup-actions"><button id="savekey" class="p">Anslut och börja</button><span>Nyckeln sparas lokalt på datorn.</span></div></div><div id="chips"></div>
   <div id="chat"></div>
   <div id="draftcard" class="card">
     <label>Förslag (redigera fritt)</label>
