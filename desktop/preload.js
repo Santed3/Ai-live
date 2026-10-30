@@ -38,6 +38,8 @@ contextBridge.exposeInMainWorld('api', {
   memoryAutoSet: (on) => ipcRenderer.invoke('memory-auto-set', on),
   openSettingsWindow: () => ipcRenderer.invoke('open-settings'),
   featuresGet: () => ipcRenderer.invoke('features-get'),
+  assistantModeGet: () => ipcRenderer.invoke('assistant-mode-get'),
+  assistantModeSet: (mode) => ipcRenderer.invoke('assistant-mode-set', mode),
   featuresSet: (f) => ipcRenderer.invoke('features-set', f),
   appearanceGet: () => ipcRenderer.invoke('appearance-get'),
   appearanceSet: (v) => ipcRenderer.invoke('appearance-set', v),
