@@ -717,10 +717,11 @@ ipcMain.handle('reply', async () => {
     if (!smartReplyAllowed(lastExternal.proc, lastExternal.title)) throw new Error('Smart Reply är inte aktiverat för den här appen.');
     const shot = await captureScreen(true);
     const t = await chat([
-      { role: 'system', content: 'Du är ScreenBubbles Smart Reply. Inspektera skärmen noggrant. Om ett skrivfält innehåller ett pågående utkast från användaren: förbättra och färdigställ just det utkastet utan att ändra avsikten eller hitta på fakta. Om inget utkast skrivs: läs det senaste inkommande mejlet eller meddelandet och skriv ett passande svar. Avgör om det är mejl, chatt eller ett mer formellt samtal och anpassa ton, hälsning och längd. Lär av användarens tidigare skickade meddelanden som syns i konversationen och använd sparade stilprov om sådana finns.' + styleBlock() + ' Svara ENDAST med texten som ska stå i skrivfältet. Skicka aldrig meddelandet, tryck aldrig Enter och lägg inte till en förklaring.' },
-      { role: 'user', content: content('Föreslå ett svar eller förbättra användarens synliga utkast. Svara med bara texten.', shot) },
-    ], { maxTokens: 600 });
-    return { ok: true, text: (t.content || '').trim() };
+      { role: 'system', content: 'Du är ScreenBubbles Smart Reply. Inspektera skärmen noggrant. Om ett skrivfält innehåller ett pågående utkast från användaren: förbättra och färdigställ just det utkastet utan att ändra avsikten eller hitta på fakta och sätt mode=draft. Om inget utkast skrivs: läs det senaste inkommande mejlet eller meddelandet och skriv ett passande svar och sätt mode=reply. Avgör om det är mejl, chatt eller ett mer formellt samtal och anpassa ton, hälsning och längd. Lär av användarens tidigare skickade meddelanden som syns i konversationen och använd sparade stilprov om sådana finns. Returnera JSON med exakt fälten mode och text. Skicka aldrig meddelandet, tryck aldrig Enter.' },
+      { role: 'user', content: content('Föreslå ett svar eller förbättra användarens synliga utkast.', shot) },
+    ], { maxTokens: 600, json: true });
+    const parsed = JSON.parse(t.content || '{}');
+    return { ok: true, text: String(parsed.text || '').trim(), mode: parsed.mode === 'draft' ? 'draft' : 'reply' };
   } catch (e) { return { ok: false, error: String(e.message || e) }; }
 });
 ipcMain.handle('transform', async (_e, { instruction, text }) => {
