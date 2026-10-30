@@ -115,7 +115,7 @@ class SideUi(private val svc: ReaderService) {
             background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF9D86FF.toInt(), 0xFF6345E8.toInt())).apply { shape = GradientDrawable.OVAL }
         }, LinearLayout.LayoutParams(dp(19), dp(19)).apply { rightMargin = dp(7) })
         head.addView(TextView(svc).apply {
-            text = "ScreenBubble"
+            text = "ScreenBubble  ·  $title"
             textSize = 10.5f
             setTextColor(0xFFB9C0D3.toInt())
         }, LinearLayout.LayoutParams(0, -2, 1f))
