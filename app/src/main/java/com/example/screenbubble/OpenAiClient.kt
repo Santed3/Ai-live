@@ -264,6 +264,22 @@ class OpenAiClient(
         return (0 until minOf(arr.length(), 3)).map { arr.optString(it).trim() }.filter { it.isNotEmpty() }
     }
 
+    /** Improves an in-progress message without changing its intent; returned text replaces the draft only after a tap. */
+    fun suggestDraft(draft: String, screenContext: String, styleBlock: String, kind: String): List<String> {
+        val system = "Du hjälper användaren formulera ett meddelande som hen redan håller på att skriva i en $kind. " +
+            "Läs sammanhanget och utkastet. Föreslå EN förbättrad, naturlig version som behåller exakt samma avsikt och fakta. " +
+            "Om utkastet är ofärdigt får du slutföra meningen på ett rimligt sätt utan att hitta på löften, fakta eller detaljer. " +
+            "Matcha mottagarens ton, formalitetsnivå och språk. Härma användarens skrivstil från stilproven.$styleBlock " +
+            "Svara ENDAST med den färdiga meddelandetexten, utan citattecken, rubrik eller förklaring. " +
+            "Om utkastet är för kort eller inte ser ut som ett meddelande, returnera exakt [SKIP]."
+        val messages = JSONArray()
+            .put(JSONObject().put("role", "system").put("content", system))
+            .put(JSONObject().put("role", "user").put("content", "Kontext från konversationen:\n$screenContext\n\nAnvändarens pågående utkast:\n$draft"))
+        val result = contentOf(chat(messages, null, 220, temperature = 0.35)).trim()
+        if (result.isBlank() || result == "[SKIP]" || result.equals(draft.trim(), true)) return emptyList()
+        return listOf(result.take(500))
+    }
+
     /** Summarises how the user writes, from samples of their own sent messages. */
     fun styleProfile(samples: List<String>): String {
         val messages = JSONArray()
