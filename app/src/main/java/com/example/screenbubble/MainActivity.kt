@@ -230,6 +230,8 @@ class MainActivity : Activity() {
                 setOnCheckedChangeListener { _, v -> Store.setFlag(this@MainActivity, key, v) }
             })
         }
+        toggle("Active Help – proaktiv hjälp", "active_help")
+        sr.addView(text("ScreenBubble håller koll på vanliga fel och fastnade steg. Den frågar innan den analyserar vidare eller tar över.", 12f, MUTED).apply { setPadding(0, dp(0), 0, dp(6)) })
         toggle("Föreslå svar och förbättra utkast", "smart_suggest")
         toggle("Lär dig hur jag skriver", "learn_style")
         sr.addView(text("Välj appar där Smart Reply får läsa sammanhang och föreslå svar eller förbättra ett utkast:", 12f, MUTED).apply { setPadding(0, dp(8), 0, dp(4)) })
