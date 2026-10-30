@@ -110,7 +110,10 @@ class PanelUi(private val svc: ReaderService) {
     // ------------------------------------------------------------------ build
 
     private fun rounded(color: Int, radius: Int): GradientDrawable =
-        GradientDrawable().apply { setColor(color); cornerRadius = dp(radius).toFloat() }
+        GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(color, 0xFF111521.toInt())).apply {
+            cornerRadius = dp(radius).toFloat()
+            setStroke(dp(1), 0x1FFFFFFF)
+        }
 
     /** Short, consistent entrance motion for transient UI. */
     private fun reveal(view: View, distance: Int = 7, duration: Long = 210L) {

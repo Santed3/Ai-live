@@ -40,7 +40,10 @@ class MainActivity : Activity() {
     private var updating = false
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
-    private fun rounded(color: Int, r: Int) = GradientDrawable().apply { setColor(color); cornerRadius = dp(r).toFloat() }
+    private fun rounded(color: Int, r: Int) = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(color, Color.rgb((Color.red(color) * 0.82f).toInt(), (Color.green(color) * 0.86f).toInt(), (Color.blue(color) * 0.92f).toInt()))).apply {
+        cornerRadius = dp(r).toFloat()
+        setStroke(dp(1), 0x1FFFFFFF)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -109,7 +112,7 @@ class MainActivity : Activity() {
         isAllCaps = false
         textSize = 13.5f
         setTextColor(if (primary) Color.WHITE else TEXT)
-        background = rounded(if (primary) PRIMARY else 0x1FFFFFFF, 14)
+        background = if (primary) GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF8A6BFF.toInt(), 0xFF6241E8.toInt())).apply { cornerRadius = dp(14).toFloat(); setStroke(dp(1), 0x447FFFFFFF) } else rounded(0x1FFFFFFF, 14)
         stateListAnimator = null
         minHeight = dp(40)
         minimumHeight = dp(40)
@@ -159,7 +162,11 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(dp(14), dp(14)).apply { rightMargin = dp(10) })
         head.addView(text("ScreenBubble", 28f, TEXT, true))
         content.addView(head)
-        content.addView(text("Din AI-assistent · alltid nära till hands · v$ver", 13f, MUTED).apply { setPadding(0, dp(5), 0, 0) })
+        content.addView(text("Din AI-assistent · alltid nära till hands · v$ver", 13f, MUTED).apply { setPadding(0, dp(5), 0, dp(5)) })
+        content.addView(text("SIDEBAR · AI-ASSISTENT", 10f, ACCENT, true).apply {
+            letterSpacing = 0.14f
+            setPadding(dp(1), dp(12), 0, dp(1))
+        })
 
         // update
         val nb = newerBuild

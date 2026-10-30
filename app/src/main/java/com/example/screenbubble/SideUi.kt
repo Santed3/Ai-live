@@ -18,7 +18,10 @@ class SideUi(private val svc: ReaderService) {
     private val density = svc.resources.displayMetrics.density
     private fun dp(v: Int) = (v * density).toInt()
 
-    private fun rounded(color: Int, r: Int) = GradientDrawable().apply { setColor(color); cornerRadius = dp(r).toFloat() }
+    private fun rounded(color: Int, r: Int) = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(color, 0xF50B0E16.toInt())).apply {
+        cornerRadius = dp(r).toFloat()
+        setStroke(dp(1), 0x22FFFFFF)
+    }
 
     /** The thin handle at the screen edge. Drag to move up/down, tap to open the menu. */
     @SuppressLint("ClickableViewAccessibility")
@@ -102,7 +105,10 @@ class SideUi(private val svc: ReaderService) {
     fun menu(onOutside: () -> Unit): View {
         val card = LinearLayout(svc).apply {
             orientation = LinearLayout.VERTICAL
-            background = rounded(0xF5121316.toInt(), 22)
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xF51C2233.toInt(), 0xF50B0E16.toInt())).apply {
+                cornerRadius = dp(22).toFloat()
+                setStroke(dp(1), 0x2AFFFFFF)
+            }
             setPadding(dp(12), dp(12), dp(12), dp(12))
             elevation = dp(10).toFloat()
         }
@@ -176,7 +182,10 @@ class SideUi(private val svc: ReaderService) {
                 val cell = LinearLayout(svc).apply {
                     orientation = LinearLayout.VERTICAL
                     gravity = Gravity.CENTER
-                    background = rounded(if (t.icon == "＋") 0x0AFFFFFF else 0x1AFFFFFF, 16)
+                    background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(if (t.icon == "＋") 0x12FFFFFF else 0x1CFFFFFF, 0x0DFFFFFF)).apply {
+                        cornerRadius = dp(16).toFloat()
+                        setStroke(dp(1), if (t.icon == "＋") 0x44FFFFFF else 0x16FFFFFF)
+                    }
                     setPadding(dp(4), dp(8), dp(4), dp(6))
                     isClickable = true
                     isFocusable = true
