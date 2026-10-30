@@ -710,14 +710,15 @@ ipcMain.handle('chat', async (_e, { text }) => {
   catch (e) { return { ok: false, error: String(e.message || e) }; }
   finally { busy = false; }
 });
-ipcMain.handle('chips', () => ({ title: lastExternal.title, proc: lastExternal.proc }));
+ipcMain.handle('chips', () => ({ title: lastExternal.title, proc: lastExternal.proc, smartReplyAllowed: smartReplyAllowed(lastExternal.proc, lastExternal.title) }));
 ipcMain.handle('reply', async () => {
   try {
     if (!apiKey()) throw new Error('Ingen API-nyckel');
+    if (!smartReplyAllowed(lastExternal.proc, lastExternal.title)) throw new Error('Smart Reply är inte aktiverat för den här appen.');
     const shot = await captureScreen(true);
     const t = await chat([
-      { role: 'system', content: 'Du skriver svar åt användaren. Läs mejlet eller konversationen på skärmen och skriv ett naturligt, bra svar som användaren kan skicka. Matcha språk och ton i konversationen och härma användarens stil om stilprov finns.' + styleBlock() + ' Svara ENDAST med själva svarstexten: ingen inledning, inga citattecken, ingen förklaring.' },
-      { role: 'user', content: content('Skriv svaret.', shot) },
+      { role: 'system', content: 'Du är ScreenBubbles Smart Reply. Inspektera skärmen noggrant. Om ett skrivfält innehåller ett pågående utkast från användaren: förbättra och färdigställ just det utkastet utan att ändra avsikten eller hitta på fakta. Om inget utkast skrivs: läs det senaste inkommande mejlet eller meddelandet och skriv ett passande svar. Avgör om det är mejl, chatt eller ett mer formellt samtal och anpassa ton, hälsning och längd. Lär av användarens tidigare skickade meddelanden som syns i konversationen och använd sparade stilprov om sådana finns.' + styleBlock() + ' Svara ENDAST med texten som ska stå i skrivfältet. Skicka aldrig meddelandet, tryck aldrig Enter och lägg inte till en förklaring.' },
+      { role: 'user', content: content('Föreslå ett svar eller förbättra användarens synliga utkast. Svara med bara texten.', shot) },
     ], { maxTokens: 600 });
     return { ok: true, text: (t.content || '').trim() };
   } catch (e) { return { ok: false, error: String(e.message || e) }; }
@@ -764,6 +765,12 @@ ipcMain.handle('memory-auto-get', () => readJson('settings.json', {}).memoryAuto
 ipcMain.handle('memory-auto-set', (_e, on) => { const s = readJson('settings.json', {}); s.memoryAuto = !!on; writeJson('settings.json', s); return !!s.memoryAuto; });
 ipcMain.handle('open-settings', () => { openSettingsWindow(); return true; });
 ipcMain.handle('features-get', () => featureSettings());
+ipcMain.handle('smart-reply-apps-get', () => ({ apps: smartReplyApps(), options: SMART_REPLY_APPS }));
+ipcMain.handle('smart-reply-apps-set', (_e, apps) => {
+  const clean = Array.isArray(apps) ? [...new Set(apps.filter((x) => Object.prototype.hasOwnProperty.call(SMART_REPLY_APPS, x)))] : [];
+  const s = readJson('settings.json', {}); s.smartReplyApps = clean; writeJson('settings.json', s);
+  return { apps: clean, options: SMART_REPLY_APPS };
+});
 ipcMain.handle('features-set', (_e, next) => {
   const s = readJson('settings.json', {});
   const clean = { ...FEATURE_DEFAULTS };
