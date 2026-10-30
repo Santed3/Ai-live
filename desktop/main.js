@@ -749,6 +749,8 @@ ipcMain.handle('features-set', (_e, next) => {
   s.features = clean; writeJson('settings.json', s);
   if (clean.selectionAsk) globalShortcut.register('Control+Alt+C', explainSelection);
   else globalShortcut.unregister('Control+Alt+C');
+  send2('features-updated', clean);
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('features-updated', clean);
   return clean;
 });
 ipcMain.handle('set-mode', (_e, m) => { setMode(m); return true; });

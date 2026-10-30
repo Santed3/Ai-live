@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld('api', {
   openSettingsWindow: () => ipcRenderer.invoke('open-settings'),
   featuresGet: () => ipcRenderer.invoke('features-get'),
   featuresSet: (f) => ipcRenderer.invoke('features-set', f),
+  onFeatures: (cb) => ipcRenderer.on('features-updated', (_e, f) => cb(f)),
   updateState: () => ipcRenderer.invoke('update-state'),
   updateCheck: () => ipcRenderer.invoke('update-check'),
   updateInstall: () => ipcRenderer.invoke('update-install'),

@@ -379,6 +379,7 @@ function renderUpdate() {
   renderMenu();
 }
 api.onUpdate((s) => { upd = s; renderUpdate(); });
+api.onFeatures((f) => { features = { ...FEATURE_DEFAULTS, ...(f || {}) }; applyFeatureVisibility(); renderMenu(); refreshChips(); });
 Promise.all([api.commandsGet(), api.autostartGet(), api.updateState(), api.memoryAutoGet(), api.featuresGet()]).then(([c, a, u, mm, ff]) => {
   cmds = c; autostartOn = a; upd = u; memoryAutoOn = mm; features = { ...FEATURE_DEFAULTS, ...(ff || {}) };
   $('ver').textContent = 'v' + (u.version || ''); applyFeatureVisibility(); renderUpdate();
