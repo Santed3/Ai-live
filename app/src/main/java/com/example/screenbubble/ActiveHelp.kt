@@ -112,7 +112,7 @@ class ActiveHelp(private val svc: ReaderService) {
         val trail = workflowContext()
         val prompt = "Active Help upptäckte ett möjligt problem i appen $pkg. Undersök den aktuella skärmen och förklara kort vad som verkar ha hänt och hur det kan lösas. " +
             (if (trail.isBlank()) "" else "Observerade steg i det här arbetsflödet, i ordning: $trail. Använd dem för att förstå sammanhanget, men anta inte att varje steg lyckades. ") +
-            "Gör inga ändringar eller klicka inte på något ännu. Fråga först om jag vill att du tar över och försöker lösa problemet. Om det behövs en åtgärd, beskriv planen och möjliga konsekvenser innan du ber om godkännande."
+            "Koppla problemet till det observerade arbetsflödet bara om sambandet är tydligt. Ge högst ett konkret nästa steg som löser hindret, inte en generell lista med tips. Gör inga ändringar eller klicka inte på något ännu. Fråga först om jag vill att du tar över och försöker lösa problemet. Om det behövs en åtgärd, beskriv planen och möjliga konsekvenser innan du ber om godkännande."
         svc.showActiveHelp(title, detail, prompt)
     }
 
