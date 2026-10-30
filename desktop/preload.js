@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('api', {
   newChat: () => ipcRenderer.invoke('new-chat'),
   setMode: (m) => ipcRenderer.invoke('set-mode', m),
   quick: () => ipcRenderer.invoke('quick'),
+  captureRegion: () => ipcRenderer.invoke('capture-region'),
   barMove: (y) => ipcRenderer.send('bar-move', { y }),
   onView: (cb) => ipcRenderer.on('view', (_e, v) => cb(v)),
   hide: () => ipcRenderer.invoke('set-mode', 'hide'),
