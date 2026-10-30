@@ -53,7 +53,14 @@ class ActiveHelp(private val svc: ReaderService) {
             "unsupported file type", "filtypen stöds inte", "invalid email address",
             "ogiltig e-postadress", "required field", "field is required", "obligatoriskt fält",
             "fältet är obligatoriskt", "server error", "form submission failed",
-            "kunde inte skicka formuläret"
+            "kunde inte skicka formuläret",
+            "session expired", "session has expired", "logga in igen", "sessionen har gått ut",
+            "sync failed", "synchronization failed", "synkronisering misslyckades", "couldn't sync",
+            "not enough storage", "disk full", "storage full", "ont om lagringsutrymme",
+            "printer offline", "printer not responding", "skrivaren är offline",
+            "service unavailable", "server unavailable", "temporarily unavailable", "tillfälligt otillgänglig",
+            "too many attempts", "för många försök", "account locked", "kontot är låst",
+            "can't connect", "could not connect", "kunde inte ansluta"
         ).any { normalized.contains(it) }
         val pairedFailure = download && listOf("failed", "error", "blocked", "misslyck", "fel", "kunde inte", "couldn't", "försök igen").any { normalized.contains(it) }
         if (!strongFailure && !pairedFailure) return
