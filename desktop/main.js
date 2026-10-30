@@ -54,7 +54,7 @@ function commands() { return readJson('commands.json', []).map(Lib.sanitizeComma
 const FEATURE_DEFAULTS = {
   smartReply: true, activeHelp: true, contextualSuggestions: true, screenActions: true,
   smartTranslate: true, studyMode: true, writingMode: true,
-  webResearch: true, appProfiles: true, selectionAsk: true, voice: true, readAloud: true,
+  webResearch: true, appProfiles: true, selectionAsk: true, voice: true, dictation: true, readAloud: true,
 };
 function featureSettings() { return { ...FEATURE_DEFAULTS, ...(readJson('settings.json', {}).features || {}) }; }
 function assistantAppearance() {
