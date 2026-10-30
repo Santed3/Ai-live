@@ -52,6 +52,7 @@ class ReaderService : AccessibilityService() {
     private var barY = 0
     private val smart by lazy { SmartReply(this) }
     private var sugView: View? = null
+    private var sugLoadingView: View? = null
     private var hintHide = false
     private var ready = false
     private var panel: PanelUi? = null
@@ -334,9 +335,30 @@ class ReaderService : AccessibilityService() {
     private fun removeSuggestions() {
         sugView?.let { try { wm.removeView(it) } catch (_: Exception) {} }
         sugView = null
+        sugLoadingView?.let { try { wm.removeView(it) } catch (_: Exception) {} }
+        sugLoadingView = null
     }
 
-    /** Slides a small card with suggested replies out of the sidebar. */
+    /** Tiny ScreenBubble typing indicator, floating over the current app. */
+    fun showSuggestionLoading() {
+        if (mode != Mode.BAR || closing) return
+        main.post {
+            if (mode != Mode.BAR || closing) return@post
+            removeSuggestions()
+            val v = SideUi(this).suggestionLoading()
+            val lp = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                PixelFormat.TRANSLUCENT
+            ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = dp(10); y = barY }
+            try { wm.addView(v, lp); sugLoadingView = v } catch (_: Exception) { return@post }
+            v.translationX = dp(14).toFloat(); v.alpha = 0f
+            v.animate().translationX(0f).alpha(1f).setDuration(180).start()
+        }
+    }
+
+    /** Compact reply suggestions float beside the sidebar, directly over the active app. */
     fun showSuggestions(list: List<String>) {
         if (mode != Mode.BAR || closing) return
         removeSuggestions()
@@ -349,9 +371,8 @@ class ReaderService : AccessibilityService() {
         ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = dp(10); y = barY }
         try { wm.addView(v, lp) } catch (_: Exception) { return }
         sugView = v
-        v.translationX = dp(40).toFloat()
-        v.alpha = 0f
-        v.animate().translationX(0f).alpha(1f).setDuration(160).start()
+        v.translationX = dp(18).toFloat(); v.alpha = 0f
+        v.animate().translationX(0f).alpha(1f).setDuration(180).start()
         main.postDelayed({ if (sugView === v) removeSuggestions() }, 30_000)
     }
 
