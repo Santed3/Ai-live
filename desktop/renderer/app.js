@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const chat = $('chat'), inp = $('inp');
-let busy = false, speakOn = false, convo = false, statusEl = null;
+let busy = false, speakOn = false, convo = false, statusEl = null, lastSmartReplySignature = '';
 
 // ---------------------------------------------------------------- helpers
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -154,6 +154,9 @@ async function makeReply() {
     const r = await api.reply();
     loading.remove();
     if (!r.ok) { addMsg(false, 'Fel: ' + r.error); return; }
+    const signature = String(r.mode || 'reply') + '|' + String(r.text || '').trim().toLowerCase();
+    if (signature === lastSmartReplySignature) { setStatus('Samma förslag visades nyss.'); setTimeout(clearStatus, 1800); return; }
+    lastSmartReplySignature = signature;
     const card = document.createElement('div');
     card.className = 'reply-suggestion';
     const head = document.createElement('div'); head.className = 'reply-brand';
