@@ -728,9 +728,10 @@ ipcMain.handle('transform', async (_e, { instruction, text }) => {
     return { ok: true, text: await textCompletion('Du redigerar text åt användaren. Svara ENDAST med den nya texten, utan inledning eller citattecken.', 'Instruktion: ' + instruction + '\n\nText:\n' + text, 600) };
   } catch (e) { return { ok: false, error: String(e.message || e) }; }
 });
-ipcMain.handle('insert', async (_e, { text, send }) => {
+ipcMain.handle('insert', async (_e, { text, send, replace }) => {
   if (send && !(await askConfirm('Skicka det här meddelandet?\n\n' + text))) return { ok: false, error: 'Avbrutet.' };
   const r = await withPanelHidden(async () => {
+    if (replace && !send) await sendKeys('^a');
     const t = await typeText(text);
     if (send) { await sleep(300); await sendKeys('{ENTER}'); }
     return t;
