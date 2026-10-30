@@ -19,6 +19,7 @@ class SmartReply(private val svc: ReaderService) {
     private var lastDraftHash = 0
     private var lastCall = 0L
     private var lastShownSignature = ""
+    private var activePackage = ""
 
     // Learning tracker: only a cleared, previously typed message is treated as sent.
     private var prevLen = 0
@@ -34,6 +35,16 @@ class SmartReply(private val svc: ReaderService) {
         if (pkg == svc.packageName) return
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             !pkg.contains("inputmethod") && pkg != "com.android.systemui") {
+            if (activePackage.isNotEmpty() && activePackage != pkg) {
+                pendingDraft = ""
+                main.removeCallbacks(draftDebounce)
+                main.removeCallbacks(debounce)
+                svc.hideSuggestions()
+                lastReplyHash = 0
+                lastDraftHash = 0
+                lastShownSignature = ""
+            }
+            activePackage = pkg
             if (!allowed(pkg)) {
                 pendingDraft = ""
                 main.removeCallbacks(draftDebounce)
@@ -49,7 +60,7 @@ class SmartReply(private val svc: ReaderService) {
         if (e.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
             val src = e.source
             if (src != null && src.isEditable && !src.isPassword) {
-                val current = src.text?.toString().orEmpty()
+                val current = src.text?.toString() ?: e.text?.joinToString("") { it?.toString().orEmpty() }.orEmpty()
                 if (learnOn()) track(current, src.isShowingHintText)
                 if (suggestOn() && !src.isShowingHintText && current.trim().length >= 4) {
                     pendingDraft = current
