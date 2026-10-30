@@ -163,11 +163,15 @@ async function makeReply() {
     const tag = document.createElement('span'); tag.className = 'reply-tag'; tag.textContent = isDraft ? 'FÖRBÄTTRAT UTKAST' : 'SMART REPLY';
     head.append(mark, brand, tag);
     const body = document.createElement('div'); body.className = 'reply-text'; body.textContent = r.text;
+    body.contentEditable = 'true'; body.setAttribute('role', 'textbox'); body.setAttribute('aria-label', 'Redigera Smart Reply-förslag');
     const actions = document.createElement('div'); actions.className = 'reply-actions';
     const insertButton = document.createElement('button'); insertButton.className = 'p'; insertButton.textContent = isDraft ? 'Ersätt mitt utkast' : 'Infoga svar';
     insertButton.onclick = async () => {
+      const chosenText = body.innerText.trim();
+      if (!chosenText) return;
       insertButton.disabled = true;
-      const result = await api.insert(r.text, false, isDraft);
+      api.styleAdd(chosenText);
+      const result = await api.insert(chosenText, false, isDraft);
       insertButton.disabled = false;
       setStatus(result.ok ? (isDraft ? 'Utkastet har ersatts.' : 'Svaret har infogats i textfältet.') : result.error);
       setTimeout(clearStatus, 2200);
