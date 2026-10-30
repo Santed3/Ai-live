@@ -52,7 +52,7 @@ async function learn(userText, answer) {
 }
 function commands() { return readJson('commands.json', []).map(Lib.sanitizeCommand).filter(Boolean); }
 const FEATURE_DEFAULTS = {
-  smartReply: true, contextualSuggestions: true, screenActions: true,
+  smartReply: true, activeHelp: true, contextualSuggestions: true, screenActions: true,
   smartTranslate: true, studyMode: true, writingMode: true,
   webResearch: true, appProfiles: true, selectionAsk: true, voice: true, readAloud: true,
 };
@@ -297,6 +297,34 @@ const WIN32 = [
 ];
 const WIN32_SRC = WIN32.join('\n');
 let lastExternal = { title: '', proc: '' };
+let lastActiveHelpSignature = '', lastActiveHelpAt = 0, activeHelpRepeat = 0, activeHelpPrompt = null;
+function inspectForActiveHelp(title, proc, snapshot) {
+  if (!featureSettings().activeHelp || mode === 'chat' || !panel || panel.isFocused()) { activeHelpRepeat = 0; return; }
+  const text = (String(title || '') + '\n' + String(snapshot || '')).toLowerCase();
+  if (!text.trim()) return;
+  const download = /(download|downloading|nedladd|hämtar|hämtning)/i.test(text);
+  const strong = [
+    'download failed', "couldn't download", 'could not download', 'failed to download',
+    'nedladdningen misslyckades', 'kunde inte ladda ner', 'hämtningen misslyckades',
+    'something went wrong', 'not responding', "isn't responding", 'åtkomst nekad',
+    'access denied', 'permission denied', 'kunde inte slutföra', "couldn't complete",
+    'could not complete', 'network error', 'nätverksfel', 'connection failed',
+    'anslutningen misslyckades', 'installation failed', 'installationen misslyckades'
+  ].some((phrase) => text.includes(phrase));
+  const stalled = download && /(0\\s*(b\\/s|kb\\/s|mb\\/s)|0%|paused|pausad|stalled|väntar)/i.test(text);
+  const soft = /(try again|retry|försök igen|couldn't|kunde inte|failed|misslyckades|error|fel)/i.test(text);
+  if (!strong && !stalled && !soft) { activeHelpRepeat = 0; return; }
+  const signature = String(proc || '') + '|' + String(title || '') + '|' + text.replace(/\\s+/g, ' ').slice(0, 1300);
+  if (signature === lastActiveHelpSignature) activeHelpRepeat++; else { lastActiveHelpSignature = signature; activeHelpRepeat = 1; }
+  if (!strong && activeHelpRepeat < (stalled ? 8 : 3)) return;
+  if (signature === lastActiveHelpPromptSignature || Date.now() - lastActiveHelpAt < 120000) return;
+  lastActiveHelpPromptSignature = signature;
+  lastActiveHelpAt = Date.now();
+  const headline = download ? 'Nedladdningen verkar ha fastnat' : 'Det verkar ha uppstått ett problem';
+  activeHelpPrompt = 'Active Help upptäckte ett möjligt problem i ' + (title || proc) + '. Undersök den aktuella skärmen och förklara kort vad som verkar ha hänt och hur det kan lösas. Gör inga ändringar, klicka inte och ladda inte ner något ännu. Fråga först om jag vill att du tar över och försöker lösa problemet. Förklara vilken åtgärd du tänker utföra innan du ber om godkännande.';
+  showAnswer('Active Help\n' + headline + '\nTryck här för att analysera');
+}
+let lastActiveHelpPromptSignature = '';
 let autoDraftTimer = null, lastObservedDraft = '', lastAutoDraftSuggestion = '', autoDraftBusy = false, autoDraftSuppressedUntil = 0;
 function queueSmartDraft(draft, proc, title) {
   const value = String(draft || '').trim();
@@ -337,20 +365,21 @@ async function createAutoDraftSuggestion(draft, signature, proc, title) {
   }
 }
 async function pollForeground() {
-  if (!panel || !panel.isVisible() || panel.isFocused()) return;
+  if (!panel || panel.isDestroyed() || panel.isFocused()) return;
   const r = await ps([...WIN32,
     '$h=[W32]::GetForegroundWindow(); $sb=New-Object System.Text.StringBuilder 512; [void][W32]::GetWindowText($h,$sb,512)',
     '$p=0; [void][W32]::GetWindowThreadProcessId($h,[ref]$p); $n=(Get-Process -Id $p -ErrorAction SilentlyContinue).ProcessName',
-    '$v=""; try { Add-Type -AssemblyName UIAutomationClient -ErrorAction Stop; $e=[System.Windows.Automation.AutomationElement]::FocusedElement; $pat=$null; if($e -and -not $e.Current.IsPassword -and $e.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pat)){ $v=$pat.Current.Value } elseif($e -and -not $e.Current.IsPassword -and $e.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern,[ref]$pat)){ $v=$pat.DocumentRange.GetText(1200) } } catch {}',
-    '$enc=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($v)); $sb.ToString() + "|" + $n + "|" + $enc'], 7000);
+    '$v=""; try { Add-Type -AssemblyName UIAutomationClient -ErrorAction Stop; $root=[System.Windows.Automation.AutomationElement]::FromHandle($h); $items=$root.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition); $parts=New-Object System.Collections.Generic.List[string]; $i=0; foreach($x in $items){ if($i -ge 120 -or $parts.Count -ge 100){break}; $i++; try { if($x.Current.IsPassword -or $x.Current.IsOffscreen){continue}; $z=$x.Current.Name; if($z -and $z.Trim()){ $parts.Add($z.Trim()) }; $pat=$null; if($x.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pat)){ $z=$pat.Current.Value; if($z -and $z.Trim()){ $parts.Add($z.Trim()) } } } catch {} }; $v=$parts -join " | "; if($v.Length -gt 6000){$v=$v.Substring(0,6000)} } catch {}',
+    '$enc=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($v)); $sb.ToString() + "|" + $n + "|" + $enc'], 9000);
   if (r.ok && r.out.includes('|')) {
     const last = r.out.lastIndexOf('|'), prev = r.out.lastIndexOf('|', last - 1);
     if (prev >= 0 && last > prev) {
       const title = r.out.slice(0, prev), proc = r.out.slice(prev + 1, last).toLowerCase();
-      const draft = Buffer.from(r.out.slice(last + 1), 'base64').toString('utf8');
+      const visibleText = Buffer.from(r.out.slice(last + 1), 'base64').toString('utf8');
       if (proc && proc !== 'screenbubble' && proc !== 'electron') {
         lastExternal = { title, proc };
-        queueSmartDraft(draft, proc, title);
+        queueSmartDraft(visibleText, proc, title);
+        inspectForActiveHelp(title, proc, visibleText);
       }
     }
   }
@@ -872,7 +901,12 @@ ipcMain.on('dot-dbl', () => app.quit());
 ipcMain.on('dot-panel', () => setMode('bar'));
 ipcMain.on('dot-move', (_e, { x, y }) => { if (dot) dot.setPosition(Math.round(x), Math.round(y)); });
 ipcMain.on('dot-save', () => { if (dot) { const b = dot.getBounds(); writeJson('dot.json', { x: b.x, y: b.y }); } });
-ipcMain.on('answer-click', () => endAnswer());
+ipcMain.on('answer-click', () => {
+  if (activeHelpPrompt) {
+    const prompt = activeHelpPrompt; activeHelpPrompt = null; endAnswer(); setMode('chat');
+    setTimeout(() => send2('ask', prompt), 220);
+  } else endAnswer();
+});
 
 // ---------------------------------------------------------------- lifecycle
 app.whenReady().then(() => {
