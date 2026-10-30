@@ -50,13 +50,25 @@ class NotesLibraryActivity : Activity() {
         }, LinearLayout.LayoutParams(dp(42), dp(48)))
         val heading = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         heading.addView(label("Mina anteckningar", 22f, fg, true))
-        heading.addView(label("Sök, fortsätt eller skapa en ny anteckning", 12f, muted))
+        heading.addView(label("Dina tankar, samlade på ett ställe", 12f, muted))
         header.addView(heading, LinearLayout.LayoutParams(0, -2, 1f))
         header.addView(label("＋ Ny", 14f, accent, true).apply {
             setPadding(dp(10), dp(12), dp(4), dp(12))
             setOnClickListener { startActivity(Intent(this@NotesLibraryActivity, NotesActivity::class.java)); finish() }
         })
         root.addView(header)
+        val hero = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(0xFF30265C.toInt(), 0xFF191F34.toInt(), 0xFF151B29.toInt())
+            ).apply { cornerRadius = dp(19).toFloat(); setStroke(dp(1), 0x44B9A8FF) }
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+        }
+        hero.addView(label("DITT PERSONLIGA BIBLIOTEK", 9f, 0xFFC7BBFF.toInt(), true))
+        hero.addView(label("Fånga tankarna. Hitta dem igen.", 18f, fg, true).apply { setPadding(0, dp(6), 0, dp(3)) })
+        hero.addView(label("${readNotes().size} sparade anteckningar · Privat på den här enheten", 11f, muted))
+        root.addView(hero, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
         search = EditText(this).apply {
             hint = "Sök i anteckningar…"; setHintTextColor(muted); setTextColor(fg); textSize = 14f
             setSingleLine(true); background = rounded(card, 13); setPadding(dp(14), dp(11), dp(14), dp(11))
