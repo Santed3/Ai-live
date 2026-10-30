@@ -450,7 +450,7 @@ function createDot() {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   dot.setAlwaysOnTop(true, 'screen-saver');
-  dot.loadFile(path.join(__dirname, 'renderer', 'dot.html'));
+  dot.loadFile(path.join(__dirname, 'renderer', 'dot.html'), { query: { display: assistantAppearance().display } });
 }
 function createAnswer() {
   answerWin = new BrowserWindow({
@@ -868,6 +868,7 @@ ipcMain.handle('appearance-set', (_e, next) => {
   saved.assistantDisplay = ['sidebar', 'bubble', 'swipe'].includes(next?.display) ? next.display : 'sidebar';
   saved.assistantSwipe = next?.swipe === 'right' ? 'right' : 'left';
   writeJson('settings.json', saved);
+  if (dot && !dot.isDestroyed()) dot.loadFile(path.join(__dirname, 'renderer', 'dot.html'), { query: { display: saved.assistantDisplay } });
   if (mode === 'bar') setMode('bar');
   return assistantAppearance();
 });
