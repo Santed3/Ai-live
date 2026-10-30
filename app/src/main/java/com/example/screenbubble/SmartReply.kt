@@ -104,9 +104,11 @@ class SmartReply(private val svc: ReaderService) {
                 if (tail.isBlank() || h == lastHash) return@execute
                 lastHash = h
                 lastCall = System.currentTimeMillis()
+                main.post { svc.showSuggestionLoading() }
                 val list = OpenAiClient(key, "gpt-4o-mini").suggestReplies(tail, styleBlock())
                 main.post { if (list.isEmpty()) svc.hideSuggestions() else svc.showSuggestions(list) }
             } catch (_: Exception) {
+                main.post { svc.hideSuggestions() }
             } finally {
                 inFlight = false
             }
