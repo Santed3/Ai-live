@@ -658,7 +658,7 @@ const TOOLS = [
   tool('wait', 'Vänta några sekunder.', { seconds: ['integer', '1-10'] }, ['seconds']),
 ];
 
-function systemPrompt() {
+function systemPrompt(assistantMode = 'general') {
   const now = new Date().toLocaleString('sv-SE');
   const mem = memory();
   const proc = String(lastExternal.proc || '').toLowerCase();
@@ -672,7 +672,9 @@ function systemPrompt() {
     /excel|winword|powerpnt/.test(proc) || /excel|word|powerpoint/.test(lowTitle) ? 'OFFICE: hjälp med formler, dokument, presentationer och struktur.' :
     'ALLMÄNT: identifiera uppgiftstypen på skärmen och välj det mest användbara arbetssättet.';
   const profileEnabled = featureSettings().appProfiles;
+  const modeGuidance = ({ general: 'Var flexibel och effektiv.', study: 'Förklara pedagogiskt steg för steg och hjälp användaren förstå.', work: 'Prioritera tydlighet, struktur, beslut och nästa steg.', code: 'Var tekniskt precis, analysera sammanhanget och föreslå minsta säkra kodändring.', writing: 'Skriv naturligt, behåll avsikt och ton och hitta inte på fakta.' })[assistantMode] || 'Var flexibel och effektiv.';
   return 'Du är ScreenBubble, en snabb och vänlig assistent på användarens Windows-dator, ungefär som Siri fast mycket smartare. ' +
+    'Aktivt läge: ' + modeGuidance + '\n' +
     'Du ser skärmen (bild) och kan styra datorn med verktyg.\n' +
     (profileEnabled ? 'Aktiv app: ' + (lastExternal.proc || 'okänd') + '. Fönstertitel: ' + (lastExternal.title || 'okänd') + '. App-profil: ' + appProfile + '\nAnpassa exempel, ton och rekommenderade arbetsflöden efter denna app.\n' : '') +
     'Regler:\n' +
