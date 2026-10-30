@@ -26,12 +26,12 @@ import android.widget.Toast
 /** Start screen: setup checklist, updates, custom commands, memory. */
 class MainActivity : Activity() {
 
-    private val BG = 0xFF0E0F14.toInt()
-    private val CARD = 0xFF181A22.toInt()
-    private val TEXT = 0xFFECEFF8.toInt()
-    private val MUTED = 0xFF8D95AD.toInt()
-    private val ACCENT = 0xFF7CF5C8.toInt()
-    private val PRIMARY = 0xFF6C47FF.toInt()
+    private val BG = 0xFF0B0E16.toInt()
+    private val CARD = 0xFF171D2B.toInt()
+    private val TEXT = 0xFFF2F4FC.toInt()
+    private val MUTED = 0xFF9AA5BE.toInt()
+    private val ACCENT = 0xFF8DF5D0.toInt()
+    private val PRIMARY = 0xFF7857FF.toInt()
 
     private lateinit var content: LinearLayout
     private var keyInput: EditText? = null
@@ -48,7 +48,7 @@ class MainActivity : Activity() {
         window.navigationBarColor = BG
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(36), dp(16), dp(28))
+            setPadding(dp(18), dp(34), dp(18), dp(32))
         }
         setContentView(ScrollView(this).apply { setBackgroundColor(BG); addView(content) })
         render()
@@ -159,7 +159,7 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(dp(14), dp(14)).apply { rightMargin = dp(10) })
         head.addView(text("ScreenBubble", 28f, TEXT, true))
         content.addView(head)
-        content.addView(text("AI-assistent som ser din skärm · v$ver", 13f, MUTED).apply { setPadding(0, dp(2), 0, 0) })
+        content.addView(text("Din AI-assistent · alltid nära till hands · v$ver", 13f, MUTED).apply { setPadding(0, dp(5), 0, 0) })
 
         // update
         val nb = newerBuild
@@ -235,6 +235,24 @@ class MainActivity : Activity() {
         if (n > 0 || Store.styleProfile(this).isNotEmpty()) {
             sr.addView(button("Rensa det jag lärt mig om min stil") { Store.clearWritingStyle(this); render() }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(6) })
         }
+
+        // App profiles are configured here; the sidebar adapts to the active app.
+        val profiles = card("Appprofiler", "Välj hur ScreenBubble ska anpassa sig automatiskt efter appen du använder.")
+        fun profileToggle(label: String, key: String, detail: String) {
+            profiles.addView(Switch(this).apply {
+                text = label
+                textSize = 14f
+                setTextColor(TEXT)
+                isChecked = Store.flag(this@MainActivity, key)
+                setPadding(0, dp(7), 0, 0)
+                setOnCheckedChangeListener { _, v -> Store.setFlag(this@MainActivity, key, v) }
+            })
+            profiles.addView(text(detail, 11.5f, MUTED).apply { setPadding(0, 0, 0, dp(5)) })
+        }
+        profileToggle("E-post och meddelanden", "profile_communication", "Prioriterar sammanfattningar och naturliga svar i din skrivstil.")
+        profileToggle("Studier och lärande", "profile_study", "Förklarar stegvis och ger ledtrådar innan hela lösningen.")
+        profileToggle("Skrivande och dokument", "profile_writing", "Hjälper med formulering, struktur, korrektur och dokument.")
+        profileToggle("Webb och research", "profile_research", "Prioriterar källor, jämförelser och tydliga sammanfattningar.")
 
         // custom commands
         val cmds = Store.commands(this)

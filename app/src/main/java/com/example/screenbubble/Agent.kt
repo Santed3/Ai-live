@@ -24,8 +24,22 @@ class Agent(
     private fun systemPrompt(): String {
         val now = SimpleDateFormat("EEEE d MMMM yyyy HH:mm", Locale("sv", "SE")).format(Date())
         val mem = Store.memory(ctx)
+        val pkg = svc.currentPkg().lowercase(Locale.ROOT)
+        val appProfile = when {
+            listOf("gmail", "outlook", "mail", "whatsapp", "telegram", "messenger", "discord", "slack", "teams", "signal").any { pkg.contains(it) } && Store.flag(ctx, "profile_communication") ->
+                "KOMMUNIKATION: sammanfatta mejl och konversationer, identifiera nästa steg och skriv svar i användarens stil. Skicka aldrig utan bekräftelse."
+            listOf("chrome", "browser", "firefox").any { pkg.contains(it) } && Store.flag(ctx, "profile_research") ->
+                "WEBB: sammanfatta sidor, översätt, förklara begrepp och gör källbaserad research."
+            listOf("excel", "sheets", "word", "docs", "powerpoint").any { pkg.contains(it) } && Store.flag(ctx, "profile_writing") ->
+                "PRODUKTIVITET: hjälp med dokument, kalkylblad, formler och presentationer."
+            Store.flag(ctx, "profile_study") ->
+                "STUDIER: förklara pedagogiskt, ge ledtrådar först och kontrollera förståelsen innan full lösning."
+            else -> "ALLMÄNT: identifiera uppgiften på skärmen och välj automatiskt lämpligt arbetssätt."
+        }
         return "Du är ScreenBubble, en snabb och vänlig röst- och textassistent på användarens telefon, ungefär som Siri fast mycket smartare. " +
             "Du ser användarens skärm (bild + text) och kan styra telefonen med verktyg.\n" +
+            "Aktiv app: $pkg\nApp-profil: $appProfile\n" +
+            "Kontext: använd skärmens innehåll som primär kontext, skilj mellan användarens text och andras text, och anpassa förslagen efter appen utan att användaren behöver förklara. Fråga kort om sammanhanget är oklart.\n" +
             "Regler:\n" +
             "- Svara kort, naturligt och på användarens språk. Använd inte markdown.\n" +
             "- Använd verktyg bara när användaren vill att något ska göras eller du behöver mer information. Annars svara direkt.\n" +

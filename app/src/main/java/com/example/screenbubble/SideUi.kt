@@ -129,11 +129,13 @@ class SideUi(private val svc: ReaderService) {
                 Tile("💌", "Svara på meddelande") { svc.openChat("Föreslå ett kort svar på meddelandet på skärmen.", true) },
                 Tile("🧩", "Lös uppgiften") { svc.openChat("Lös uppgiften som syns på skärmen och utför den om det går.", true) }
             ),
-            "Skriv och sök" to listOf(
-                Tile("🔎", "Google") { svc.openChat("google ", false) },
-                Tile("✍️", "Skriv") { svc.openChat("skriv ", false) },
-                Tile("📄", "Sammanfatta") { svc.openChat("Sammanfatta det som syns på skärmen kort.", true) },
-                Tile("🌍", "Översätt") { svc.openChat("Översätt texten på skärmen till svenska.", true) }
+            "AI-lägen" to listOf(
+                Tile("⚡", "AI Actions") { svc.openChat("Hjälp mig genomföra uppgiften på skärmen steg för steg. Bekräfta innan du skickar, raderar, köper eller publicerar.", true) },
+                Tile("🌐", "Smart Translate") { svc.openChat("Översätt den viktigaste texten på skärmen till svenska och behåll struktur och ton.", true) },
+                Tile("🎓", "Study Mode") { svc.openChat("Förklara uppgiften pedagogiskt steg för steg. Ge ledtrådar innan hela lösningen och kontrollera min förståelse.", true) },
+                Tile("✍️", "Writing Mode") { svc.openChat("Hjälp mig skriva eller förbättra texten på skärmen. Matcha sammanhang och min skrivstil.", true) },
+                Tile("🔎", "Web Research") { svc.openChat("Undersök ämnet på skärmen, jämför tillförlitliga källor och sammanfatta med länkar.", true) },
+                Tile("🧩", "App Profiles") { openApp(null) }
             ),
             "Verktyg" to listOf(
                 Tile("🎤", "Röst") { svc.openChat(null, false); svc.voiceSoon() },
