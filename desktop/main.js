@@ -326,7 +326,7 @@ function inspectForActiveHelp(title, proc, snapshot) {
   lastActiveHelpAt = Date.now();
   const headline = download ? 'Nedladdningen verkar ha fastnat' : 'Det verkar ha uppstått ett problem';
   activeHelpPrompt = 'Active Help upptäckte ett möjligt problem i ' + (title || proc) + '. Undersök den aktuella skärmen och förklara kort vad som verkar ha hänt och hur det kan lösas. Gör inga ändringar, klicka inte och ladda inte ner något ännu. Fråga först om jag vill att du tar över och försöker lösa problemet. Förklara vilken åtgärd du tänker utföra innan du ber om godkännande.';
-  showAnswer('Active Help\n' + headline + '\nTryck här för att analysera');
+  showAnswer('Active Help\n' + headline + '\nTryck här för att analysera', 12000);
 }
 let lastActiveHelpPromptSignature = '';
 let autoDraftTimer = null, lastObservedDraft = '', lastAutoDraftSuggestion = '', autoDraftBusy = false, autoDraftSuppressedUntil = 0;
@@ -475,7 +475,7 @@ function setMode(m) {
   if (m === 'chat') panel.webContents.send('panel-shown');
 }
 
-function showAnswer(text) {
+function showAnswer(text, duration) {
   if (!answerWin) createAnswer();
   const clean = String(text).replace(/\*\*/g, '').trim();
   const lines = clean.split('\n');
@@ -494,7 +494,7 @@ function showAnswer(text) {
   if (mode === 'hide' && dot) dot.hide();
   answerWin.showInactive();
   clearTimeout(answerTimer);
-  answerTimer = setTimeout(endAnswer, Math.min(10000, 5000 + (lines.length - 1) * 1500));
+  answerTimer = setTimeout(endAnswer, duration || Math.min(10000, 5000 + (lines.length - 1) * 1500));
 }
 function endAnswer() {
   clearTimeout(answerTimer);
