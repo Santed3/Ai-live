@@ -136,10 +136,12 @@ async function send(text, voice) {
 }
 api.onStatus(setStatus);
 $('go').onclick = () => { const t = inp.value; inp.value = ''; send(t, false); };
-$('assistantMode').onchange = () => {
+$('assistantMode').onchange = async () => {
   const labels = { general:'Allmänt', study:'Studier', work:'Arbete', code:'Programmering', writing:'Skrivande' };
+  await api.assistantModeSet($('assistantMode').value);
   setStatus('Aktivt läge: ' + labels[$('assistantMode').value]); setTimeout(clearStatus, 1400);
 };
+api.assistantModeGet().then((mode) => { if (['general','study','work','code','writing'].includes(mode)) $('assistantMode').value = mode; });
 inp.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('go').click(); }
 });
