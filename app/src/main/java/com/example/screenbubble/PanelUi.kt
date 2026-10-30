@@ -50,6 +50,7 @@ class PanelUi(private val svc: ReaderService) {
 
     val root = LinearLayout(svc)
     private val chips = LinearLayout(svc)
+    private val modeRow = LinearLayout(svc)
     private val chat = LinearLayout(svc)
     private val scroll = ScrollView(svc)
     private val input = EditText(svc)
@@ -144,6 +145,24 @@ class PanelUi(private val svc: ReaderService) {
             addView(row)
         }
 
+    private fun renderModeRow() {
+        modeRow.removeAllViews()
+        val choices = listOf(
+            "general" to "Allmänt", "study" to "Studier", "work" to "Arbete",
+            "code" to "Kod", "writing" to "Skrivande"
+        )
+        val selected = Store.assistantMode(svc)
+        for ((value, label) in choices) {
+            val b = pill(label, if (selected == value) PRIMARY else 0x20FFFFFF) {
+                Store.setAssistantMode(svc, value)
+                renderModeRow()
+                setStatus("Aktivt läge: $label")
+            }
+            b.textSize = 11f
+            modeRow.addView(b, lp(-2, -2, r = 5))
+        }
+    }
+
     private fun build() {
         root.orientation = LinearLayout.VERTICAL
         root.background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xF51B2030.toInt(), 0xF50B0E16.toInt())).apply {
@@ -177,6 +196,9 @@ class PanelUi(private val svc: ReaderService) {
         // chips
         chips.orientation = LinearLayout.HORIZONTAL
         root.addView(hscroll(chips), lp(-1, -2, t = 8))
+        modeRow.orientation = LinearLayout.HORIZONTAL
+        root.addView(hscroll(modeRow), lp(-1, -2, t = 5))
+        renderModeRow()
 
         // chat
         chat.orientation = LinearLayout.VERTICAL
