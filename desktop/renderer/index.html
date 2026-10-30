@@ -177,6 +177,19 @@ header button{width:30px;height:30px;border-radius:10px;display:grid;place-items
 button:focus-visible,.tile:focus-visible{outline:2px solid #a995ff;outline-offset:3px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
+/* A clearer, calmer Windows home screen */
+.menu-welcome{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 14px;margin:2px 0 11px;border:1px solid rgba(169,149,255,.2);border-radius:17px;background:radial-gradient(circle at 92% 0%,rgba(146,124,255,.18),transparent 38%),linear-gradient(115deg,rgba(101,77,198,.2),rgba(28,35,54,.78))}
+.menu-welcome-copy{min-width:0}.menu-welcome-copy>span{font-size:8px;font-weight:800;letter-spacing:.16em;color:#b9adff}
+.menu-welcome h3{margin:5px 0 2px;font-size:16px;line-height:1.2;letter-spacing:-.035em;color:#f5f6ff}
+.menu-welcome p{margin:0;color:#aab4cb;font-size:10.5px;line-height:1.4}
+.menu-welcome-mark{width:39px;height:39px;display:grid;place-items:center;flex:none;border-radius:13px;background:linear-gradient(145deg,rgba(174,154,255,.25),rgba(115,87,255,.1));border:1px solid rgba(204,193,255,.22);font-size:21px;color:#d8ceff}
+#primaryActions{gap:8px}
+#primaryActions button{min-height:56px;display:flex;align-items:center;justify-content:center;gap:5px;padding:9px 5px;border-radius:14px;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.035));border:1px solid rgba(255,255,255,.075);font-size:10.5px;letter-spacing:-.01em}
+#primaryActions button:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,0,0,.18)}
+#moreBar{padding:5px 2px 2px}
+#moreBar button{font-size:10.5px}
+#menu .menu-welcome{display:flex}
+@media(max-height:560px){.menu-welcome{padding:10px 12px;margin-bottom:7px}.menu-welcome-mark{width:32px;height:32px}#primaryActions button{min-height:46px}}
 /* ScreenBubble Windows — redesigned sidebar system */
 :root{--bg:#0b0e16;--card:#151b29;--text:#f3f5fc;--muted:#8994ad;--accent:#91f2d1;--primary:#8062ff;--line:rgba(220,228,255,.09);--surface:#111725}
 #menu{position:relative;padding:17px 16px 16px;border-radius:25px;background:radial-gradient(ellipse at 92% 0%,rgba(111,85,255,.18),transparent 42%),linear-gradient(155deg,#171d2c 0%,#0b0e16 76%);border:1px solid rgba(214,222,255,.13);box-shadow:0 28px 90px rgba(0,0,0,.56),inset 0 1px rgba(255,255,255,.055);overflow-x:hidden;overflow-y:auto;scrollbar-width:thin}
@@ -288,6 +301,10 @@ button:focus-visible,.tile:focus-visible{outline:2px solid #b2a3ff;outline-offse
 </style></head>
 <body data-v="bar"><div id="bar" class="view"><div id="pill"></div></div><div id="menu" class="view">
   <div id="mhead"><div class="brand"><span class="brandmark">S</span><div><h2>ScreenBubble</h2><small>DIN AI-ASSISTENT</small></div></div><button id="settingsOpen" class="settings-trigger" title="Inställningar">⚙</button><span id="ver"></span></div>
+  <section class="menu-welcome" aria-label="Välkommen">
+    <div class="menu-welcome-copy"><span>DIN AI-ARBETSYTA</span><h3>Vad vill du få gjort?</h3><p>Få hjälp med det du ser, skriv eller prata direkt.</p></div>
+    <div class="menu-welcome-mark" aria-hidden="true">✦</div>
+  </section>
   <div id="primaryActions"><button data-prompt="Föreslå ett passande svar utifrån det som syns på skärmen." data-auto="1">💬 Svara</button><button data-prompt="Förklara det viktigaste som visas på skärmen på ett enkelt sätt." data-auto="1">✦ Förklara</button><button data-prompt="Sammanfatta det viktigaste på skärmen i korta punkter." data-auto="1">▤ Sammanfatta</button></div>
   <div id="moreBar"><button id="moreTools" aria-expanded="false">… Fler funktioner</button><span>Ctrl + Alt + Space</span></div>
   <div class="menu-search"><span>⌕</span><input id="featureSearch" placeholder="Sök bland alla funktioner…" autocomplete="off"></div>
