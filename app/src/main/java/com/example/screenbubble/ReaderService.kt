@@ -331,6 +331,7 @@ class ReaderService : AccessibilityService() {
     // ------------------------------------------------------- reply suggestions
 
     fun canShowSuggestions() = mode == Mode.BAR
+    fun canShowActiveHelp() = mode == Mode.BAR || mode == Mode.HIDE
 
     fun hideSuggestions() = main.post { removeSuggestions() }
 
@@ -361,9 +362,9 @@ class ReaderService : AccessibilityService() {
     }
 
     fun showActiveHelp(title: String, detail: String, prompt: String) {
-        if (mode != Mode.BAR || closing) return
+        if ((mode != Mode.BAR && mode != Mode.HIDE) || closing) return
         main.post {
-            if (mode != Mode.BAR || closing) return@post
+            if ((mode != Mode.BAR && mode != Mode.HIDE) || closing) return@post
             removeSuggestions()
             val v = SideUi(this).activeHelp(title, detail, {
                 removeSuggestions()
@@ -524,7 +525,7 @@ class ReaderService : AccessibilityService() {
         fun walk(n: AccessibilityNodeInfo?) {
             if (n == null || count > 1500 || sb.length > 8000) return
             count++
-            if (n.isVisibleToUser && !(skipEditable && n.isEditable)) {
+            if (n.isVisibleToUser && !n.isPassword && !(skipEditable && n.isEditable)) {
                 val t = n.text?.toString()?.trim().orEmpty()
                 val d = n.contentDescription?.toString()?.trim().orEmpty()
                 val s = if (t.isNotEmpty()) t else d
