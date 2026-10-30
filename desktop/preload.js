@@ -57,6 +57,7 @@ contextBridge.exposeInMainWorld('api', {
   dotClick: () => ipcRenderer.send('dot-click'),
   dotDouble: () => ipcRenderer.send('dot-dbl'),
   dotPanel: () => ipcRenderer.send('dot-panel'),
+  dotSwipe: (direction) => ipcRenderer.send('dot-swipe', direction),
   dotMove: (x, y) => ipcRenderer.send('dot-move', { x, y }),
   dotSave: () => ipcRenderer.send('dot-save'),
   // answer bubble
