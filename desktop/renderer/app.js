@@ -249,6 +249,14 @@ const BUILTIN = [
     ['📄', 'Sammanfatta', () => go('Sammanfatta det som syns på skärmen kort.', true)],
     ['🌍', 'Översätt', () => go('Översätt texten på skärmen till svenska.', true)],
   ]],
+  ['AI-lägen', [
+    ['⚡', 'AI Actions', () => go('Hjälp mig genomföra uppgiften på skärmen steg för steg. Planera först och be om bekräftelse innan du skickar, raderar, köper eller publicerar.', true)],
+    ['🌐', 'Smart Translate', () => go('Identifiera den viktigaste texten på skärmen och översätt den till svenska. Behåll struktur och ton.', true)],
+    ['🎓', 'Study Mode', () => go('Förklara uppgiften pedagogiskt steg för steg. Ge ledtrådar innan du visar hela lösningen och kontrollera min förståelse.', true)],
+    ['✍️', 'Writing Mode', () => go('Hjälp mig skriva eller förbättra texten på skärmen. Matcha sammanhang, språk och min skrivstil.', true)],
+    ['🔎', 'Web Research', () => go('Undersök ämnet på skärmen, jämför tillförlitliga källor och sammanfatta med länkar.', true)],
+    ['🧩', 'App Profiles', () => go('Identifiera appen jag använder och anpassa automatiskt hjälpen efter dess arbetsflöde. Berätta vilket arbetssätt du valt.', true)],
+  ]],
   ['Verktyg', [
     ['🎤', 'Röst', () => { preset = { voice: true }; api.setMode('chat'); }],
     ['🕘', 'Historik', () => { preset = { hist: true }; api.setMode('chat'); }],

@@ -519,6 +519,16 @@ const TOOLS = [
 function systemPrompt() {
   const now = new Date().toLocaleString('sv-SE');
   const mem = memory();
+  const proc = String(lastExternal.proc || '').toLowerCase();
+  const title = String(lastExternal.title || '');
+  const lowTitle = title.toLowerCase();
+  const appProfile =
+    /outlook|thunderbird|mail/.test(proc) || /gmail|outlook|inbox/.test(lowTitle) ? 'E-POST: prioritera mejlsammanfattningar, tydliga nästa steg och svar i användarens ton. Skicka aldrig utan bekräftelse.' :
+    /whatsapp|telegram|discord|slack|teams|signal|messenger/.test(proc) || /whatsapp|messenger|telegram|discord|slack|teams/.test(lowTitle) ? 'MEDDELANDEN: förstå vem som skrev senast, föreslå korta naturliga svar och matcha användarens stil.' :
+    /chrome|msedge|firefox|brave|opera/.test(proc) ? 'WEBB: sammanfatta aktuell sida, översätt markerad text, förklara begrepp och erbjud källbaserad research.' :
+    /code|devenv|idea|studio|cursor|windsurf/.test(proc) ? 'UTVECKLING: hjälp med kod och felsökning. Var exakt och ändra inte filer utan uttrycklig begäran.' :
+    /excel|winword|powerpnt/.test(proc) || /excel|word|powerpoint/.test(lowTitle) ? 'OFFICE: hjälp med formler, dokument, presentationer och struktur.' :
+    'ALLMÄNT: identifiera uppgiftstypen på skärmen och välj det mest användbara arbetssättet.';
   return 'Du är ScreenBubble, en snabb och vänlig assistent på användarens Windows-dator, ungefär som Siri fast mycket smartare. ' +
     'Du ser skärmen (bild) och kan styra datorn med verktyg.\nRegler:\n' +
     '- Svara kort, naturligt och på användarens språk. Använd inte markdown.\n' +
