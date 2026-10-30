@@ -69,7 +69,7 @@ class SmartReply(private val svc: ReaderService) {
         if (e.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
             val src = e.source
             val validSource = src != null && src.isEditable && !src.isPassword
-            val current = if (validSource) src?.text?.toString().orEmpty() else svc.focusedInputText()
+            val current = if (validSource) (src?.text?.toString() ?: e.text?.joinToString("") { it?.toString().orEmpty() }.orEmpty()) else svc.focusedInputText()
             val hint = validSource && src?.isShowingHintText == true
             if (learnOn()) track(current, hint)
             if (lastAcceptedDraft.isNotEmpty() && current.trim() == lastAcceptedDraft) return
