@@ -194,6 +194,8 @@ class ReaderService : AccessibilityService() {
             try { wm.updateViewLayout(side, lp) } catch (_: Exception) {}
             getSharedPreferences("prefs", MODE_PRIVATE).edit().putInt("bubble_x", lp.x).putInt("bubble_y", lp.y).apply()
         }, {
+            openChat(null, false)
+        }, {
             setMode(Mode.MENU)
         }, { direction ->
             if (direction == Store.assistantSwipe(this)) setMode(Mode.MENU) else openChat(null, false)
