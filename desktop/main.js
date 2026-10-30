@@ -769,7 +769,11 @@ function initUpdater() {
     updater.logger = null;
     updater.on('update-available', (i) => pushUpdate({ state: 'downloading', version: i.version }));
     updater.on('update-not-available', () => pushUpdate({ state: 'latest' }));
-    updater.on('update-downloaded', (i) => pushUpdate({ state: 'ready', version: i.version }));
+    updater.on('update-downloaded', (i) => {
+      pushUpdate({ state: 'ready', version: i.version });
+      // The user has enabled automatic updates: install as soon as the download is complete.
+      setTimeout(() => { try { updater.quitAndInstall(true, true); } catch {} }, 1200);
+    });
     updater.on('error', () => pushUpdate({ state: 'idle' }));
     setTimeout(checkUpdate, 15000);
     setInterval(checkUpdate, 4 * 3600 * 1000);
