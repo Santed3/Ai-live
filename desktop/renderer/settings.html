@@ -34,13 +34,23 @@ main{min-width:0}.hero{position:relative;overflow:hidden;padding:25px 26px;margi
 <header class="top"><div class="logo">S</div><div class="brand"><b>ScreenBubble</b><small>CONTROL CENTER</small></div><span class="version" id="version">WINDOWS · SETTINGS</span></header>
 <div class="layout">
 <nav>
-<button class="active" data-target="features"><i>✦</i> AI-funktioner</button>
+<button class="active" data-target="appearance"><i>◉</i> Utseende & gester</button>
+<button data-target="features"><i>✦</i> AI-funktioner</button>
 <button data-target="smartReplyApps"><i>💬</i> Smart Reply-appar</button>
 <button data-target="preferences"><i>⚙</i> Allmänt</button>
 <button data-target="memory"><i>🧠</i> Minne & integritet</button>
 </nav>
 <main>
 <section class="hero"><span class="eyebrow">DIN SIDEBAR · DINA REGLER</span><h1>Gör ScreenBubble till din.</h1><p>Välj vilka verktyg som ska vara tillgängliga i sidomenyn. Inställningarna sparas automatiskt och börjar gälla direkt.</p></section>
+<section id="appearance">
+<div class="section-head"><div><h2>Utseende & sätt att öppna</h2><p>Välj hur assistenten ska ligga ovanpå dina appar.</p></div><span class="status" id="appearanceState">● Sparas automatiskt</span></div>
+<div class="prefs">
+<label class="pref"><span class="ico">▏</span><span class="copy"><b>Sidopanel</b><small>En diskret list vid skärmkanten som öppnar assistenten när du trycker.</small></span><input class="appearance-choice" type="radio" name="assistantDisplay" value="sidebar"></label>
+<label class="pref"><span class="ico">●</span><span class="copy"><b>Flyttbar symbol</b><small>En rund ScreenBubble-symbol som du kan dra till valfri plats. Tryck för att öppna.</small></span><input class="appearance-choice" type="radio" name="assistantDisplay" value="bubble"></label>
+<label class="pref"><span class="ico">↔</span><span class="copy"><b>Svepgest</b><small>En flytande symbol. Svep i vald riktning för att öppna menyn; svep åt andra hållet för att öppna chatten.</small></span><input class="appearance-choice" type="radio" name="assistantDisplay" value="swipe"></label>
+</div>
+<div class="pref" style="margin-top:10px"><span class="ico">⇆</span><span class="copy"><b>Riktning för att öppna menyn</b><small>Den motsatta svepriktningen öppnar chatten direkt.</small></span><select id="assistantSwipe" style="margin-left:auto;background:#20283a;color:#f4f6ff;border:1px solid var(--line);border-radius:9px;padding:8px"><option value="left">Svep åt vänster</option><option value="right">Svep åt höger</option></select></div>
+</section>
 <section id="features">
 <div class="section-head"><div><h2>AI-funktioner</h2><p>Slå på det du använder – dölj resten från sidomenyn.</p></div><span class="status" id="saveState">● Sparas automatiskt</span></div>
 <div class="feature-list" id="featureList"></div>
