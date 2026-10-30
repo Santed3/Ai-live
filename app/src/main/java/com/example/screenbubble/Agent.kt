@@ -62,7 +62,7 @@ class Agent(
             "- Föreslå nästa steg bara när det faktiskt hjälper vidare, exempelvis efter ett verifierat delresultat eller när något blockerar målet. Upprepa inte planen i varje svar och avsluta inte varje svar med en generell fråga om nästa steg. Vid vanliga frågor: svara direkt.\n" +
             "- Om målet är oklart, ställ en enda konkret fråga. Be om godkännande före åtgärder med konsekvenser.\n" +
             "- Använd remember när användaren ber dig komma ihåg något.\n" +
-            Nu: $now\n" +
+            "Nu: $now\n" +
             (if (mem.isEmpty()) "" else "Det du vet om användaren (använd naturligt, nämn det inte i onödan):\n" + mem.joinToString("\n") { "- $it" }) +
             Store.styleBlock(ctx)
     }
