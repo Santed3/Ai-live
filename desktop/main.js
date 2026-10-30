@@ -302,7 +302,10 @@ function queueSmartDraft(draft, proc, title) {
   const value = String(draft || '').trim();
   const signature = String(proc || '') + '|' + value;
   if (Date.now() < autoDraftSuppressedUntil) { lastObservedDraft = signature; return; }
-  if (mode !== 'chat' || !featureSettings().smartReply || !smartReplyAllowed(proc, title) || value.length < 5) {
+  if (mode !== 'chat' || !featureSettings().smartReply || !smartReplyAllowed(proc, title)) {
+    clearTimeout(autoDraftTimer); autoDraftTimer = null; lastObservedDraft = ''; return;
+  }
+  if (value.length < 5) {
     clearTimeout(autoDraftTimer); autoDraftTimer = null; lastObservedDraft = signature; return;
   }
   if (signature === lastObservedDraft) return;
@@ -315,6 +318,7 @@ async function createAutoDraftSuggestion(draft, signature, proc, title) {
   if (mode !== 'chat' || !panel || !panel.isVisible() || !smartReplyAllowed(proc, title) || lastObservedDraft !== signature) return;
   autoDraftBusy = true;
   try {
+    if (panel && !panel.isDestroyed()) panel.webContents.send('smart-draft-loading', true);
     const shot = await captureScreen(true);
     const result = await chat([
       { role: 'system', content: 'Du är ScreenBubbles Smart Reply. Använd det aktiva skrivfältets text som användarens pågående utkast. Förbättra och färdigställ det på ett naturligt sätt, men ändra inte avsikten, hitta inte på fakta eller lägg till löften. Avgör om det är mejl, chatt eller formell kommunikation och anpassa språk, ton och längd. Härma användarens tidigare meddelanden som syns på skärmen och sparade stilprov.' + styleBlock() + ' Returnera endast den förbättrade texten. Skicka aldrig, tryck aldrig Enter.' },
@@ -327,7 +331,10 @@ async function createAutoDraftSuggestion(draft, signature, proc, title) {
       if (panel && !panel.isDestroyed()) panel.webContents.send('smart-draft', { text: suggestion, originalDraft: draft });
     }
   } catch (_) {
-  } finally { autoDraftBusy = false; }
+  } finally {
+    if (panel && !panel.isDestroyed()) panel.webContents.send('smart-draft-loading', false);
+    autoDraftBusy = false;
+  }
 }
 async function pollForeground() {
   if (!panel || !panel.isVisible() || panel.isFocused()) return;
