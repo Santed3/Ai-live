@@ -59,7 +59,7 @@ class NotesLibraryActivity : Activity() {
         root.addView(header)
         search = EditText(this).apply {
             hint = "Sök i anteckningar…"; setHintTextColor(muted); setTextColor(fg); textSize = 14f
-            singleLine = true; background = rounded(card, 13); setPadding(dp(14), dp(11), dp(14), dp(11))
+            setSingleLine(true); background = rounded(card, 13); setPadding(dp(14), dp(11), dp(14), dp(11))
         }
         root.addView(search, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
         list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
