@@ -209,7 +209,7 @@ class MainActivity : Activity() {
         }
 
         // actions
-        val act = card("Använd", "Sidebaren sitter vid skärmkanten. Tryck på den för menyn.")
+        val act = card("Använd", "Tryck på sidopanelen eller den flytande symbolen för att öppna chatten. Tryck på … för fler funktioner.")
         val row = LinearLayout(this)
         row.addView(button("Öppna menyn", true) { saveKey(); ReaderService.instance?.setMode(ReaderService.Mode.MENU) ?: toast("Slå på tjänsten först") }, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
         val hidden = ReaderService.instance?.isHidden() == true
@@ -333,7 +333,7 @@ class MainActivity : Activity() {
         if (err.isNotEmpty()) card("Senaste fel", err)
         val help = card("Så funkar det")
         help.addView(text(
-            "Sidebaren: tryck på listen vid kanten för menyn. Där finns chatt, snabbsvar på frågor, hide-läge, uppgifter och dina egna kommandon.\n\n" +
+            "Assistenten: tryck på sidopanelen eller symbolen för att öppna chatten. Tryck på … för fler funktioner. I svepläget öppnar vald svepriktning menyn och motsatt riktning chatten.\n\n" +
                 "Hide-läge: bara en liten svart prick. Ett tryck ger ett kort svar, håll in för menyn, dubbeltryck stänger av.\n\n" +
                 "Skicka och andra känsliga åtgärder kräver alltid att du bekräftar.\n\n" +
                 "Skärmens innehåll skickas till OpenAI när du ställer en fråga. Använd inte appen där hjälpmedel är förbjudna, till exempel på prov.",
