@@ -3,7 +3,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <style>
 html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden;user-select:none}
-#d{position:absolute;left:4.5px;top:4.5px;width:15px;height:15px;border-radius:50%;background:#000;box-shadow:0 0 0 1px rgba(255,255,255,.45)}
+#d{position:absolute;left:4.5px;top:4.5px;width:15px;height:15px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#34343a 0%,#08080a 48%,#000 100%);box-shadow:0 0 0 1px rgba(255,255,255,.5),0 2px 10px rgba(0,0,0,.32);animation:dot-arrive 260ms cubic-bezier(.22,1,.36,1) both;transition:transform 160ms cubic-bezier(.22,1,.36,1),box-shadow 160ms ease}#hit:active+#d{transform:scale(.88);box-shadow:0 0 0 2px rgba(124,92,255,.5),0 2px 12px rgba(0,0,0,.4)}@keyframes dot-arrive{from{opacity:0;transform:scale(.55)}to{opacity:1;transform:scale(1)}}@media(prefers-reduced-motion:reduce){#d{animation:none;transition:none}}
 #hit{position:absolute;inset:0;cursor:default}
 </style></head>
 <body><div id="hit"></div><div id="d"></div>
