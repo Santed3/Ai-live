@@ -369,16 +369,17 @@ async function pollForeground() {
   const r = await ps([...WIN32,
     '$h=[W32]::GetForegroundWindow(); $sb=New-Object System.Text.StringBuilder 512; [void][W32]::GetWindowText($h,$sb,512)',
     '$p=0; [void][W32]::GetWindowThreadProcessId($h,[ref]$p); $n=(Get-Process -Id $p -ErrorAction SilentlyContinue).ProcessName',
-    '$v=""; try { Add-Type -AssemblyName UIAutomationClient -ErrorAction Stop; $root=[System.Windows.Automation.AutomationElement]::FromHandle($h); $items=$root.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition); $parts=New-Object System.Collections.Generic.List[string]; $i=0; foreach($x in $items){ if($i -ge 120 -or $parts.Count -ge 100){break}; $i++; try { if($x.Current.IsPassword -or $x.Current.IsOffscreen){continue}; $z=$x.Current.Name; if($z -and $z.Trim()){ $parts.Add($z.Trim()) }; $pat=$null; if($x.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pat)){ $z=$pat.Current.Value; if($z -and $z.Trim()){ $parts.Add($z.Trim()) } } } catch {} }; $v=$parts -join " | "; if($v.Length -gt 6000){$v=$v.Substring(0,6000)} } catch {}',
+    '$v=""; $f=""; try { Add-Type -AssemblyName UIAutomationClient -ErrorAction Stop; $focused=[System.Windows.Automation.AutomationElement]::FocusedElement; $pat=$null; if($focused -and -not $focused.Current.IsPassword -and $focused.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pat)){ $f=$pat.Current.Value } elseif($focused -and -not $focused.Current.IsPassword -and $focused.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern,[ref]$pat)){ $f=$pat.DocumentRange.GetText(1200) }; $root=[System.Windows.Automation.AutomationElement]::FromHandle($h); $items=$root.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition); $parts=New-Object System.Collections.Generic.List[string]; $i=0; foreach($x in $items){ if($i -ge 120 -or $parts.Count -ge 100){break}; $i++; try { if($x.Current.IsPassword -or $x.Current.IsOffscreen){continue}; $z=$x.Current.Name; if($z -and $z.Trim()){ $parts.Add($z.Trim()) }; $pat=$null; if($x.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pat)){ $z=$pat.Current.Value; if($z -and $z.Trim()){ $parts.Add($z.Trim()) } } } catch {} }; $v=$parts -join " | "; if($v.Length -gt 6000){$v=$v.Substring(0,6000)} } catch {}',
     '$enc=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($v)); $sb.ToString() + "|" + $n + "|" + $enc'], 9000);
   if (r.ok && r.out.includes('|')) {
-    const last = r.out.lastIndexOf('|'), prev = r.out.lastIndexOf('|', last - 1);
-    if (prev >= 0 && last > prev) {
-      const title = r.out.slice(0, prev), proc = r.out.slice(prev + 1, last).toLowerCase();
-      const visibleText = Buffer.from(r.out.slice(last + 1), 'base64').toString('utf8');
+    const parts = r.out.trim().split('|');
+    if (parts.length >= 4) {
+      const decode = (v) => { try { return Buffer.from(v, 'base64').toString('utf8'); } catch { return ''; } };
+      const title = decode(parts[0]), proc = parts[1].toLowerCase();
+      const focusedText = decode(parts[2]), visibleText = decode(parts.slice(3).join('|'));
       if (proc && proc !== 'screenbubble' && proc !== 'electron') {
         lastExternal = { title, proc };
-        queueSmartDraft(visibleText, proc, title);
+        queueSmartDraft(focusedText, proc, title);
         inspectForActiveHelp(title, proc, visibleText);
       }
     }
