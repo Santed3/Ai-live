@@ -129,6 +129,7 @@ class SmartReply(private val svc: ReaderService) {
         val wait = 1100 - (System.currentTimeMillis() - lastCall)
         if (wait > 0) { main.postDelayed(draftDebounce, wait); return }
         inFlight = true
+        main.post { svc.showSuggestionLoading() }
         svc.pool.execute {
             try {
                 val context = svc.readScreenText(skipEditable = true).takeLast(1200)
