@@ -366,6 +366,7 @@ const BUILTIN = [
     ['✨', 'Smart Reply', () => { preset = { reply:true }; api.setMode('chat'); }, 'smartReply'],
     ['✅', 'Svara på skärmen', () => api.quick()],
     ['⚡', 'AI Actions', () => go('Hjälp mig genomföra uppgiften på skärmen steg för steg. Planera först och be om bekräftelse innan du skickar, raderar, köper eller publicerar.', true), 'screenActions'],
+    ['▧', 'Markera område', () => api.captureRegion(), 'selectionAsk'],
   ]],
   ['AI-VERKTYG', [
     ['🌐', 'Smart Translate', () => go('Översätt den viktigaste texten på skärmen till svenska. Behåll struktur, ton och sammanhang.', true), 'smartTranslate'],
