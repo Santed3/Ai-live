@@ -186,7 +186,7 @@ class ReaderService : AccessibilityService() {
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
         val ui = SideUi(this)
-        val v = ui.bubble(lp, {
+        val v = ui.bubble(lp, Store.assistantDisplay(this) == "swipe", {
             try { wm.updateViewLayout(side, lp) } catch (_: Exception) {}
         }, {
             setMode(Mode.MENU)
