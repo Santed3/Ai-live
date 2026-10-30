@@ -297,16 +297,55 @@ const WIN32 = [
 ];
 const WIN32_SRC = WIN32.join('\n');
 let lastExternal = { title: '', proc: '' };
+let autoDraftTimer = null, lastObservedDraft = '', lastAutoDraftSuggestion = '', autoDraftBusy = false, autoDraftSuppressedUntil = 0;
+function queueSmartDraft(draft, proc, title) {
+  const value = String(draft || '').trim();
+  const signature = String(proc || '') + '|' + value;
+  if (Date.now() < autoDraftSuppressedUntil) { lastObservedDraft = signature; return; }
+  if (mode !== 'chat' || !featureSettings().smartReply || !smartReplyAllowed(proc, title) || value.length < 5) {
+    clearTimeout(autoDraftTimer); autoDraftTimer = null; lastObservedDraft = signature; return;
+  }
+  if (signature === lastObservedDraft) return;
+  lastObservedDraft = signature;
+  clearTimeout(autoDraftTimer);
+  autoDraftTimer = setTimeout(() => createAutoDraftSuggestion(value, signature, proc, title), 1350);
+}
+async function createAutoDraftSuggestion(draft, signature, proc, title) {
+  if (autoDraftBusy) { autoDraftTimer = setTimeout(() => createAutoDraftSuggestion(draft, signature, proc, title), 700); return; }
+  if (mode !== 'chat' || !panel || !panel.isVisible() || !smartReplyAllowed(proc, title) || lastObservedDraft !== signature) return;
+  autoDraftBusy = true;
+  try {
+    const shot = await captureScreen(true);
+    const result = await chat([
+      { role: 'system', content: 'Du är ScreenBubbles Smart Reply. Använd det aktiva skrivfältets text som användarens pågående utkast. Förbättra och färdigställ det på ett naturligt sätt, men ändra inte avsikten, hitta inte på fakta eller lägg till löften. Avgör om det är mejl, chatt eller formell kommunikation och anpassa språk, ton och längd. Härma användarens tidigare meddelanden som syns på skärmen och sparade stilprov.' + styleBlock() + ' Returnera endast den förbättrade texten. Skicka aldrig, tryck aldrig Enter.' },
+      { role: 'user', content: content('Aktivt utkast i skrivfältet:\n' + draft + '\n\nAnvänd skärmbilden för att förstå mottagaren och sammanhanget.', shot) },
+    ], { maxTokens: 360, temperature: 0.35 });
+    const suggestion = String(result.content || '').trim();
+    const sig = suggestion.toLowerCase();
+    if (suggestion && suggestion !== draft && lastObservedDraft === signature && mode === 'chat' && sig !== lastAutoDraftSuggestion) {
+      lastAutoDraftSuggestion = sig;
+      if (panel && !panel.isDestroyed()) panel.webContents.send('smart-draft', { text: suggestion, originalDraft: draft });
+    }
+  } catch (_) {
+  } finally { autoDraftBusy = false; }
+}
 async function pollForeground() {
   if (!panel || !panel.isVisible() || panel.isFocused()) return;
   const r = await ps([...WIN32,
     '$h=[W32]::GetForegroundWindow(); $sb=New-Object System.Text.StringBuilder 512; [void][W32]::GetWindowText($h,$sb,512)',
     '$p=0; [void][W32]::GetWindowThreadProcessId($h,[ref]$p); $n=(Get-Process -Id $p -ErrorAction SilentlyContinue).ProcessName',
-    '$sb.ToString() + "|" + $n'], 6000);
+    '$v=""; try { Add-Type -AssemblyName UIAutomationClient -ErrorAction Stop; $e=[System.Windows.Automation.AutomationElement]::FocusedElement; $pat=$null; if($e -and $e.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pat)){ $v=$pat.Current.Value } elseif($e -and $e.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern,[ref]$pat)){ $v=$pat.DocumentRange.GetText(1200) } } catch {}',
+    '$enc=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($v)); $sb.ToString() + "|" + $n + "|" + $enc'], 7000);
   if (r.ok && r.out.includes('|')) {
-    const i = r.out.lastIndexOf('|');
-    const proc = r.out.slice(i + 1).toLowerCase();
-    if (proc && proc !== 'screenbubble' && proc !== 'electron') lastExternal = { title: r.out.slice(0, i), proc };
+    const last = r.out.lastIndexOf('|'), prev = r.out.lastIndexOf('|', last - 1);
+    if (prev >= 0 && last > prev) {
+      const title = r.out.slice(0, prev), proc = r.out.slice(prev + 1, last).toLowerCase();
+      const draft = Buffer.from(r.out.slice(last + 1), 'base64').toString('utf8');
+      if (proc && proc !== 'screenbubble' && proc !== 'electron') {
+        lastExternal = { title, proc };
+        queueSmartDraft(draft, proc, title);
+      }
+    }
   }
 }
 
@@ -732,6 +771,7 @@ ipcMain.handle('transform', async (_e, { instruction, text }) => {
   } catch (e) { return { ok: false, error: String(e.message || e) }; }
 });
 ipcMain.handle('insert', async (_e, { text, send, replace }) => {
+  if (replace && !send) autoDraftSuppressedUntil = Date.now() + 5000;
   if (send && !(await askConfirm('Skicka det här meddelandet?\n\n' + text))) return { ok: false, error: 'Avbrutet.' };
   const r = await withPanelHidden(async () => {
     if (replace && !send) await sendKeys('^a');
