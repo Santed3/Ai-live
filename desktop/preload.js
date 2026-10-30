@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
-  chat: (text, voice, assistantMode = 'general') => ipcRenderer.invoke('chat', { text, voice, assistantMode }),
+  chat: (text, voice, assistantMode = 'general', attachments = []) => ipcRenderer.invoke('chat', { text, voice, assistantMode, attachments }),
   chips: () => ipcRenderer.invoke('chips'),
   reply: () => ipcRenderer.invoke('reply'),
   transform: (instruction, text) => ipcRenderer.invoke('transform', { instruction, text }),
