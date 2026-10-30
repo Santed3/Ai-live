@@ -13,6 +13,7 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 <body><div id="hit"></div><div id="d"></div>
 <script>
 const hit = document.getElementById('hit');
+const displayMode = new URLSearchParams(window.location.search).get('display') || 'bubble';
 let down=false,moved=false,swiped=false,sx=0,sy=0,wx=0,wy=0,long=null,fired=false;
 hit.addEventListener('mousedown',(e)=>{
  down=true;moved=false;swiped=false;fired=false;sx=e.screenX;sy=e.screenY;wx=window.screenX;wy=window.screenY;
@@ -21,7 +22,7 @@ hit.addEventListener('mousedown',(e)=>{
 window.addEventListener('mousemove',(e)=>{
  if(!down||swiped)return;
  const dx=e.screenX-sx,dy=e.screenY-sy;
- if(Math.abs(dx)>42&&Math.abs(dx)>Math.abs(dy)*1.35){
+ if(displayMode==='swipe'&&Math.abs(dx)>42&&Math.abs(dx)>Math.abs(dy)*1.35){
   swiped=true;moved=true;clearTimeout(long);api.dotSwipe(dx<0?'left':'right');return;
  }
  if(Math.abs(dx)>6||Math.abs(dy)>6){moved=true;clearTimeout(long)}
