@@ -166,7 +166,7 @@ class MainActivity : Activity() {
         content.addView(head)
         content.addView(text("Din AI-assistent · alltid nära till hands · v$ver", 13f, MUTED).apply { setPadding(0, dp(5), 0, dp(5)) })
         addTabs()
-        if (activeTab == "home") addDashboardHero(on, mic, ver)
+        if (activeTab == "home") addDashboardHero(on, mic)
         content.addView(text(
             when (activeTab) { "home" -> "DIN ASSISTENT"; "assistant" -> "ANPASSA ASSISTENTEN"; else -> "DITT INNEHÅLL" },
             10f, ACCENT, true
@@ -364,7 +364,7 @@ class MainActivity : Activity() {
         val items = listOf(
             Triple("home", "⌂", "Hem"),
             Triple("assistant", "✦", "Assistent"),
-            Triple("personal", "▤", "Bibliotek")
+            Triple("personal", "♡", "Mitt")
         )
         for ((id, icon, label) in items) {
             val selected = activeTab == id
@@ -385,7 +385,7 @@ class MainActivity : Activity() {
         content.addView(nav, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) })
     }
 
-    private fun addDashboardHero(serviceOn: Boolean, micOn: Boolean, version: String) {
+    private fun addDashboardHero(serviceOn: Boolean, micOn: Boolean) {
         val ready = serviceOn && micOn && (!Config.embeddedKey().isEmpty() ||
             !getSharedPreferences("prefs", MODE_PRIVATE).getString("api_key", "").isNullOrBlank())
         val hero = LinearLayout(this).apply {
