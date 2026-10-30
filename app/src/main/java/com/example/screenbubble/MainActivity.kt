@@ -396,7 +396,7 @@ class MainActivity : Activity() {
             content.addView(c, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(9) })
         }
         content.addView(text("Gör klart installationen", 18f, TEXT, true).apply { setPadding(0, dp(18), 0, dp(2)) })
-        setupCard("Tillåt begränsade inställningar", "På Android 13 och nyare: öppna appinformationen, tryck på ⋮ och välj Tillåt begränsade inställningar.", prefs.getBoolean("restricted_settings_allowed", false), "Öppna appinfo") { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
+        setupCard("Tillåt begränsade inställningar", "På Android 13 och nyare: öppna appinformationen, tryck på ⋮ och välj Tillåt begränsade inställningar.", serviceOn, "Öppna appinfo") { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
         setupCard("Aktivera tillgänglighet", "Öppna Tillgänglighet → Installerade appar → ScreenBubble och slå på tjänsten. Du kan när som helst stänga av den i Android-inställningarna.", serviceOn, "Öppna tillgänglighet") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
         setupCard("Tillåt mikrofonen", "Behövs för Diktera och röststyrning. Mikrofonen används bara när du startar en röstfunktion.", micOn, "Tillåt mikrofon") { requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 2) }
 
