@@ -244,7 +244,7 @@ object Store {
 
     // ---------------------------------------------------------------- how the user writes in chats (opt-in)
 
-    fun flag(c: Context, key: String): Boolean = p(c).getBoolean(key, key == "learn_style" || key == "smart_suggest")
+    fun flag(c: Context, key: String): Boolean = p(c).getBoolean(key, key == "learn_style" || key == "smart_suggest" || key == "active_help")
     fun setFlag(c: Context, key: String, v: Boolean) { p(c).edit().putBoolean(key, v).apply() }
 
     fun smartReplyAppEnabled(c: Context, packageName: String): Boolean {
