@@ -39,6 +39,8 @@ contextBridge.exposeInMainWorld('api', {
   openSettingsWindow: () => ipcRenderer.invoke('open-settings'),
   featuresGet: () => ipcRenderer.invoke('features-get'),
   featuresSet: (f) => ipcRenderer.invoke('features-set', f),
+  appearanceGet: () => ipcRenderer.invoke('appearance-get'),
+  appearanceSet: (v) => ipcRenderer.invoke('appearance-set', v),
   smartReplyAppsGet: () => ipcRenderer.invoke('smart-reply-apps-get'),
   smartReplyAppsSet: (apps) => ipcRenderer.invoke('smart-reply-apps-set', apps),
   onFeatures: (cb) => ipcRenderer.on('features-updated', (_e, f) => cb(f)),
