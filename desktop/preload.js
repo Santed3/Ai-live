@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('api', {
   smartReplyAppsGet: () => ipcRenderer.invoke('smart-reply-apps-get'),
   smartReplyAppsSet: (apps) => ipcRenderer.invoke('smart-reply-apps-set', apps),
   onFeatures: (cb) => ipcRenderer.on('features-updated', (_e, f) => cb(f)),
+  onSmartDraft: (cb) => ipcRenderer.on('smart-draft', (_e, draft) => cb(draft)),
   updateState: () => ipcRenderer.invoke('update-state'),
   updateCheck: () => ipcRenderer.invoke('update-check'),
   updateInstall: () => ipcRenderer.invoke('update-install'),
