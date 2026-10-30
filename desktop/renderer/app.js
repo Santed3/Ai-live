@@ -142,10 +142,39 @@ $('quit').onclick = () => api.setMode('bar');
 // ------------------------------------------------------- smart reply card
 async function makeReply() {
   if (busy) return;
-  busy = true; setStatus('Läser konversationen och skriver ett förslag…');
-  const r = await api.reply();
-  clearStatus(); busy = false;
-  if (r.ok) { $('draft').value = r.text; $('draftcard').classList.add('show'); } else addMsg(false, 'Fel: ' + r.error);
+  busy = true;
+  const welcome = chat.querySelector('.welcome'); if (welcome) welcome.remove();
+  const loading = document.createElement('div');
+  loading.className = 's';
+  loading.innerHTML = '<span class="reply-mark">S</span><span>ScreenBubble skriver</span><span class="reply-dots"><i></i><i></i><i></i></span>';
+  chat.appendChild(loading); chat.scrollTop = chat.scrollHeight;
+  try {
+    const r = await api.reply();
+    loading.remove();
+    if (!r.ok) { addMsg(false, 'Fel: ' + r.error); return; }
+    const card = document.createElement('div');
+    card.className = 'reply-suggestion';
+    const head = document.createElement('div'); head.className = 'reply-brand';
+    const mark = document.createElement('span'); mark.className = 'reply-mark'; mark.textContent = 'S';
+    const brand = document.createElement('span'); brand.textContent = 'ScreenBubble';
+    const tag = document.createElement('span'); tag.className = 'reply-tag'; tag.textContent = 'SMART REPLY';
+    head.append(mark, brand, tag);
+    const body = document.createElement('div'); body.className = 'reply-text'; body.textContent = r.text;
+    const actions = document.createElement('div'); actions.className = 'reply-actions';
+    const insertButton = document.createElement('button'); insertButton.className = 'p'; insertButton.textContent = 'Infoga svar';
+    insertButton.onclick = async () => {
+      insertButton.disabled = true;
+      const result = await api.insert(r.text, false);
+      insertButton.disabled = false;
+      setStatus(result.ok ? 'Svaret har infogats i textfältet.' : result.error);
+      setTimeout(clearStatus, 2200);
+    };
+    actions.appendChild(insertButton);
+    card.append(head, body, actions);
+    chat.appendChild(card); chat.scrollTop = chat.scrollHeight;
+  } catch (e) {
+    loading.remove(); addMsg(false, 'Fel: ' + e.message);
+  } finally { busy = false; }
 }
 const TOOLS = [
   ['Kortare', 'Gör texten kortare men behåll innebörden.'], ['Professionell', 'Skriv om i en professionell, artig ton.'],
