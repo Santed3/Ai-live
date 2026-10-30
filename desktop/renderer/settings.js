@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const meta = [
- ['smartReply','💬','Smart Reply','Skriver naturliga svar från mejl och chattar som syns på skärmen.'],
+ ['smartReply','💬','Smart Reply','Förstår mejl, chattar och utkast. Lär sig av formuleringar du väljer att använda.'],
  ['contextualSuggestions','✨','Smarta förslag','Visar relevanta snabbval beroende på vilken app du använder.'],
  ['screenActions','⚡','AI Actions','Hjälper dig utföra uppgifter i flera steg på skärmen.'],
  ['smartTranslate','🌐','Smart Translate','Översätter text direkt i appar och behåller sammanhanget.'],
