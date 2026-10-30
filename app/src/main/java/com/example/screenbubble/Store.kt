@@ -331,6 +331,14 @@ object Store {
     fun assistantSwipe(c: Context): String = if (p(c).getString("assistant_swipe", "left") == "right") "right" else "left"
     fun setAssistantSwipe(c: Context, v: String) { p(c).edit().putString("assistant_swipe", if (v == "right") "right" else "left").apply() }
 
+    fun assistantMode(c: Context): String {
+        val value = p(c).getString("assistant_mode", "general") ?: "general"
+        return if (value in setOf("general", "study", "work", "code", "writing")) value else "general"
+    }
+    fun setAssistantMode(c: Context, value: String) {
+        p(c).edit().putString("assistant_mode", if (value in setOf("general", "study", "work", "code", "writing")) value else "general").apply()
+    }
+
     fun speak(c: Context): Boolean = p(c).getBoolean("speak", false)
     fun setSpeak(c: Context, v: Boolean) {
         p(c).edit().putBoolean("speak", v).apply()
