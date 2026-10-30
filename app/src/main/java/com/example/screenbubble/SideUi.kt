@@ -45,7 +45,7 @@ class SideUi(private val svc: ReaderService) {
                     if (abs(d) > dp(6)) moved = true
                     if (moved) { lp.y = oy + d.toInt(); onMove() }
                 }
-                MotionEvent.ACTION_UP -> if (!moved) svc.setMode(ReaderService.Mode.MENU)
+                MotionEvent.ACTION_UP -> if (!moved) svc.openChat(null, false)
             }
             true
         }
