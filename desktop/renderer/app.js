@@ -164,7 +164,7 @@ async function addFiles(list) {
       const bytes = new Uint8Array(await file.arrayBuffer());
       let binary = '';
       for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-      pendingAttachments.push({ name: file.name, image: btoa(binary), text: '' });
+      pendingAttachments.push({ name: file.name, image: btoa(binary), mime: file.type || 'image/jpeg', text: '' });
     } else pendingAttachments.push({ name: file.name, image: '', text: (await file.text()).slice(0, 18000) });
     renderAttachmentTray();
   }
