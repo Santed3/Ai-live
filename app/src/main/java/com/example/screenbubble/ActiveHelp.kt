@@ -20,7 +20,7 @@ class ActiveHelp(private val svc: ReaderService) {
     private val inspect = Runnable { inspectScreen() }
 
     fun onEvent(event: AccessibilityEvent) {
-        if (!Store.flag(svc, "active_help") || !svc.canShowSuggestions()) return
+        if (!Store.flag(svc, "active_help") || !svc.canShowActiveHelp()) return
         val pkg = event.packageName?.toString().orEmpty()
         if (pkg.isBlank() || pkg == svc.packageName || pkg == "com.android.systemui" || pkg.contains("inputmethod")) return
         if (Suggest.isCommunication(pkg)) return // Smart Reply already handles this context.
