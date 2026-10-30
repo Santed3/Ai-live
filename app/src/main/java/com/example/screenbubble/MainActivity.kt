@@ -38,6 +38,7 @@ class MainActivity : Activity() {
     private var newerBuild: Long? = null
     private var updateText: String? = null
     private var updating = false
+    private var activeTab = "home"
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
     private fun rounded(color: Int, r: Int) = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(color, Color.rgb((Color.red(color) * 0.82f).toInt(), (Color.green(color) * 0.86f).toInt(), (Color.blue(color) * 0.92f).toInt()))).apply {
@@ -103,7 +104,7 @@ class MainActivity : Activity() {
         }
         if (title != null) c.addView(text(title, 16f, TEXT, true))
         if (sub != null) c.addView(text(sub, 13f, MUTED).apply { setPadding(0, dp(2), 0, dp(4)) })
-        content.addView(c, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+        if (shouldShowCard(title)) content.addView(c, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
         return c
     }
 
@@ -154,6 +155,7 @@ class MainActivity : Activity() {
         val on = ReaderService.instance != null
         val mic = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         val prefs = getSharedPreferences("prefs", MODE_PRIVATE)
+        if (!prefs.getBoolean("onboarding_complete", false)) { renderOnboarding(prefs); return }
 
         // header
         val head = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -163,6 +165,7 @@ class MainActivity : Activity() {
         head.addView(text("ScreenBubble", 28f, TEXT, true))
         content.addView(head)
         content.addView(text("Din AI-assistent · alltid nära till hands · v$ver", 13f, MUTED).apply { setPadding(0, dp(5), 0, dp(5)) })
+        addTabs()
         content.addView(text("SIDEBAR · AI-ASSISTENT", 10f, ACCENT, true).apply {
             letterSpacing = 0.14f
             setPadding(dp(1), dp(12), 0, dp(1))
@@ -339,6 +342,91 @@ class MainActivity : Activity() {
                 "Skärmens innehåll skickas till OpenAI när du ställer en fråga. Använd inte appen där hjälpmedel är förbjudna, till exempel på prov.",
             13f, MUTED
         ))
+    }
+
+    private fun shouldShowCard(title: String?): Boolean = when (activeTab) {
+        "home" -> title in setOf("Ny version finns", "Uppdatering", "Kom igång", "Använd", "Senaste fel", "Så funkar det")
+        "assistant" -> title in setOf("Assistentens utseende", "Smarta svar", "Appprofiler")
+        else -> title in setOf("Egna snabbkommandon", "Minne")
+    }
+
+    private fun addTabs() {
+        val nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(12), 0, dp(3)) }
+        for ((id, label) in listOf("home" to "Hem", "assistant" to "Assistent", "personal" to "Personligt")) {
+            nav.addView(button(label, activeTab == id) { activeTab = id; render() }, LinearLayout.LayoutParams(0, dp(44), 1f).apply { rightMargin = dp(6) })
+        }
+        content.addView(nav, LinearLayout.LayoutParams(-1, -2))
+    }
+
+    private fun renderOnboarding(prefs: android.content.SharedPreferences) {
+        content.removeAllViews()
+        keyInput = null
+        val logoRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(14), 0, dp(12)) }
+        logoRow.addView(text("S", 25f, Color.WHITE, true).apply { gravity = Gravity.CENTER; background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFB9A8FF.toInt(), 0xFF6C47FF.toInt())).apply { shape = GradientDrawable.OVAL } }, LinearLayout.LayoutParams(dp(54), dp(54)).apply { rightMargin = dp(13) })
+        val brand = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        brand.addView(text("ScreenBubble", 25f, TEXT, true))
+        brand.addView(text("Din AI-assistent", 13f, MUTED))
+        logoRow.addView(brand)
+        content.addView(logoRow)
+
+        val hero = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = rounded(0xFF171D31.toInt(), 24); setPadding(dp(20), dp(22), dp(20), dp(22)) }
+        hero.addView(text("Låt oss göra appen redo.", 25f, TEXT, true))
+        hero.addView(text("Tre snabba steg. Sedan kan du använda ScreenBubble direkt ovanpå dina andra appar.", 14f, MUTED).apply { setPadding(0, dp(7), 0, dp(15)) })
+        val illustration = LinearLayout(this).apply { gravity = Gravity.CENTER; background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF272047.toInt(), 0xFF111A2A.toInt())).apply { cornerRadius = dp(18).toFloat() }; setPadding(dp(12), dp(15), dp(12), dp(15)) }
+        val phone = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = rounded(0xFF0B0E18.toInt(), 18); setPadding(dp(10), dp(10), dp(10), dp(10)) }
+        phone.addView(text("Din skärm", 11f, MUTED, true))
+        phone.addView(text("Hej! Kan du hjälpa mig?", 12f, TEXT).apply { background = rounded(0xFF252D43.toInt(), 10); setPadding(dp(10), dp(8), dp(10), dp(8)) }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        phone.addView(text("Självklart. Jag hjälper dig här.", 12f, 0xFFBFFFE9.toInt()).apply { background = rounded(0xFF17352F.toInt(), 10); setPadding(dp(10), dp(8), dp(10), dp(8)) }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(7) })
+        illustration.addView(phone, LinearLayout.LayoutParams(dp(230), -2))
+        hero.addView(illustration, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(5) })
+        content.addView(hero, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+
+        val serviceOn = ReaderService.instance != null
+        val micOn = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val keyOn = !Config.embeddedKey().isEmpty() || !prefs.getString("api_key", "").isNullOrBlank()
+        fun setupCard(title: String, detail: String, status: Boolean, action: String, click: () -> Unit) {
+            val c = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = rounded(CARD, 17); setPadding(dp(15), dp(13), dp(15), dp(13)) }
+            val top = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            top.addView(text(if (status) "✓" else "○", 19f, if (status) ACCENT else MUTED, true), LinearLayout.LayoutParams(dp(30), -2))
+            top.addView(text(title, 15f, TEXT, true), LinearLayout.LayoutParams(0, -2, 1f))
+            top.addView(text(if (status) "Klart" else "Behövs", 11f, if (status) ACCENT else MUTED, true))
+            c.addView(top)
+            c.addView(text(detail, 12.5f, MUTED).apply { setPadding(dp(30), dp(3), 0, dp(9)) })
+            if (!status) c.addView(button(action, false, click), LinearLayout.LayoutParams(-1, -2).apply { leftMargin = dp(30) })
+            content.addView(c, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(9) })
+        }
+        content.addView(text("Gör klart installationen", 18f, TEXT, true).apply { setPadding(0, dp(18), 0, dp(2)) })
+        setupCard("Tillåt begränsade inställningar", "På Android 13 och nyare: öppna appinformationen, tryck på ⋮ och välj Tillåt begränsade inställningar.", serviceOn, "Öppna appinfo") { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
+        setupCard("Aktivera tillgänglighet", "Öppna Tillgänglighet → Installerade appar → ScreenBubble och slå på tjänsten. Du kan när som helst stänga av den i Android-inställningarna.", serviceOn, "Öppna tillgänglighet") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        setupCard("Tillåt mikrofonen", "Behövs för Diktera och röststyrning. Mikrofonen används bara när du startar en röstfunktion.", micOn, "Tillåt mikrofon") { requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 2) }
+
+        if (Config.embeddedKey().isEmpty()) {
+            val keyCard = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = rounded(CARD, 17); setPadding(dp(15), dp(13), dp(15), dp(13)) }
+            val keyHead = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            keyHead.addView(text(if (keyOn) "✓" else "○", 19f, if (keyOn) ACCENT else MUTED, true), LinearLayout.LayoutParams(dp(30), -2))
+            keyHead.addView(text("Anslut din AI-nyckel", 15f, TEXT, true), LinearLayout.LayoutParams(0, -2, 1f))
+            keyHead.addView(text(if (keyOn) "Klart" else "Behövs", 11f, if (keyOn) ACCENT else MUTED, true))
+            keyCard.addView(keyHead)
+            keyCard.addView(text("ScreenBubble använder din OpenAI API-nyckel för AI-svar och för att finskriva dikteringar. Nyckeln sparas bara lokalt på enheten.", 12.5f, MUTED).apply { setPadding(dp(30), dp(3), 0, dp(8)) })
+            val field = EditText(this).apply { hint = "sk-…"; setHintTextColor(MUTED); setTextColor(TEXT); inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD; background = rounded(0xFF222A3D.toInt(), 12); setPadding(dp(12), dp(11), dp(12), dp(11)); setText(prefs.getString("api_key", "")) }
+            keyInput = field
+            keyCard.addView(field, LinearLayout.LayoutParams(-1, -2).apply { leftMargin = dp(30) })
+            content.addView(keyCard, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(9) })
+        }
+        content.addView(text("Du kan ändra utseende, röst och övriga inställningar när du är klar.", 12f, MUTED).apply { setPadding(dp(2), dp(13), dp(2), dp(7)) })
+        val finish = button("Slutför och öppna appen", true) {
+            saveKey()
+            val readyService = ReaderService.instance != null
+            val readyMic = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+            val readyKey = !Config.embeddedKey().isEmpty() || !prefs.getString("api_key", "").isNullOrBlank()
+            if (!readyService || !readyMic || !readyKey) toast("Slutför stegen ovan först.") else {
+                prefs.edit().putBoolean("onboarding_complete", true).apply()
+                activeTab = "home"
+                render()
+            }
+        }
+        finish.isEnabled = serviceOn && micOn && (keyOn || Config.embeddedKey().isEmpty())
+        content.addView(finish, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(8) })
     }
 
     private fun toast(t: String) = Toast.makeText(this, t, Toast.LENGTH_SHORT).show()

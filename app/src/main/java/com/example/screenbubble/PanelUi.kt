@@ -74,6 +74,7 @@ class PanelUi(private val svc: ReaderService) {
     @Volatile private var busy = false
     private var speakOn = Store.speak(svc)
     private var convo = false
+    private var dictationMode = false
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
     private var ttsReady = false
@@ -264,7 +265,7 @@ class PanelUi(private val svc: ReaderService) {
             if (id == EditorInfo.IME_ACTION_SEND) { sendFromInput(); true } else false
         }
         row.addView(input, lp(0, -2, weight = 1f))
-        micBtn = pill("🎤") { listen() }
+        micBtn = pill("🎤") { if (dictationMode) stopDictation() else listen() }
         row.addView(micBtn, lp(-2, -2, l = 6))
         row.addView(pill("➤", PRIMARY) { sendFromInput() }, lp(-2, -2, l = 6))
         root.addView(row, lp(-1, -2, t = 8))
@@ -484,6 +485,7 @@ class PanelUi(private val svc: ReaderService) {
     }
 
     fun destroy() {
+        dictationMode = false
         try { recognizer?.destroy() } catch (_: Exception) {}
         recognizer = null
         try { tts?.stop(); tts?.shutdown() } catch (_: Exception) {}
@@ -753,8 +755,39 @@ class PanelUi(private val svc: ReaderService) {
         } else stopSpeaking()
     }
 
-    private fun listen() {
+    fun startDictation() {
         if (svc.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            addMsg(false, "Tillåt mikrofonen i ScreenBubble-inställningarna först.")
+            return
+        }
+        dictationMode = true
+        micBtn.text = "■"
+        setStatus("Diktering pågår. Tryck på ■ när du vill pausa.")
+        listen()
+    }
+
+    private fun stopDictation() {
+        dictationMode = false
+        try { recognizer?.cancel() } catch (_: Exception) {}
+        micBtn.text = "🎤"
+        setStatus("Dikteringen är pausad.")
+        main.postDelayed({ clearStatus() }, 1800)
+    }
+
+    private fun polishDictation(raw: String): String {
+        val fallback = raw.replace(Regex("(?i)(^|[\\s,])(?:eh+|öh+|öö+h|ee+h|mmm+)(?=[\\s,.;!?]|$)"), "$1")
+            .replace(Regex("\\s+"), " ").trim()
+        val key = svc.apiKey()
+        if (key.isBlank()) return fallback
+        return try {
+            OpenAiClient(key).textSimple(
+                "Du är en noggrann redaktör för talad text. Skriv om transkriberingen till naturlig, korrekt text på samma språk. Ta bort utfyllnadsord som eh, öh, öööh, eeeh och onödiga upprepningar. Rätta stavning, grammatik och interpunktion. Behåll talarens betydelse, avsikt, namn, siffror och fakta. Lägg inte till information. Svara endast med färdig text.",
+                raw, 600
+            ).trim().ifBlank { fallback }
+        } catch (_: Exception) { fallback }
+    }
+
+    private fun listen() {        if (svc.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             addMsg(false, "Tillåt mikrofon: öppna ScreenBubble-appen och tryck på \"Tillåt mikrofon\".")
             return
         }
@@ -767,23 +800,41 @@ class PanelUi(private val svc: ReaderService) {
         val r = SpeechRecognizer.createSpeechRecognizer(svc)
         recognizer = r
         r.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) { micBtn.text = "●" }
+            override fun onReadyForSpeech(params: Bundle?) { micBtn.text = if (dictationMode) "■" else "●" }
             override fun onBeginningOfSpeech() {}
             override fun onRmsChanged(rmsdB: Float) {}
             override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() { micBtn.text = "🎤" }
+            override fun onEndOfSpeech() { if (!dictationMode) micBtn.text = "🎤" }
             override fun onError(error: Int) {
-                micBtn.text = "🎤"
-                if (convo && error == SpeechRecognizer.ERROR_NO_MATCH) main.postDelayed({ if (convo) listen() }, 400)
+                if (dictationMode) {
+                    if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) main.postDelayed({ if (dictationMode) listen() }, 350)
+                    else { stopDictation(); addMsg(false, "Taligenkänningen avbröts. Tryck på mikrofonen för att försöka igen.") }
+                } else {
+                    micBtn.text = "🎤"
+                    if (convo && error == SpeechRecognizer.ERROR_NO_MATCH) main.postDelayed({ if (convo) listen() }, 400)
+                }
             }
             override fun onResults(results: Bundle?) {
-                micBtn.text = "🎤"
                 val t = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
-                if (t.isNotBlank()) send(t, true)
+                if (dictationMode) {
+                    if (t.isNotBlank()) svc.pool.execute {
+                        val polished = polishDictation(t)
+                        val result = svc.insertDictatedText(polished)
+                        main.post {
+                            if (dictationMode) {
+                                setStatus(if (result.startsWith("Skrev")) "Texten är infogad. Fortsätter lyssna…" else result)
+                                main.postDelayed({ if (dictationMode) listen() }, 350)
+                            }
+                        }
+                    } else if (dictationMode) main.postDelayed({ if (dictationMode) listen() }, 350)
+                } else {
+                    micBtn.text = "🎤"
+                    if (t.isNotBlank()) send(t, true)
+                }
             }
             override fun onPartialResults(partialResults: Bundle?) {
                 val t = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
-                if (t.isNotBlank()) input.setText(t)
+                if (dictationMode) { if (t.isNotBlank()) setStatus("Lyssnar…") } else if (t.isNotBlank()) input.setText(t)
             }
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })

@@ -271,12 +271,14 @@ class SideUi(private val svc: ReaderService) {
                 Tile("🌐", "Smart Translate") { svc.openChat("Översätt den viktigaste texten på skärmen till svenska och behåll struktur och ton.", true) },
                 Tile("🎓", "Study Mode") { svc.openChat("Förklara uppgiften pedagogiskt steg för steg. Ge ledtrådar innan hela lösningen och kontrollera min förståelse.", true) },
                 Tile("✍️", "Writing Mode") { svc.openChat("Hjälp mig skriva eller förbättra texten på skärmen. Matcha sammanhang och min skrivstil.", true) },
+                Tile("🎙️", "Diktera") { svc.startDictation() },
                 Tile("🔎", "Web Research") { svc.openChat("Undersök ämnet på skärmen, jämför tillförlitliga källor och sammanfatta med länkar.", true) },
                 Tile("🧩", "App Profiles") { openApp(null) }
             ),
             "Verktyg" to listOf(
                 Tile("🎤", "Röst") { svc.openChat(null, false); svc.voiceSoon() },
                 Tile("🧠", "Minne") { svc.openChat("visa minne", true) },
+                Tile("📝", "Anteckningar") { svc.openNotes() },
                 Tile("🫥", "Hide-läge") { svc.setMode(ReaderService.Mode.HIDE) },
                 Tile("⬇️", "Uppdatera") { openApp("checkupdate") },
                 Tile("💡", "Förslag: " + (if (Store.flag(svc, "smart_suggest")) "på" else "av")) {
