@@ -232,6 +232,17 @@ class MainActivity : Activity() {
         }
         toggle("Föreslå svar i chattar", "smart_suggest")
         toggle("Lär dig hur jag skriver", "learn_style")
+        sr.addView(text("Välj appar där Smart Reply får läsa sammanhang och föreslå svar eller förbättra ett utkast:", 12f, MUTED).apply { setPadding(0, dp(8), 0, dp(4)) })
+        for ((pkg, appName) in Suggest.communicationApps) {
+            sr.addView(Switch(this).apply {
+                text = appName
+                textSize = 13f
+                setTextColor(TEXT)
+                isChecked = Store.smartReplyAppEnabled(this@MainActivity, pkg)
+                setPadding(dp(2), dp(4), 0, dp(4))
+                setOnCheckedChangeListener { _, enabled -> Store.setSmartReplyAppEnabled(this@MainActivity, pkg, enabled) }
+            })
+        }
         val n = Store.chatSamples(this).size
         sr.addView(text(
             "Förslag: chattens text skickas till OpenAI varje gång något nytt skrivs, bara i meddelandeappar och bara medan sidebaren är synlig. " +
