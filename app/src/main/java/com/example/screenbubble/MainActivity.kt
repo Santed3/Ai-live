@@ -112,7 +112,7 @@ class MainActivity : Activity() {
         isAllCaps = false
         textSize = 13.5f
         setTextColor(if (primary) Color.WHITE else TEXT)
-        background = if (primary) GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF8A6BFF.toInt(), 0xFF6241E8.toInt())).apply { cornerRadius = dp(14).toFloat(); setStroke(dp(1), 0x447FFFFFFF) } else rounded(0x1FFFFFFF, 14)
+        background = if (primary) GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF8A6BFF.toInt(), 0xFF6241E8.toInt())).apply { cornerRadius = dp(14).toFloat(); setStroke(dp(1), 0x447FFFFF) } else rounded(0x1FFFFFFF, 14)
         stateListAnimator = null
         minHeight = dp(40)
         minimumHeight = dp(40)
