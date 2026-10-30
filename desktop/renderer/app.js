@@ -290,7 +290,7 @@ async function toggleMic(dictationSegment = false) {
   let stream;
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
   catch {
-    if (dictationSegment) { dictationMode = false; $('dictate').classList.remove('on'); }
+    if (dictationSegment) { dictationMode = false; $('dictate').classList.remove('on'); $('dictate').textContent = '✍️'; }
     addMsg(false, 'Mikrofonen nekades eller saknas.'); return;
   }
   const chunks = [];
