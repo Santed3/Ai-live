@@ -108,7 +108,11 @@ async function post(url, body) {
 function content(text, shot) {
   const c = [{ type: 'text', text }];
   const images = Array.isArray(shot) ? shot : (shot ? [shot] : []);
-  for (const image of images) if (image) c.push({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + image, detail: 'high' } });
+  for (const image of images) {
+    const data = typeof image === 'string' ? image : image.data;
+    const mime = typeof image === 'string' ? 'image/jpeg' : (image.mime || 'image/jpeg');
+    if (data) c.push({ type: 'image_url', image_url: { url: 'data:' + mime + ';base64,' + data, detail: 'high' } });
+  }
   return c;
 }
 async function chat(messages, o = {}) {
@@ -698,7 +702,7 @@ async function runAgent(userText, attachments = [], assistantMode = 'general') {
   const messages = [{ role: 'system', content: systemPrompt(assistantMode) }, ...history()];
   const shot0 = await captureScreen(true);
   const fileText = attachments.filter((x) => x.text).map((x) => '\n\n--- FIL: ' + x.name + ' ---\n' + x.text).join('');
-  const images = attachments.filter((x) => x.image).map((x) => x.image);
+  const images = attachments.filter((x) => x.image).map((x) => ({ data: x.image, mime: x.mime }));
   messages.push({
     role: 'user',
     content: content('Användarens meddelande: ' + userText + fileText + '\n\nAktivt fönster: ' + lastExternal.title + ' (' + lastExternal.proc + ')', [shot0, ...images]),
@@ -810,7 +814,8 @@ ipcMain.handle('chat', async (_e, { text, attachments, assistantMode }) => {
     const safeAttachments = Array.isArray(attachments) ? attachments.slice(0, 5).map((x) => ({
       name: String(x.name || 'Fil').slice(0, 120),
       text: typeof x.text === 'string' ? x.text.slice(0, 18000) : '',
-      image: typeof x.image === 'string' && x.image.length <= 11000000 ? x.image : ''
+      image: typeof x.image === 'string' && x.image.length <= 11000000 ? x.image : '',
+      mime: ['image/jpeg','image/png','image/webp'].includes(x.mime) ? x.mime : 'image/jpeg'
     })) : [];
     return { ok: true, reply: await runAgent(String(text || ''), safeAttachments, assistantMode) };
   }
