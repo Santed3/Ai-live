@@ -74,6 +74,7 @@ class SideUi(private val svc: ReaderService) {
             setTextColor(0xFFE8EAF4.toInt())
         })
         val dots = LinearLayout(svc).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(dp(7), 0, 0, 0) }
+        val dotAnimations = mutableListOf<ObjectAnimator>()
         repeat(3) { i ->
             val dot = TextView(svc).apply {
                 text = "•"
@@ -81,14 +82,18 @@ class SideUi(private val svc: ReaderService) {
                 setTextColor(0xFFAB96FF.toInt())
             }
             dots.addView(dot)
-            ObjectAnimator.ofFloat(dot, "translationY", 0f, -dp(3).toFloat(), 0f).apply {
+            dotAnimations.add(ObjectAnimator.ofFloat(dot, "translationY", 0f, -dp(3).toFloat(), 0f).apply {
                 duration = 760
                 startDelay = i * 130L
                 repeatCount = ValueAnimator.INFINITE
                 start()
-            }
+            })
         }
         row.addView(dots)
+        row.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {}
+            override fun onViewDetachedFromWindow(v: View) { dotAnimations.forEach { it.cancel() } }
+        })
         return row
     }
 
