@@ -278,7 +278,8 @@ class SideUi(private val svc: ReaderService) {
             "Verktyg" to listOf(
                 Tile("🎤", "Röst") { svc.openChat(null, false); svc.voiceSoon() },
                 Tile("🧠", "Minne") { svc.openChat("visa minne", true) },
-                Tile("📝", "Anteckningar") { svc.openNotes() },
+                Tile("📝", "Ny anteckning") { svc.openNotes() },
+                Tile("📚", "Mina anteckningar") { svc.openNotesLibrary() },
                 Tile("🫥", "Hide-läge") { svc.setMode(ReaderService.Mode.HIDE) },
                 Tile("⬇️", "Uppdatera") { openApp("checkupdate") },
                 Tile("💡", "Förslag: " + (if (Store.flag(svc, "smart_suggest")) "på" else "av")) {
