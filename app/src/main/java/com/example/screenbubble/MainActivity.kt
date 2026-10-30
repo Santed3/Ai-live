@@ -245,7 +245,7 @@ class MainActivity : Activity() {
         }
         val n = Store.chatSamples(this).size
         sr.addView(text(
-            "Förslag: chattens text skickas till OpenAI varje gång något nytt skrivs, bara i meddelandeappar och bara medan sidebaren är synlig. " +
+            "Smart Reply läser konversationen och ditt pågående utkast i de appar du valt. Texten skickas till OpenAI när förslag skapas, bara medan sidebaren är synlig. Tryck på ett förslag för att fylla i textfältet – det skickas aldrig automatiskt. " +
                 "Lärande: meddelanden du själv skickar i meddelandeappar sparas bara på din telefon (aldrig lösenordsfält eller känsligt). " +
                 if (n > 0) "Hittills inlärda meddelanden: $n." else "Inget inlärt än.",
             12f, MUTED
