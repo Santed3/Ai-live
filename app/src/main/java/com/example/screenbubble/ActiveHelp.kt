@@ -48,7 +48,12 @@ class ActiveHelp(private val svc: ReaderService) {
             "åtkomst nekad", "access denied", "permission denied", "kunde inte slutföra",
             "couldn't complete", "could not complete", "network error", "nätverksfel",
             "connection failed", "anslutningen misslyckades", "installation failed",
-            "installationen misslyckades"
+            "installationen misslyckades", "upload failed", "couldn't upload", "could not upload",
+            "kunde inte ladda upp", "uppladdningen misslyckades", "file type not supported",
+            "unsupported file type", "filtypen stöds inte", "invalid email address",
+            "ogiltig e-postadress", "required field", "field is required", "obligatoriskt fält",
+            "fältet är obligatoriskt", "server error", "form submission failed",
+            "kunde inte skicka formuläret"
         ).any { normalized.contains(it) }
         val pairedFailure = download && listOf("failed", "error", "blocked", "misslyck", "fel", "kunde inte", "couldn't", "försök igen").any { normalized.contains(it) }
         if (!strongFailure && !pairedFailure) return
