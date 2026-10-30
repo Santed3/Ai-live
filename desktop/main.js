@@ -310,10 +310,41 @@ const WIN32 = [
 const WIN32_SRC = WIN32.join('\n');
 let lastExternal = { title: '', proc: '' };
 let lastActiveHelpSignature = '', lastActiveHelpAt = 0, activeHelpRepeat = 0, activeHelpPrompt = null;
+// Keep only coarse workflow stages in memory, never screen text or field values.
+let workflowProcess = '', workflowLastStage = '';
+const workflowTrail = [];
+function classifyWorkflowStage(value) {
+  const s = String(value || '').toLowerCase();
+  if (/download|downloading|nedladd|hämtar|hämtning/.test(s)) return 'nedladdning';
+  if (/upload|uploading|ladda upp|uppladd|bifoga fil/.test(s)) return 'uppladdning';
+  if (/checkout|payment|betalning|kassa|order summary|slutför köp/.test(s)) return 'köp/betalning';
+  if (/sign in|log in|logga in|lösenord|password|two.factor|verification code/.test(s)) return 'inloggning';
+  if (/search|sök|results|sökresultat|filter/.test(s)) return 'sökning';
+  if (/new message|compose|skriv meddelande|nytt meddelande|recipient|mottagare/.test(s)) return 'meddelande';
+  if (/submit|send|skicka|submit form|required field|obligatoriskt fält/.test(s)) return 'formulär';
+  if (/calendar|kalender|schedule|schemalägg|date|datum/.test(s)) return 'planering';
+  if (/save as|spara som|open file|öppna fil|choose file|välj fil/.test(s)) return 'filhantering';
+  if (/settings|inställningar|preferences|preferenser/.test(s)) return 'inställningar';
+  return '';
+}
+function recordWorkflowStage(proc, snapshot) {
+  if (proc !== workflowProcess) {
+    workflowProcess = proc;
+    workflowLastStage = '';
+    workflowTrail.length = 0;
+  }
+  const stage = classifyWorkflowStage(snapshot);
+  if (!stage || stage === workflowLastStage) return;
+  workflowLastStage = stage;
+  if (workflowTrail[workflowTrail.length - 1] !== stage) workflowTrail.push(stage);
+  while (workflowTrail.length > 6) workflowTrail.shift();
+}
+function workflowContext() { return workflowTrail.join(' → '); }
 function inspectForActiveHelp(title, proc, snapshot) {
   if (!featureSettings().activeHelp || mode === 'chat' || !panel || panel.isFocused()) { activeHelpRepeat = 0; return; }
   const text = (String(title || '') + '\n' + String(snapshot || '')).toLowerCase();
   if (!text.trim()) return;
+  recordWorkflowStage(proc, text);
   const download = /(download|downloading|nedladd|hämtar|hämtning)/i.test(text);
   const strong = [
     'download failed', "couldn't download", 'could not download', 'failed to download',
@@ -344,7 +375,10 @@ function inspectForActiveHelp(title, proc, snapshot) {
   lastActiveHelpPromptSignature = signature;
   lastActiveHelpAt = Date.now();
   const headline = download ? 'Nedladdningen verkar ha fastnat' : 'Det verkar ha uppstått ett problem';
-  activeHelpPrompt = 'Active Help upptäckte ett möjligt problem i ' + (title || proc) + '. Undersök den aktuella skärmen och förklara kort vad som verkar ha hänt och hur det kan lösas. Gör inga ändringar, klicka inte och ladda inte ner något ännu. Fråga först om jag vill att du tar över och försöker lösa problemet. Förklara vilken åtgärd du tänker utföra innan du ber om godkännande.';
+  const trail = workflowContext();
+  activeHelpPrompt = 'Active Help upptäckte ett möjligt problem i ' + (title || proc) + '. Undersök den aktuella skärmen och förklara kort vad som verkar ha hänt och hur det kan lösas. ' +
+    (trail ? 'Observerade steg i det här arbetsflödet, i ordning: ' + trail + '. Använd dem för att förstå sammanhanget, men anta inte att varje steg lyckades. ' : '') +
+    'Gör inga ändringar, klicka inte och ladda inte ner något ännu. Fråga först om jag vill att du tar över och försöker lösa problemet. Beskriv planen och möjliga konsekvenser innan du ber om godkännande.';
   showAnswer('Active Help\n' + headline + '\nTryck här för att analysera', 12000);
 }
 let lastActiveHelpPromptSignature = '';
