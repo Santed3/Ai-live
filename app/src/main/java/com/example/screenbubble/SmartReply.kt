@@ -26,6 +26,14 @@ class SmartReply(private val svc: ReaderService) {
     private var lastTyped = ""
     private var lastTypedAt = 0L
 
+    @Volatile private var lastAcceptedDraft = ""
+
+    fun markAccepted(text: String) {
+        lastAcceptedDraft = text.trim()
+        pendingDraft = text.trim()
+        lastDraftHash = (svc.currentPkg() + "|" + text.trim()).hashCode()
+    }
+
     private fun suggestOn() = Store.flag(svc, "smart_suggest")
     private fun learnOn() = Store.flag(svc, "learn_style")
     private fun allowed(pkg: String) = Suggest.isCommunication(pkg) && Store.smartReplyAppEnabled(svc, pkg)
@@ -62,6 +70,8 @@ class SmartReply(private val svc: ReaderService) {
             if (src != null && src.isEditable && !src.isPassword) {
                 val current = src.text?.toString() ?: e.text?.joinToString("") { it?.toString().orEmpty() }.orEmpty()
                 if (learnOn()) track(current, src.isShowingHintText)
+                if (lastAcceptedDraft.isNotEmpty() && current.trim() == lastAcceptedDraft) return
+                if (lastAcceptedDraft.isNotEmpty() && current.trim() != lastAcceptedDraft) lastAcceptedDraft = ""
                 if (suggestOn() && !src.isShowingHintText && current.trim().length >= 4) {
                     pendingDraft = current
                     main.removeCallbacks(debounce)
