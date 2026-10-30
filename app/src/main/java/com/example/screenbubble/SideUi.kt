@@ -98,7 +98,7 @@ class SideUi(private val svc: ReaderService) {
     }
 
     /** Tiny reply choices with a ScreenBubble mark; tapping inserts the text into the active field. */
-    fun suggestions(list: List<String>, onPick: (String) -> Unit, onClose: () -> Unit): View {
+    fun suggestions(list: List<String>, title: String = "Förslag på svar", onPick: (String) -> Unit, onClose: () -> Unit): View {
         val card = LinearLayout(svc).apply {
             orientation = LinearLayout.VERTICAL
             background = rounded(0xF2141722.toInt(), 18)
