@@ -54,7 +54,7 @@ class SideUi(private val svc: ReaderService) {
 
     /** Branded floating assistant launcher. Drag to reposition; swipe opens menu or chat. */
     @SuppressLint("ClickableViewAccessibility")
-    fun bubble(lp: WindowManager.LayoutParams, allowSwipe: Boolean, onMove: () -> Unit, onTap: () -> Unit, onSwipe: (String) -> Unit): View {
+    fun bubble(lp: WindowManager.LayoutParams, allowSwipe: Boolean, onMove: () -> Unit, onTap: () -> Unit, onLongPress: () -> Unit, onSwipe: (String) -> Unit): View {
         val frame = FrameLayout(svc)
         val mark = TextView(svc).apply {
             text = "S"
@@ -69,23 +69,27 @@ class SideUi(private val svc: ReaderService) {
             elevation = dp(8).toFloat()
         }
         frame.addView(mark, FrameLayout.LayoutParams(dp(42), dp(42), Gravity.CENTER))
-        var sx = 0f; var sy = 0f; var ox = 0; var oy = 0; var moved = false; var swiped = false
+        var sx = 0f; var sy = 0f; var ox = 0; var oy = 0; var moved = false; var swiped = false; var longFired = false
+        val longPress = Runnable { if (!moved && !swiped) { longFired = true; onLongPress() } }
         frame.setOnTouchListener { _, e ->
             when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { sx = e.rawX; sy = e.rawY; ox = lp.x; oy = lp.y; moved = false; swiped = false }
+                MotionEvent.ACTION_DOWN -> { sx = e.rawX; sy = e.rawY; ox = lp.x; oy = lp.y; moved = false; swiped = false; longFired = false; frame.postDelayed(longPress, 520) }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = e.rawX - sx; val dy = e.rawY - sy
                     if (allowSwipe && !swiped && abs(dx) > dp(42) && abs(dx) > abs(dy) * 1.3f) {
                         swiped = true
+                        frame.removeCallbacks(longPress)
                         onSwipe(if (dx < 0) "left" else "right")
                     } else if (!swiped && (abs(dx) > dp(5) || abs(dy) > dp(5))) {
                         moved = true
+                        frame.removeCallbacks(longPress)
                         lp.x = max(0, ox - dx.toInt())
                         lp.y = oy + dy.toInt()
                         onMove()
                     }
                 }
-                MotionEvent.ACTION_UP -> if (!swiped && !moved) onTap()
+                MotionEvent.ACTION_UP -> { frame.removeCallbacks(longPress); if (!swiped && !moved && !longFired) onTap() }
+                MotionEvent.ACTION_CANCEL -> frame.removeCallbacks(longPress)
             }
             true
         }
