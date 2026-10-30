@@ -117,6 +117,20 @@ mark{background:rgba(124,245,200,.3);color:inherit;border-radius:3px;padding:0 1
 .welcome .sug button{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:14px;padding:9px 12px;text-align:left;color:#d6daea}
 .welcome .sug button:hover{border-color:rgba(124,92,255,.7);background:rgba(124,92,255,.15)}
 .welcome small{display:block;margin-top:10px;color:var(--muted);font-size:11.5px}
+
+/* Smooth interaction layer: animate compositor-friendly properties only. */
+:root{--motion-fast:140ms;--motion-medium:220ms;--ease-out:cubic-bezier(.22,1,.36,1)}
+body[data-v=chat] #app,body[data-v=menu] #menu{animation:panel-enter 260ms var(--ease-out) both;transform-origin:top right;will-change:transform,opacity}
+@keyframes panel-enter{0%{opacity:0;transform:translate3d(0,12px,0) scale(.975);filter:blur(2px)}100%{opacity:1;transform:translate3d(0,0,0) scale(1);filter:blur(0)}}
+#pill{transition:height var(--motion-medium) var(--ease-out),background var(--motion-medium) ease,box-shadow var(--motion-medium) ease}
+button,.tile,#hlist .it,#inrow,.banner{transition:background-color var(--motion-fast) ease,border-color var(--motion-fast) ease,box-shadow var(--motion-fast) ease,transform var(--motion-fast) var(--ease-out),color var(--motion-fast) ease}
+button:focus-visible,.tile:focus-visible{outline:2px solid #a995ff;outline-offset:2px}
+button:disabled{opacity:.48;cursor:wait;transform:none}
+#inrow:focus-within{box-shadow:0 0 0 3px rgba(108,71,255,.13)}
+.m,.s,.card.show,.welcome,.fcard{animation:content-enter 220ms var(--ease-out) both}
+@keyframes content-enter{from{opacity:0;transform:translate3d(0,7px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+#chat,#menu{overscroll-behavior:contain}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 </style></head>
 <body data-v="bar"><div id="bar" class="view"><div id="pill"></div></div><div id="menu" class="view">
   <div id="mhead"><h2>ScreenBubble</h2><span id="ver"></span></div>
