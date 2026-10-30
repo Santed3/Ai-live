@@ -22,7 +22,7 @@ Android har en guidad installationsstart med tydliga steg för tillgänglighet, 
 
 Windows har en separat inställningscentral för utseende, funktioner, appar, genvägar och integritet.
 1. Installera APK-filen (Android 11 eller nyare).
-2. Klistra in din OpenAI API-nyckel i appen.
+2. Ange din egen OpenAI API-nyckel i den guidade installationen om ingen nyckel redan finns.
 3. Android 13+: appinfo → ⋮ → "Tillåt begränsade inställningar".
 4. Inställningar → Tillgänglighet → ScreenBubble → På.
 5. Följ installationsguiden och slutför den. Därefter dyker pricken upp. Dra den dit du vill och tryck på den för ett svar.
@@ -36,4 +36,4 @@ Windows har en separat inställningscentral för utseende, funktioner, appar, ge
 
 ## Bygget
 Varje push till `main` bygger en APK (GitHub Actions) och lägger den under Releases.
-Valfritt: secret `OPENAI_API_KEY` bygger in nyckeln i APK:n (kan då plockas ut av den som laddar ner appen).
+Av säkerhetsskäl bäddas ingen API-nyckel in i nya byggen. Ange din egen OpenAI API-nyckel i appens inställningar. Äldre nedladdningar kan ha innehållit en inbyggd nyckel; rotera den nyckeln om du har använt den i tidigare publika byggen.
