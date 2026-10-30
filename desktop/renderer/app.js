@@ -264,7 +264,7 @@ const BUILTIN = [
     ['🫥', 'Hide-läge', () => api.setMode('hide')],
   ]],
 ];
-let upd = { state: 'idle' }, autostartOn = false, cmds = [];
+let upd = { state: 'idle' }, autostartOn = false, memoryAutoOn = false, cmds = [];
 function tileEl(icon, label, fn, extra) {
   const d = document.createElement('div'); d.className = 'tile'; d.tabIndex = 0; d.setAttribute('role', 'button');
   d.innerHTML = '<i>' + icon + '</i><span></span>'; d.querySelector('span').textContent = label;
@@ -297,6 +297,7 @@ function renderMenu() {
   const sys = [
     tileEl('🚀', 'Autostart: ' + (autostartOn ? 'på' : 'av'), async () => { autostartOn = await api.autostartSet(!autostartOn); renderMenu(); }),
     tileEl(upd.state === 'ready' ? '🔄' : '⬇️', upd.state === 'ready' ? 'Starta om och uppdatera' : upd.state === 'downloading' ? 'Hämtar…' : upd.state === 'checking' ? 'Söker…' : upd.state === 'latest' ? 'Senaste versionen' : 'Sök uppdatering', () => (upd.state === 'ready' ? api.updateInstall() : api.updateCheck())),
+    tileEl('🧠', 'Minneslärande: ' + (memoryAutoOn ? 'på' : 'av'), async () => { memoryAutoOn = await api.memoryAutoSet(!memoryAutoOn); renderMenu(); }),
     tileEl('➖', 'Minimera', () => api.setMode('bar')),
     tileEl('✕', 'Stäng', () => api.quit()),
   ];
@@ -329,8 +330,8 @@ function renderUpdate() {
   renderMenu();
 }
 api.onUpdate((s) => { upd = s; renderUpdate(); });
-Promise.all([api.commandsGet(), api.autostartGet(), api.updateState()]).then(([c, a, u]) => {
-  cmds = c; autostartOn = a; upd = u; $('ver').textContent = 'v' + (u.version || ''); renderUpdate();
+Promise.all([api.commandsGet(), api.autostartGet(), api.updateState(), api.memoryAutoGet()]).then(([c, a, u, mm]) => {
+  cmds = c; autostartOn = a; upd = u; memoryAutoOn = mm; $('ver').textContent = 'v' + (u.version || ''); renderUpdate();
 });
 // history
 let hqTimer = null;

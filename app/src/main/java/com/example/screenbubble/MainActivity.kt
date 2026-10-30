@@ -272,7 +272,16 @@ class MainActivity : Activity() {
 
         // memory
         val mem = Store.memory(this)
-        val mc = card("Minne", if (mem.isEmpty()) "Jag lär mig av våra samtal vem du skriver till och hur du brukar svara." else "Det här har jag lärt mig om dig:")
+        val mc = card("Minne", if (mem.isEmpty()) "Du bestämmer vad ScreenBubble ska komma ihåg. Du kan granska och radera sparade uppgifter här." else "Det här har jag lärt mig om dig:")
+        mc.addView(Switch(this).apply {
+            text = "Lär av våra samtal automatiskt"
+            textSize = 14f
+            setTextColor(TEXT)
+            isChecked = Store.flag(this@MainActivity, "memory_auto")
+            setPadding(0, dp(7), 0, dp(7))
+            setOnCheckedChangeListener { _, v -> Store.setFlag(this@MainActivity, "memory_auto", v) }
+        })
+        mc.addView(text("När detta är på kan ScreenBubble spara användbara, långsiktiga fakta. Känsliga uppgifter filtreras bort. Du kan alltid säga ”kom ihåg …” eller ta bort sparade minnen.", 11.5f, MUTED))
         mem.forEachIndexed { i, m ->
             val r = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
             r.addView(text(m, 13f, TEXT), LinearLayout.LayoutParams(0, -2, 1f))

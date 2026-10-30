@@ -38,7 +38,7 @@ function styleBlock() {
 // Quietly learns lasting facts (people, tone, habits) from an exchange. Never throws.
 async function learn(userText, answer) {
   try {
-    if (!apiKey() || String(userText).length < 12 || Lib.isSensitive(userText)) return;
+    if (readJson('settings.json', {}).memoryAuto !== true || !apiKey() || String(userText).length < 12 || Lib.isSensitive(userText)) return;
     const j = await post('https://api.openai.com/v1/chat/completions', {
       model: 'gpt-4o-mini', max_tokens: 300, temperature: 0, response_format: { type: 'json_object' },
       messages: [
@@ -710,6 +710,8 @@ ipcMain.handle('commands-delete', (_e, id) => { const l = commands().filter((x) 
 ipcMain.handle('style-add', (_e, t) => { writeJson('style.json', Lib.addStyleSample(styleSamples(), t)); return true; });
 ipcMain.handle('memory-get', () => memory());
 ipcMain.handle('memory-set', (_e, list) => { writeJson('memory.json', Array.isArray(list) ? list.map(String).slice(0, 40) : []); return true; });
+ipcMain.handle('memory-auto-get', () => readJson('settings.json', {}).memoryAuto === true);
+ipcMain.handle('memory-auto-set', (_e, on) => { const s = readJson('settings.json', {}); s.memoryAuto = !!on; writeJson('settings.json', s); return !!s.memoryAuto; });
 ipcMain.handle('set-mode', (_e, m) => { setMode(m); return true; });
 ipcMain.on('bar-move', (_e, { y }) => {
   const wa = screen.getPrimaryDisplay().workArea;

@@ -41,12 +41,12 @@ class PanelUi(private val svc: ReaderService) {
     private val density = svc.resources.displayMetrics.density
     private fun dp(v: Int) = (v * density).toInt()
 
-    private val BG = 0xF5121316.toInt()
-    private val CARD = 0xFF1B1F36.toInt()
-    private val ACCENT = 0xFF7CF5C8.toInt()
-    private val PRIMARY = 0xFF6C47FF.toInt()
-    private val TEXT = 0xFFECEFF8.toInt()
-    private val MUTED = 0xFF9AA3BF.toInt()
+    private val BG = 0xF50B0E16.toInt()
+    private val CARD = 0xFF171D2B.toInt()
+    private val ACCENT = 0xFF8DF5D0.toInt()
+    private val PRIMARY = 0xFF7857FF.toInt()
+    private val TEXT = 0xFFF2F4FC.toInt()
+    private val MUTED = 0xFF9AA5BE.toInt()
 
     val root = LinearLayout(svc)
     private val chips = LinearLayout(svc)
@@ -143,8 +143,11 @@ class PanelUi(private val svc: ReaderService) {
 
     private fun build() {
         root.orientation = LinearLayout.VERTICAL
-        root.background = rounded(BG, 20)
-        root.setPadding(dp(10), dp(8), dp(10), dp(8))
+        root.background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xF51B2030.toInt(), 0xF50B0E16.toInt())).apply {
+            cornerRadius = dp(22).toFloat()
+            setStroke(dp(1), 0x24FFFFFF)
+        }
+        root.setPadding(dp(11), dp(9), dp(11), dp(9))
         root.elevation = dp(10).toFloat()
 
         // header

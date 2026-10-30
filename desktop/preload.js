@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('api', {
   styleAdd: (t) => ipcRenderer.invoke('style-add', t),
   memoryGet: () => ipcRenderer.invoke('memory-get'),
   memorySet: (l) => ipcRenderer.invoke('memory-set', l),
+  memoryAutoGet: () => ipcRenderer.invoke('memory-auto-get'),
+  memoryAutoSet: (on) => ipcRenderer.invoke('memory-auto-set', on),
   updateState: () => ipcRenderer.invoke('update-state'),
   updateCheck: () => ipcRenderer.invoke('update-check'),
   updateInstall: () => ipcRenderer.invoke('update-install'),

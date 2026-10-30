@@ -124,7 +124,7 @@ class Agent(
 
     /** Quietly learns lasting facts (people, tone, habits) in the background. Never throws. */
     private fun learn(userText: String, answer: String) {
-        if (userText.length < 12 || Store.isSensitive(userText)) return
+        if (!Store.flag(ctx, "memory_auto") || userText.length < 12 || Store.isSensitive(userText)) return
         val key = svc.apiKey()
         if (key.isEmpty()) return
         svc.pool.execute {
