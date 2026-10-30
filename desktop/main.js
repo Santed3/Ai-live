@@ -921,7 +921,7 @@ ipcMain.handle('stt', async (_e, buf) => {
 let lastDotClick = 0;
 ipcMain.on('dot-click', () => {
   lastDotClick = Date.now();
-  setMode('menu');
+  setMode('chat');
 });
 ipcMain.on('dot-dbl', () => setMode('chat'));
 ipcMain.on('dot-panel', () => setMode('menu'));
