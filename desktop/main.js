@@ -309,12 +309,16 @@ function inspectForActiveHelp(title, proc, snapshot) {
     'something went wrong', 'not responding', "isn't responding", 'åtkomst nekad',
     'access denied', 'permission denied', 'kunde inte slutföra', "couldn't complete",
     'could not complete', 'network error', 'nätverksfel', 'connection failed',
-    'anslutningen misslyckades', 'installation failed', 'installationen misslyckades'
+    'anslutningen misslyckades', 'installation failed', 'installationen misslyckades',
+    'upload failed', "couldn't upload", 'could not upload', 'kunde inte ladda upp', 'uppladdningen misslyckades',
+    'file type not supported', 'unsupported file type', 'filtypen stöds inte', 'ogiltig e-postadress',
+    'invalid email address', 'required field', 'field is required', 'obligatoriskt fält', 'fältet är obligatoriskt',
+    'server error', 'form submission failed', 'kunde inte skicka formuläret'
   ].some((phrase) => text.includes(phrase));
-  const stalled = download && /(0\\s*(b\\/s|kb\\/s|mb\\/s)|0%|paused|pausad|stalled|väntar)/i.test(text);
+  const stalled = download && /(0\s*(b\/s|kb\/s|mb\/s)|0%|paused|pausad|stalled|väntar)/i.test(text);
   const soft = /(try again|retry|försök igen|couldn't|kunde inte|failed|misslyckades|error|fel)/i.test(text);
   if (!strong && !stalled && !soft) { activeHelpRepeat = 0; return; }
-  const signature = String(proc || '') + '|' + String(title || '') + '|' + text.replace(/\\s+/g, ' ').slice(0, 1300);
+  const signature = String(proc || '') + '|' + String(title || '') + '|' + text.replace(/\s+/g, ' ').slice(0, 1300);
   if (signature === lastActiveHelpSignature) activeHelpRepeat++; else { lastActiveHelpSignature = signature; activeHelpRepeat = 1; }
   if (!strong && activeHelpRepeat < (stalled ? 8 : 3)) return;
   if (signature === lastActiveHelpPromptSignature || Date.now() - lastActiveHelpAt < 120000) return;
