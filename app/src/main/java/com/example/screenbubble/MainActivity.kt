@@ -230,7 +230,7 @@ class MainActivity : Activity() {
                 setOnCheckedChangeListener { _, v -> Store.setFlag(this@MainActivity, key, v) }
             })
         }
-        toggle("Föreslå svar i chattar", "smart_suggest")
+        toggle("Föreslå svar och förbättra utkast", "smart_suggest")
         toggle("Lär dig hur jag skriver", "learn_style")
         sr.addView(text("Välj appar där Smart Reply får läsa sammanhang och föreslå svar eller förbättra ett utkast:", 12f, MUTED).apply { setPadding(0, dp(8), 0, dp(4)) })
         for ((pkg, appName) in Suggest.communicationApps) {
