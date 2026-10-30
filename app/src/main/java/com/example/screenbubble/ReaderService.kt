@@ -184,10 +184,15 @@ class ReaderService : AccessibilityService() {
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
+        ).apply {
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            x = getSharedPreferences("prefs", MODE_PRIVATE).getInt("bubble_x", 0)
+            y = getSharedPreferences("prefs", MODE_PRIVATE).getInt("bubble_y", 0)
+        }
         val ui = SideUi(this)
         val v = ui.bubble(lp, Store.assistantDisplay(this) == "swipe", {
             try { wm.updateViewLayout(side, lp) } catch (_: Exception) {}
+            getSharedPreferences("prefs", MODE_PRIVATE).edit().putInt("bubble_x", lp.x).putInt("bubble_y", lp.y).apply()
         }, {
             setMode(Mode.MENU)
         }, { direction ->
