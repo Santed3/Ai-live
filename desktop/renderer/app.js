@@ -58,6 +58,23 @@ function setStatus(t) {
 function clearStatus() { if (statusEl) { statusEl.remove(); statusEl = null; } }
 
 // ---------------------------------------------------------------- chips
+const FEATURE_DEFAULTS = {
+  smartReply:true, contextualSuggestions:true, screenActions:true, smartTranslate:true,
+  studyMode:true, writingMode:true, webResearch:true, appProfiles:true, voice:true, readAloud:true
+};
+let features = { ...FEATURE_DEFAULTS };
+const FEATURE_META = [
+  ['smartReply','💬','Smart Reply','Skriver ett naturligt svar utifrån mejlet eller chatten på skärmen.'],
+  ['contextualSuggestions','✨','Smarta förslag','Visar relevanta snabbval beroende på vilken app du använder.'],
+  ['screenActions','⚡','AI Actions','Hjälper dig utföra uppgifter i flera steg på skärmen.'],
+  ['smartTranslate','🌐','Smart Translate','Översätter text direkt i appar och behåller sammanhanget.'],
+  ['studyMode','🎓','Study Mode','Förklarar frågor och uppgifter steg för steg.'],
+  ['writingMode','✍️','Writing Mode','Skriver, förbättrar och anpassar texter efter din ton.'],
+  ['webResearch','🔎','Web Research','Söker, jämför källor och sammanfattar ämnen.'],
+  ['appProfiles','🧩','App Profiles','Anpassar förslag efter aktiv app och arbetsflöde.'],
+  ['voice','🎙','Röstassistent','Aktiverar mikrofon och samtal i realtid.'],
+  ['readAloud','🔊','Läs upp svar','Läser upp AI-svar automatiskt när det är aktiverat.'],
+];
 const MAIL = ['outlook', 'olk', 'thunderbird', 'hxoutlook'];
 const CHAT = ['whatsapp', 'telegram', 'discord', 'slack', 'teams', 'ms-teams', 'signal', 'messenger'];
 const WEB = ['chrome', 'msedge', 'firefox', 'brave', 'opera', 'vivaldi'];
@@ -66,15 +83,22 @@ function chipsFor(title, proc) {
   const isMail = MAIL.includes(p) || /gmail|inbox|outlook|mail/.test(t);
   const isChat = CHAT.includes(p) || /whatsapp|messenger|telegram|discord|slack|teams/.test(t);
   const isWeb = WEB.includes(p);
-  if (isMail) out.push(['Svara på mejl', null, true], ['Sammanfatta mejlet', 'Sammanfatta mejlet på skärmen i några punkter och säg vad som förväntas av mig.'], ['Skriv nytt mejl', 'Hjälp mig skriva ett nytt mejl. Fråga vad det ska handla om och till vem.']);
-  else if (isChat) out.push(['Föreslå svar', null, true], ['Sammanfatta chatten', 'Sammanfatta konversationen på skärmen kort.'], ['Översätt', 'Översätt de senaste meddelandena på skärmen till svenska (eller engelska om de redan är på svenska).']);
-  else if (isWeb) out.push(['Sammanfatta sidan', 'Sammanfatta sidan på skärmen i korta punkter.'], ['Sök mer om detta', 'Sök på webben efter mer information om ämnet på skärmen och sammanfatta vad du hittar.'], ['Förklara', 'Förklara enkelt det som står på skärmen.']);
+  if (features.contextualSuggestions && isMail) out.push(['Smart Reply', null, true], ['Sammanfatta mejlet', 'Sammanfatta mejlet på skärmen i några punkter och säg vad som förväntas av mig.'], ['Skriv nytt mejl', 'Hjälp mig skriva ett nytt mejl. Fråga vad det ska handla om och till vem.']);
+  else if (features.contextualSuggestions && isChat) out.push(['Smart Reply', null, true], ['Sammanfatta chatten', 'Sammanfatta konversationen på skärmen kort.'], ['Översätt', 'Översätt de senaste meddelandena på skärmen till svenska (eller engelska om de redan är på svenska).']);
+  else if (features.contextualSuggestions && isWeb) out.push(['Sammanfatta sidan', 'Sammanfatta sidan på skärmen i korta punkter.'], ['Sök mer om detta', 'Sök på webben efter mer information om ämnet på skärmen och sammanfatta vad du hittar.'], ['Förklara', 'Förklara enkelt det som står på skärmen.']);
   out.push(['Svara på frågan', 'Svara på frågan som syns på skärmen. Ge svaret tydligt.'], ['Sök på Google', 'Sök på webben efter svaret på frågan på skärmen och förklara det kort.'],
     ['Förklara skärmen', 'Förklara kort vad som visas på skärmen.'], ['Sammanfatta', 'Sammanfatta texten på skärmen kort.'],
     ['Översätt', 'Översätt texten på skärmen till svenska (eller engelska om den redan är svenska).'], ['Skriv text', 'Hjälp mig skriva en text utifrån det som visas på skärmen. Fråga om något saknas.'],
     ['Fixa', 'Hitta fel i texten på skärmen (stavning, fakta, logik) och föreslå rättelser.']);
+  if (!features.contextualSuggestions) return [];
+  const gated = out.filter(([label]) => {
+    if (/Översätt/i.test(label)) return features.smartTranslate;
+    if (/Sök|Google/i.test(label)) return features.webResearch;
+    if (/Skriv|Fixa/i.test(label)) return features.writingMode;
+    return true;
+  });
   const seen = new Set();
-  return out.filter((c) => (seen.has(c[0]) ? false : seen.add(c[0]))).slice(0, 7);
+  return gated.filter((x) => (seen.has(x[0]) ? false : seen.add(x[0]))).slice(0, 7);
 }
 async function refreshChips() {
   const info = await api.chips();
@@ -101,7 +125,7 @@ async function send(text, voice) {
     const r = await api.chat(text, voice);
     clearStatus(); clearDots();
     if (live && r.ok) { live.innerHTML = md(r.reply); live = null; } else { if (live) { live.remove(); live = null; } addMsg(false, r.ok ? r.reply : 'Fel: ' + r.error); }
-    if (r.ok && (speakOn || voice)) speak(r.reply);
+    if (r.ok && features.readAloud && (speakOn || voice)) speak(r.reply);
   } catch (e) { clearStatus(); clearDots(); addMsg(false, 'Fel: ' + e.message); }
   busy = false;
 }
@@ -237,29 +261,22 @@ function showWelcome() {
   chat.appendChild(d);
 }
 const BUILTIN = [
-  ['Svara', [
-    ['💬', 'Chatt', () => api.setMode('chat')],
-    ['✅', 'Svara på frågan', () => api.quick()],
-    ['💌', 'Svara på meddelande', () => go('Föreslå ett kort svar på meddelandet på skärmen.', true)],
-    ['🧩', 'Lös uppgiften', () => go('Lös uppgiften som syns på skärmen och utför den om det går.', true)],
+  ['DIREKT HJÄLP', [
+    ['💬', 'Öppna chatten', () => api.setMode('chat')],
+    ['✨', 'Smart Reply', () => { preset = { reply:true }; api.setMode('chat'); }, 'smartReply'],
+    ['✅', 'Svara på skärmen', () => api.quick()],
+    ['⚡', 'AI Actions', () => go('Hjälp mig genomföra uppgiften på skärmen steg för steg. Planera först och be om bekräftelse innan du skickar, raderar, köper eller publicerar.', true), 'screenActions'],
   ]],
-  ['Skriv och sök', [
-    ['🔎', 'Google', () => go('google ', false)],
-    ['✍️', 'Skriv', () => go('skriv ', false)],
-    ['📄', 'Sammanfatta', () => go('Sammanfatta det som syns på skärmen kort.', true)],
-    ['🌍', 'Översätt', () => go('Översätt texten på skärmen till svenska.', true)],
+  ['AI-VERKTYG', [
+    ['🌐', 'Smart Translate', () => go('Översätt den viktigaste texten på skärmen till svenska. Behåll struktur, ton och sammanhang.', true), 'smartTranslate'],
+    ['🎓', 'Study Mode', () => go('Förklara uppgiften pedagogiskt steg för steg. Ge ledtrådar innan du visar hela lösningen och kontrollera min förståelse.', true), 'studyMode'],
+    ['✍️', 'Writing Mode', () => go('Hjälp mig skriva eller förbättra texten på skärmen. Matcha sammanhang, språk och min skrivstil.', true), 'writingMode'],
+    ['🔎', 'Web Research', () => go('Undersök ämnet på skärmen, jämför tillförlitliga källor och sammanfatta med länkar.', true), 'webResearch'],
+    ['🧩', 'App Profiles', () => go('Identifiera appen jag använder och anpassa automatiskt hjälpen efter dess arbetsflöde.', true), 'appProfiles'],
   ]],
-  ['AI-lägen', [
-    ['⚡', 'AI Actions', () => go('Hjälp mig genomföra uppgiften på skärmen steg för steg. Planera först och be om bekräftelse innan du skickar, raderar, köper eller publicerar.', true)],
-    ['🌐', 'Smart Translate', () => go('Identifiera den viktigaste texten på skärmen och översätt den till svenska. Behåll struktur och ton.', true)],
-    ['🎓', 'Study Mode', () => go('Förklara uppgiften pedagogiskt steg för steg. Ge ledtrådar innan du visar hela lösningen och kontrollera min förståelse.', true)],
-    ['✍️', 'Writing Mode', () => go('Hjälp mig skriva eller förbättra texten på skärmen. Matcha sammanhang, språk och min skrivstil.', true)],
-    ['🔎', 'Web Research', () => go('Undersök ämnet på skärmen, jämför tillförlitliga källor och sammanfatta med länkar.', true)],
-    ['🧩', 'App Profiles', () => go('Identifiera appen jag använder och anpassa automatiskt hjälpen efter dess arbetsflöde. Berätta vilket arbetssätt du valt.', true)],
-  ]],
-  ['Verktyg', [
-    ['🎤', 'Röst', () => { preset = { voice: true }; api.setMode('chat'); }],
-    ['🕘', 'Historik', () => { preset = { hist: true }; api.setMode('chat'); }],
+  ['VERKTYG', [
+    ['🎙', 'Röstassistent', () => { preset = { voice:true }; api.setMode('chat'); }, 'voice'],
+    ['🕘', 'Historik', () => { preset = { hist:true }; api.setMode('chat'); }],
     ['🧠', 'Minne', () => go('visa minne', true)],
     ['🫥', 'Hide-läge', () => api.setMode('hide')],
   ]],
@@ -282,8 +299,12 @@ function group(title, tiles) {
 }
 function renderMenu() {
   const box = $('groups'); box.textContent = '';
-  for (const [title, items] of BUILTIN) box.appendChild(group(title, items.map(([i, l, f]) => tileEl(i, l, f))));
-  const mine = cmds.map((c) => {
+  const q = ($('featureSearch')?.value || '').trim().toLowerCase();
+  for (const [title, items] of BUILTIN) {
+    const visible = items.filter((x) => (!x[3] || features[x[3]]) && (!q || x[1].toLowerCase().includes(q)));
+    if (visible.length) box.appendChild(group(title, visible.map(([i, l, fn]) => tileEl(i, l, fn))));
+  }
+  const mine = cmds.filter((c) => !q || c.name.toLowerCase().includes(q)).map((c) => {
     const te = document.createElement('div'); te.className = 'te';
     const ed = document.createElement('b'); ed.textContent = '✎'; ed.title = 'Redigera';
     ed.onclick = (e) => { e.stopPropagation(); openForm(c); };
@@ -293,16 +314,41 @@ function renderMenu() {
     return tileEl(c.emoji || '⚡', c.name, () => go(c.screen ? c.prompt : c.prompt + '\n\n(Du behöver inte titta på skärmen.)', true), te);
   });
   const add = tileEl('＋', 'Nytt kommando', () => openForm(null)); add.classList.add('add');
-  box.appendChild(group('Egna kommandon', [...mine, add]));
+  if (!q || 'egna kommandon nytt kommando'.includes(q)) box.appendChild(group('EGNA KOMMANDON', [...mine, add]));
   const sys = [
+    tileEl('⚙️', 'Inställningar', openSettings),
     tileEl('🚀', 'Autostart: ' + (autostartOn ? 'på' : 'av'), async () => { autostartOn = await api.autostartSet(!autostartOn); renderMenu(); }),
     tileEl(upd.state === 'ready' ? '🔄' : '⬇️', upd.state === 'ready' ? 'Starta om och uppdatera' : upd.state === 'downloading' ? 'Hämtar…' : upd.state === 'checking' ? 'Söker…' : upd.state === 'latest' ? 'Senaste versionen' : 'Sök uppdatering', () => (upd.state === 'ready' ? api.updateInstall() : api.updateCheck())),
     tileEl('🧠', 'Minneslärande: ' + (memoryAutoOn ? 'på' : 'av'), async () => { memoryAutoOn = await api.memoryAutoSet(!memoryAutoOn); renderMenu(); }),
     tileEl('➖', 'Minimera', () => api.setMode('bar')),
-    tileEl('✕', 'Stäng', () => api.quit()),
   ];
-  box.appendChild(group('System', sys));
+  if (!q || 'system inställningar autostart uppdatering minne minimera'.includes(q)) box.appendChild(group('SYSTEM', sys));
 }
+function renderFeatureToggles() {
+  const box = $('featureToggles'); box.textContent = '';
+  for (const [key, icon, label, detail] of FEATURE_META) {
+    const row = document.createElement('label'); row.className = 'feature-row';
+    const ico = document.createElement('span'); ico.className = 'feature-icon'; ico.textContent = icon;
+    const copy = document.createElement('span'); copy.className = 'feature-copy';
+    const title = document.createElement('b'); title.textContent = label;
+    const desc = document.createElement('small'); desc.textContent = detail;
+    copy.append(title, desc);
+    const toggle = document.createElement('input'); toggle.type = 'checkbox'; toggle.checked = !!features[key]; toggle.setAttribute('aria-label', label);
+    toggle.onchange = async () => { features[key] = toggle.checked; features = await api.featuresSet(features); applyFeatureVisibility(); renderMenu(); refreshChips(); };
+    row.append(ico, copy, toggle); box.appendChild(row);
+  }
+}
+function applyFeatureVisibility() {
+  for (const id of ['mic','speak','convo']) $(id).hidden = !features.voice;
+}
+function openSettings() {
+  $('settingsPanel').classList.add('show'); renderFeatureToggles();
+}
+function closeSettings() { $('settingsPanel').classList.remove('show'); }
+$('settingsOpen').onclick = openSettings;
+$('settingsBack').onclick = closeSettings;
+$('settingsDone').onclick = closeSettings;
+$('featureSearch').addEventListener('input', renderMenu);
 let editId = null;
 function openForm(c) {
   editId = c ? c.id : null;
@@ -330,8 +376,9 @@ function renderUpdate() {
   renderMenu();
 }
 api.onUpdate((s) => { upd = s; renderUpdate(); });
-Promise.all([api.commandsGet(), api.autostartGet(), api.updateState(), api.memoryAutoGet()]).then(([c, a, u, mm]) => {
-  cmds = c; autostartOn = a; upd = u; memoryAutoOn = mm; $('ver').textContent = 'v' + (u.version || ''); renderUpdate();
+Promise.all([api.commandsGet(), api.autostartGet(), api.updateState(), api.memoryAutoGet(), api.featuresGet()]).then(([c, a, u, mm, ff]) => {
+  cmds = c; autostartOn = a; upd = u; memoryAutoOn = mm; features = { ...FEATURE_DEFAULTS, ...(ff || {}) };
+  $('ver').textContent = 'v' + (u.version || ''); applyFeatureVisibility(); renderUpdate();
 });
 // history
 let hqTimer = null;
@@ -369,7 +416,7 @@ $('hback').onclick = closeHist;
 $('hq').oninput = () => { clearTimeout(hqTimer); hqTimer = setTimeout(renderHist, 120); };
 { let sure = false; $('hclear').onclick = async () => { if (!sure) { sure = true; $('hclear').textContent = 'Säker?'; setTimeout(() => { sure = false; $('hclear').textContent = 'Rensa'; }, 3000); return; } sure = false; $('hclear').textContent = 'Rensa'; await api.archiveClear(); renderHist(); }; }
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { if ($('cform').classList.contains('show')) $('cform').classList.remove('show'); else if ($('hist').classList.contains('show')) closeHist(); else api.setMode('bar'); }
+  if (e.key === 'Escape') { if ($('settingsPanel').classList.contains('show')) closeSettings(); else if ($('cform').classList.contains('show')) $('cform').classList.remove('show'); else if ($('hist').classList.contains('show')) closeHist(); else api.setMode('bar'); }
   else if (e.ctrlKey && e.key.toLowerCase() === 'h' && document.body.dataset.v === 'chat') { e.preventDefault(); openHist(); }
   else if (e.ctrlKey && e.key.toLowerCase() === 'k') { e.preventDefault(); if ($('hist').classList.contains('show')) $('hq').focus(); else inp.focus(); }
 });
@@ -377,7 +424,8 @@ api.onView((v) => {
   document.body.dataset.v = v;
   if (v !== 'chat' || !preset) return;
   const p = preset; preset = null;
-  if (p.voice) { setTimeout(() => toggleMic(), 200); return; }
+  if (p.voice) { if (features.voice) setTimeout(() => toggleMic(), 200); return; }
+  if (p.reply) { if (features.smartReply) setTimeout(makeReply, 160); return; }
   if (p.hist) { openHist(); return; }
   if (p.auto) send(p.text, false);
   else { $('inp').value = p.text; $('inp').focus(); }
