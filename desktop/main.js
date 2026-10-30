@@ -820,6 +820,7 @@ ipcMain.handle('smart-reply-apps-get', () => ({ apps: smartReplyApps(), options:
 ipcMain.handle('smart-reply-apps-set', (_e, apps) => {
   const clean = Array.isArray(apps) ? [...new Set(apps.filter((x) => Object.prototype.hasOwnProperty.call(SMART_REPLY_APPS, x)))] : [];
   const s = readJson('settings.json', {}); s.smartReplyApps = clean; writeJson('settings.json', s);
+  send2('features-updated', featureSettings());
   return { apps: clean, options: SMART_REPLY_APPS };
 });
 ipcMain.handle('features-set', (_e, next) => {
