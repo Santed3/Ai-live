@@ -874,6 +874,17 @@ ipcMain.handle('memory-set', (_e, list) => { writeJson('memory.json', Array.isAr
 ipcMain.handle('memory-auto-get', () => readJson('settings.json', {}).memoryAuto === true);
 ipcMain.handle('memory-auto-set', (_e, on) => { const s = readJson('settings.json', {}); s.memoryAuto = !!on; writeJson('settings.json', s); return !!s.memoryAuto; });
 ipcMain.handle('open-settings', () => { openSettingsWindow(); return true; });
+ipcMain.handle('assistant-mode-get', () => {
+  const mode = readJson('settings.json', {}).assistantMode;
+  return ['general','study','work','code','writing'].includes(mode) ? mode : 'general';
+});
+ipcMain.handle('assistant-mode-set', (_e, mode) => {
+  const allowed = ['general','study','work','code','writing'];
+  const settings = readJson('settings.json', {});
+  settings.assistantMode = allowed.includes(mode) ? mode : 'general';
+  writeJson('settings.json', settings);
+  return settings.assistantMode;
+});
 ipcMain.handle('features-get', () => featureSettings());
 ipcMain.handle('appearance-get', () => assistantAppearance());
 ipcMain.handle('appearance-set', (_e, next) => {
