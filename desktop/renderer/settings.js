@@ -11,6 +11,7 @@ const meta = [
  ['appProfiles','🧩','App Profiles','Anpassar förslag efter aktiv app och arbetsflöde.'],
  ['selectionAsk','🖱️','Markera och fråga','Markera text och tryck Ctrl + Alt + C för att fråga om den.'],
  ['voice','🎙','Röstassistent','Aktiverar mikrofon och samtal i realtid.'],
+ ['dictation','✍️','Diktera','Skriv talad text direkt i det aktiva fältet och finskriv den med AI.'],
 ];
 let features = {}, timer, smartReplyConfig = { apps: [], options: {} };
 function toast(){const t=$('toast');t.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>t.classList.remove('show'),1300)}
