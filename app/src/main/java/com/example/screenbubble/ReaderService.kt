@@ -717,6 +717,11 @@ class ReaderService : AccessibilityService() {
         return null
     }
 
+    fun focusedInputText(): String {
+        val target = inputTarget() ?: return ""
+        return if (target.isPassword || target.isShowingHintText) "" else target.text?.toString().orEmpty()
+    }
+
     private fun inputTarget(): AccessibilityNodeInfo? {
         val root = appRoot() ?: return null
         val f = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
