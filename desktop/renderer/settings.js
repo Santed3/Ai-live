@@ -41,6 +41,16 @@ function render(){
   row.append(ico,copy,sw);box.append(row);
  }
  $('readAloud').checked=!!features.readAloud;
+ filterFeatures();
+}
+function filterFeatures(){
+ const q=($('featureSearch')?.value||'').trim().toLocaleLowerCase('sv-SE');
+ let shown=0;
+ for(const row of $('featureList').children){
+  const match=!q||row.textContent.toLocaleLowerCase('sv-SE').includes(q);
+  row.hidden=!match;if(match)shown++;
+ }
+ $('featureEmpty').hidden=shown>0;
 }
 async function loadAppearance(){
  const cfg=await api.appearanceGet();
@@ -56,6 +66,8 @@ document.querySelectorAll('input[name="assistantDisplay"]').forEach(x=>x.onchang
 $('assistantSwipe').onchange=saveAppearance;
 (async()=>{
  await loadAppearance();
+ $('featureSearch').addEventListener('input',filterFeatures);
+ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('featureSearch').focus();}});
  features=await api.featuresGet();render();
  smartReplyConfig=await api.smartReplyAppsGet();renderSmartReplyApps();
  $('readAloud').onchange=()=>saveFeature('readAloud',$('readAloud').checked);
