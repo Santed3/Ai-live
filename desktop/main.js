@@ -57,6 +57,13 @@ const FEATURE_DEFAULTS = {
   webResearch: true, appProfiles: true, selectionAsk: true, voice: true, readAloud: true,
 };
 function featureSettings() { return { ...FEATURE_DEFAULTS, ...(readJson('settings.json', {}).features || {}) }; }
+function assistantAppearance() {
+  const saved = readJson('settings.json', {});
+  return {
+    display: ['sidebar', 'bubble', 'swipe'].includes(saved.assistantDisplay) ? saved.assistantDisplay : 'sidebar',
+    swipe: saved.assistantSwipe === 'right' ? 'right' : 'left',
+  };
+}
 
 const SMART_REPLY_APPS = {
   outlook: 'Outlook',
@@ -437,7 +444,7 @@ function createDot() {
   const wa = screen.getPrimaryDisplay().workArea;
   const s = readJson('dot.json', null);
   dot = new BrowserWindow({
-    x: s ? s.x : wa.x + wa.width - 40, y: s ? s.y : wa.y + Math.round(wa.height / 3), width: 24, height: 24,
+    x: s ? s.x : wa.x + wa.width - 58, y: s ? s.y : wa.y + Math.round(wa.height / 3), width: 48, height: 48,
     frame: false, transparent: true, resizable: false, alwaysOnTop: true, skipTaskbar: true, show: false,
     focusable: false, hasShadow: false,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
@@ -466,6 +473,11 @@ function setMode(m) {
     const was = prevMode;
     panel.hide(); dot.showInactive();
     if (was !== 'hide' && appReady) setTimeout(() => showAnswer('Hide-läge på\nHåll in pricken för sidebaren'), 250);
+    return;
+  }
+  if (m === 'bar' && assistantAppearance().display !== 'sidebar') {
+    panel.hide();
+    if (dot) dot.showInactive();
     return;
   }
   if (dot) dot.hide();
@@ -850,6 +862,15 @@ ipcMain.handle('memory-auto-get', () => readJson('settings.json', {}).memoryAuto
 ipcMain.handle('memory-auto-set', (_e, on) => { const s = readJson('settings.json', {}); s.memoryAuto = !!on; writeJson('settings.json', s); return !!s.memoryAuto; });
 ipcMain.handle('open-settings', () => { openSettingsWindow(); return true; });
 ipcMain.handle('features-get', () => featureSettings());
+ipcMain.handle('appearance-get', () => assistantAppearance());
+ipcMain.handle('appearance-set', (_e, next) => {
+  const saved = readJson('settings.json', {});
+  saved.assistantDisplay = ['sidebar', 'bubble', 'swipe'].includes(next?.display) ? next.display : 'sidebar';
+  saved.assistantSwipe = next?.swipe === 'right' ? 'right' : 'left';
+  writeJson('settings.json', saved);
+  if (mode === 'bar') setMode('bar');
+  return assistantAppearance();
+});
 ipcMain.handle('smart-reply-apps-get', () => ({ apps: smartReplyApps(), options: SMART_REPLY_APPS }));
 ipcMain.handle('smart-reply-apps-set', (_e, apps) => {
   const clean = Array.isArray(apps) ? [...new Set(apps.filter((x) => Object.prototype.hasOwnProperty.call(SMART_REPLY_APPS, x)))] : [];
@@ -897,13 +918,15 @@ ipcMain.handle('stt', async (_e, buf) => {
 // dot + answer
 let lastDotClick = 0;
 ipcMain.on('dot-click', () => {
-  const now = Date.now();
-  if (now - lastDotClick < 350) { lastDotClick = 0; app.quit(); return; }
-  lastDotClick = now;
-  quickAnswer();
+  lastDotClick = Date.now();
+  setMode('menu');
 });
-ipcMain.on('dot-dbl', () => app.quit());
-ipcMain.on('dot-panel', () => setMode('bar'));
+ipcMain.on('dot-dbl', () => setMode('chat'));
+ipcMain.on('dot-panel', () => setMode('menu'));
+ipcMain.on('dot-swipe', (_e, direction) => {
+  const cfg = assistantAppearance();
+  setMode(direction === cfg.swipe ? 'menu' : 'chat');
+});
 ipcMain.on('dot-move', (_e, { x, y }) => { if (dot) dot.setPosition(Math.round(x), Math.round(y)); });
 ipcMain.on('dot-save', () => { if (dot) { const b = dot.getBounds(); writeJson('dot.json', { x: b.x, y: b.y }); } });
 ipcMain.on('answer-click', () => {
