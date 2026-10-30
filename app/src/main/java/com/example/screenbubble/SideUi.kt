@@ -146,6 +146,32 @@ class SideUi(private val svc: ReaderService) {
         return card
     }
 
+    fun activeHelp(title: String, detail: String, onHelp: () -> Unit, onDismiss: () -> Unit): View {
+        val card = LinearLayout(svc).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rounded(0xF2141722.toInt(), 18)
+            setPadding(dp(12), dp(10), dp(12), dp(11))
+            elevation = dp(10).toFloat()
+        }
+        val head = LinearLayout(svc).apply { gravity = Gravity.CENTER_VERTICAL }
+        head.addView(TextView(svc).apply {
+            text = "S"; textSize = 9f; gravity = Gravity.CENTER
+            setTextColor(0xFFFFFFFF.toInt()); setTypeface(typeface, android.graphics.Typeface.BOLD)
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF9D86FF.toInt(), 0xFF6345E8.toInt())).apply { shape = GradientDrawable.OVAL }
+        }, LinearLayout.LayoutParams(dp(19), dp(19)).apply { rightMargin = dp(7) })
+        head.addView(TextView(svc).apply { text = "Active Help"; textSize = 10.5f; setTextColor(0xFFB9C0D3.toInt()) }, LinearLayout.LayoutParams(0, -2, 1f))
+        head.addView(TextView(svc).apply { text = "×"; textSize = 17f; setTextColor(0xFF8993AA.toInt()); setPadding(dp(8), 0, dp(2), 0); setOnClickListener { onDismiss() } })
+        card.addView(head)
+        card.addView(TextView(svc).apply { text = title; textSize = 13f; setTextColor(0xFFF0F1FA.toInt()); setTypeface(typeface, android.graphics.Typeface.BOLD); setPadding(0, dp(8), 0, dp(3)) })
+        card.addView(TextView(svc).apply { text = detail; textSize = 11f; setTextColor(0xFFADB6CA.toInt()); maxLines = 3; ellipsize = android.text.TextUtils.TruncateAt.END })
+        card.addView(TextView(svc).apply {
+            text = "Analysera och hjälp mig  →"; textSize = 11.5f; setTextColor(0xFFD8CEFF.toInt())
+            background = GradientDrawable().apply { setColor(0x337F68FF); cornerRadius = dp(10).toFloat() }
+            setPadding(dp(10), dp(9), dp(10), dp(9)); setOnClickListener { onHelp() }
+        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(9) })
+        return card
+    }
+
     private class Tile(val icon: String, val label: String, val run: () -> Unit)
 
     /** ScrollView that never grows taller than [maxH], so a long menu scrolls instead of overflowing. */
