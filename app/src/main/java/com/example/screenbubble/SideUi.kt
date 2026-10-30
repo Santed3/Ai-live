@@ -5,6 +5,7 @@ import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.DecelerateInterpolator
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.GridLayout
@@ -25,6 +26,10 @@ class SideUi(private val svc: ReaderService) {
         val frame = FrameLayout(svc)
         val pill = View(svc).apply { background = rounded(0xE6202226.toInt(), 4) }
         frame.addView(pill, FrameLayout.LayoutParams(dp(6), dp(56), Gravity.END or Gravity.CENTER_VERTICAL).apply { rightMargin = dp(1) })
+        pill.alpha = 0f
+        pill.scaleY = 0.82f
+        pill.animate().alpha(1f).scaleY(1f).setDuration(220)
+            .setInterpolator(DecelerateInterpolator()).start()
         var sy = 0f; var oy = 0; var moved = false
         frame.setOnTouchListener { _, e ->
             when (e.actionMasked) {
@@ -101,6 +106,10 @@ class SideUi(private val svc: ReaderService) {
             setPadding(dp(12), dp(12), dp(12), dp(12))
             elevation = dp(10).toFloat()
         }
+        card.alpha = 0f
+        card.translationY = dp(8).toFloat()
+        card.animate().alpha(1f).translationY(0f).setDuration(230)
+            .setInterpolator(DecelerateInterpolator()).start()
         val head = LinearLayout(svc).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(4), 0, 0, dp(2)) }
         head.addView(View(svc).apply {
             background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFB9A8FF.toInt(), 0xFF6C47FF.toInt())).apply { shape = GradientDrawable.OVAL }
@@ -167,6 +176,16 @@ class SideUi(private val svc: ReaderService) {
                     gravity = Gravity.CENTER
                     background = rounded(if (t.icon == "＋") 0x0AFFFFFF else 0x1AFFFFFF, 16)
                     setPadding(dp(4), dp(8), dp(4), dp(6))
+                    isClickable = true
+                    isFocusable = true
+                    setOnTouchListener { v, e ->
+                        when (e.actionMasked) {
+                            MotionEvent.ACTION_DOWN -> v.animate().scaleX(.97f).scaleY(.97f).setDuration(90).start()
+                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> v.animate().scaleX(1f).scaleY(1f)
+                                .setDuration(150).setInterpolator(DecelerateInterpolator()).start()
+                        }
+                        false
+                    }
                     setOnClickListener { t.run() }
                 }
                 cell.addView(TextView(svc).apply { this.text = t.icon; textSize = 21f; gravity = Gravity.CENTER })

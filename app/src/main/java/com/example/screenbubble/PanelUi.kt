@@ -22,6 +22,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.text.InputType
 import android.view.Gravity
+import android.view.animation.DecelerateInterpolator
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
@@ -110,6 +111,15 @@ class PanelUi(private val svc: ReaderService) {
 
     private fun rounded(color: Int, radius: Int): GradientDrawable =
         GradientDrawable().apply { setColor(color); cornerRadius = dp(radius).toFloat() }
+
+    /** Short, consistent entrance motion for transient UI. */
+    private fun reveal(view: View, distance: Int = 7, duration: Long = 210L) {
+        view.animate().cancel()
+        view.alpha = 0f
+        view.translationY = dp(distance).toFloat()
+        view.animate().alpha(1f).translationY(0f)
+            .setDuration(duration).setInterpolator(DecelerateInterpolator()).start()
+    }
 
     private fun pill(label: String, bg: Int = 0x26FFFFFF, fg: Int = TEXT, onClick: () -> Unit): TextView =
         TextView(svc).apply {
@@ -519,6 +529,7 @@ class PanelUi(private val svc: ReaderService) {
             val p = lp(-2, -2, t = 6)
             p.gravity = Gravity.START
             chat.addView(row, p)
+            reveal(row, 5, 180L)
         }
         statusText?.text = t
         scrollDown()
@@ -626,6 +637,7 @@ class PanelUi(private val svc: ReaderService) {
     private fun showDraft(text: String) {
         draftEdit.setText(text)
         draftCard.visibility = View.VISIBLE
+        reveal(draftCard, 8, 230L)
         scrollDown()
     }
 
@@ -686,6 +698,7 @@ class PanelUi(private val svc: ReaderService) {
             r.addView(pill("Nej") { ok = false; latch.countDown() }, lp(-2, -2, t = 6))
             confirmCard.addView(r)
             confirmCard.visibility = View.VISIBLE
+            reveal(confirmCard, 6, 190L)
             scrollDown()
         }
         latch.await(90, TimeUnit.SECONDS)
