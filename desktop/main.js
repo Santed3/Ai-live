@@ -54,7 +54,7 @@ function commands() { return readJson('commands.json', []).map(Lib.sanitizeComma
 const FEATURE_DEFAULTS = {
   smartReply: true, contextualSuggestions: true, screenActions: true,
   smartTranslate: true, studyMode: true, writingMode: true,
-  webResearch: true, appProfiles: true, voice: true, readAloud: true,
+  webResearch: true, appProfiles: true, selectionAsk: true, voice: true, readAloud: true,
 };
 function featureSettings() { return { ...FEATURE_DEFAULTS, ...(readJson('settings.json', {}).features || {}) }; }
 
@@ -727,7 +727,10 @@ ipcMain.handle('features-set', (_e, next) => {
   const s = readJson('settings.json', {});
   const clean = { ...FEATURE_DEFAULTS };
   if (next && typeof next === 'object') for (const k of Object.keys(clean)) if (typeof next[k] === 'boolean') clean[k] = next[k];
-  s.features = clean; writeJson('settings.json', s); return clean;
+  s.features = clean; writeJson('settings.json', s);
+  if (clean.selectionAsk) globalShortcut.register('Control+Alt+C', explainSelection);
+  else globalShortcut.unregister('Control+Alt+C');
+  return clean;
 });
 ipcMain.handle('set-mode', (_e, m) => { setMode(m); return true; });
 ipcMain.on('bar-move', (_e, { y }) => {
@@ -780,7 +783,7 @@ app.whenReady().then(() => {
   globalShortcut.register('Control+Alt+Space', () => setMode(mode === 'bar' ? 'menu' : mode === 'hide' ? 'bar' : 'bar'));
   globalShortcut.register('Control+Alt+A', () => quickAnswer());
   setInterval(pollForeground, 2500);
-  globalShortcut.register('Control+Alt+C', explainSelection);
+  if (featureSettings().selectionAsk) globalShortcut.register('Control+Alt+C', explainSelection);
   makeTray();
   initUpdater();
   setTimeout(() => { appReady = true; }, 1500);
