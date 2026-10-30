@@ -247,6 +247,15 @@ object Store {
     fun flag(c: Context, key: String): Boolean = p(c).getBoolean(key, false)
     fun setFlag(c: Context, key: String, v: Boolean) { p(c).edit().putBoolean(key, v).apply() }
 
+    fun smartReplyAppEnabled(c: Context, packageName: String): Boolean {
+        val prefs = p(c)
+        val key = "smart_reply_app_" + packageName
+        return if (prefs.contains(key)) prefs.getBoolean(key, false) else true
+    }
+    fun setSmartReplyAppEnabled(c: Context, packageName: String, enabled: Boolean) {
+        p(c).edit().putBoolean("smart_reply_app_" + packageName, enabled).apply()
+    }
+
     fun chatSamples(c: Context): List<String> = try {
         val a = JSONArray(p(c).getString("chat_samples", "[]"))
         (0 until a.length()).map { a.getString(it) }
