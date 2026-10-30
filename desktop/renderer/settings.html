@@ -17,6 +17,17 @@ main{min-width:0}.hero{position:relative;overflow:hidden;padding:25px 26px;margi
 .section-head{display:flex;align-items:end;justify-content:space-between;margin:21px 2px 10px}.section-head h2{font-size:15px;margin:0;letter-spacing:-.03em}.section-head p{font-size:10px;color:var(--muted);margin:3px 0 0}
 .status{color:var(--mint);font-size:10px}
 .feature-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.settings-search{display:flex;align-items:center;gap:9px;margin:0 0 11px;padding:0 12px;height:43px;border:1px solid var(--line);border-radius:13px;background:#ffffff07;color:#aab4ca}
+.settings-search:focus-within{border-color:#a995ff88;box-shadow:0 0 0 3px #8062ff20}
+.settings-search>span{font-size:20px;line-height:1}
+.settings-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:12px 'Segoe UI',sans-serif}
+.settings-search input::placeholder{color:#78849c}
+.settings-search kbd{padding:3px 6px;border:1px solid var(--line);border-radius:6px;color:#7f8ba5;font:10px 'Segoe UI',sans-serif}
+.search-empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px;font-size:12px}
+.feature{transition:opacity .15s,transform .15s,border-color .15s,background .15s}
+.feature[hidden]{display:none}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #a995ff;outline-offset:2px}
+
 .feature{display:flex;align-items:center;gap:12px;min-height:77px;padding:13px;border:1px solid var(--line);border-radius:15px;background:linear-gradient(145deg,#ffffff09,#ffffff03);transition:background .15s,border-color .15s}
 .feature:hover{background:#ffffff0d;border-color:#a995ff4c}.ico{width:37px;height:37px;display:grid;place-items:center;flex:none;border-radius:12px;background:#8062ff20;font-size:18px}
 .copy{flex:1;min-width:0}.copy b{display:block;font-size:11.5px}.copy small{display:block;margin-top:3px;color:#929db5;font-size:9.5px;line-height:1.35}
@@ -53,7 +64,9 @@ main{min-width:0}.hero{position:relative;overflow:hidden;padding:25px 26px;margi
 </section>
 <section id="features">
 <div class="section-head"><div><h2>AI-funktioner</h2><p>Slå på det du använder – dölj resten från sidomenyn.</p></div><span class="status" id="saveState">● Sparas automatiskt</span></div>
+<label class="settings-search"><span>⌕</span><input id="featureSearch" type="search" placeholder="Sök funktioner, till exempel diktering…" autocomplete="off"><kbd>Ctrl K</kbd></label>
 <div class="feature-list" id="featureList"></div>
+<p class="search-empty" id="featureEmpty" hidden>Inga funktioner matchar sökningen.</p>
 </section>
 <section id="smartReplyApps">
 <div class="section-head"><div><h2>Smart Reply · appar</h2><p>Välj vilka appar som får använda Smart Reply. När sidopanelens chatt är öppen kan den även föreslå förbättringar medan du skriver. Webbläsare begränsas till mejl- och chattjänster.</p></div></div>
