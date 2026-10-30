@@ -53,7 +53,7 @@ class SideUi(private val svc: ReaderService) {
 
     /** Branded floating assistant launcher. Drag to reposition; swipe opens menu or chat. */
     @SuppressLint("ClickableViewAccessibility")
-    fun bubble(lp: WindowManager.LayoutParams, onMove: () -> Unit, onTap: () -> Unit, onSwipe: (String) -> Unit): View {
+    fun bubble(lp: WindowManager.LayoutParams, allowSwipe: Boolean, onMove: () -> Unit, onTap: () -> Unit, onSwipe: (String) -> Unit): View {
         val frame = FrameLayout(svc)
         val mark = TextView(svc).apply {
             text = "S"
@@ -74,7 +74,7 @@ class SideUi(private val svc: ReaderService) {
                 MotionEvent.ACTION_DOWN -> { sx = e.rawX; sy = e.rawY; ox = lp.x; oy = lp.y; moved = false; swiped = false }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = e.rawX - sx; val dy = e.rawY - sy
-                    if (!swiped && abs(dx) > dp(42) && abs(dx) > abs(dy) * 1.3f) {
+                    if (allowSwipe && !swiped && abs(dx) > dp(42) && abs(dx) > abs(dy) * 1.3f) {
                         swiped = true
                         onSwipe(if (dx < 0) "left" else "right")
                     } else if (!swiped && (abs(dx) > dp(5) || abs(dy) > dp(5))) {
