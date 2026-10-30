@@ -482,5 +482,43 @@ api.onView((v) => {
   window.addEventListener('mouseup', () => { if (!d) return; d = false; if (!mv) api.setMode('menu'); });
 }
 
+let autoDraftLoading = null;
+api.onSmartDraftLoading((active) => {
+  if (document.body.dataset.v !== 'chat') return;
+  if (active && !autoDraftLoading) {
+    autoDraftLoading = document.createElement('div');
+    autoDraftLoading.className = 's';
+    autoDraftLoading.innerHTML = '<span class="reply-mark">S</span><span>ScreenBubble förbättrar din text</span><span class="reply-dots"><i></i><i></i><i></i></span>';
+    chat.appendChild(autoDraftLoading); chat.scrollTop = chat.scrollHeight;
+  } else if (!active && autoDraftLoading) { autoDraftLoading.remove(); autoDraftLoading = null; }
+});
+api.onSmartDraft(({ text, originalDraft }) => {
+  if (document.body.dataset.v !== 'chat' || !text) return;
+  if (autoDraftLoading) { autoDraftLoading.remove(); autoDraftLoading = null; }
+  const signature = 'draft|' + String(text).trim().toLowerCase();
+  if (signature === lastSmartReplySignature) return;
+  lastSmartReplySignature = signature;
+  const previous = chat.querySelector('.auto-draft-suggestion'); if (previous) previous.remove();
+  const card = document.createElement('div'); card.className = 'reply-suggestion auto-draft-suggestion';
+  const head = document.createElement('div'); head.className = 'reply-brand';
+  const mark = document.createElement('span'); mark.className = 'reply-mark'; mark.textContent = 'S';
+  const brand = document.createElement('span'); brand.textContent = 'ScreenBubble';
+  const tag = document.createElement('span'); tag.className = 'reply-tag'; tag.textContent = 'FÖRSLAG PÅ DIN TEXT';
+  head.append(mark, brand, tag);
+  const body = document.createElement('div'); body.className = 'reply-text'; body.textContent = text;
+  body.contentEditable = 'true'; body.setAttribute('role', 'textbox'); body.setAttribute('aria-label', 'Redigera förslag');
+  const actions = document.createElement('div'); actions.className = 'reply-actions';
+  const button = document.createElement('button'); button.className = 'p'; button.textContent = 'Ersätt utkast';
+  button.onclick = async () => {
+    const chosen = body.innerText.trim(); if (!chosen) return;
+    button.disabled = true; api.styleAdd(chosen);
+    const result = await api.insert(chosen, false, true);
+    button.disabled = false;
+    setStatus(result.ok ? 'Utkastet har ersatts. Det skickas inte.' : result.error);
+    setTimeout(clearStatus, 2400);
+  };
+  actions.appendChild(button); card.append(head, body, actions);
+  chat.appendChild(card); chat.scrollTop = chat.scrollHeight;
+});
 api.onAsk((t) => send(t, false));
 
