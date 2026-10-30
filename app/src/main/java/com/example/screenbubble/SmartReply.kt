@@ -68,24 +68,24 @@ class SmartReply(private val svc: ReaderService) {
 
         if (e.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
             val src = e.source
-            if (src != null && src.isEditable && !src.isPassword) {
-                val current = src.text?.toString() ?: e.text?.joinToString("") { it?.toString().orEmpty() }.orEmpty()
-                if (learnOn()) track(current, src.isShowingHintText)
-                if (lastAcceptedDraft.isNotEmpty() && current.trim() == lastAcceptedDraft) return
-                if (lastAcceptedDraft.isNotEmpty() && current.trim() != lastAcceptedDraft) lastAcceptedDraft = ""
-                if (suggestOn() && !src.isShowingHintText && current.trim().length >= 4) {
-                    pendingDraft = current
+            val validSource = src != null && src.isEditable && !src.isPassword
+            val current = if (validSource) src?.text?.toString().orEmpty() else svc.focusedInputText()
+            val hint = validSource && src?.isShowingHintText == true
+            if (learnOn()) track(current, hint)
+            if (lastAcceptedDraft.isNotEmpty() && current.trim() == lastAcceptedDraft) return
+            if (lastAcceptedDraft.isNotEmpty() && current.trim() != lastAcceptedDraft) lastAcceptedDraft = ""
+            if (suggestOn() && !hint && current.trim().length >= 4) {
+                pendingDraft = current
+                main.removeCallbacks(debounce)
+                main.removeCallbacks(draftDebounce)
+                main.postDelayed(draftDebounce, 950)
+            } else if (current.isBlank()) {
+                pendingDraft = ""
+                main.removeCallbacks(draftDebounce)
+                svc.hideSuggestions()
+                if (suggestOn()) {
                     main.removeCallbacks(debounce)
-                    main.removeCallbacks(draftDebounce)
-                    main.postDelayed(draftDebounce, 950)
-                } else if (current.isBlank()) {
-                    pendingDraft = ""
-                    main.removeCallbacks(draftDebounce)
-                    svc.hideSuggestions()
-                    if (suggestOn()) {
-                        main.removeCallbacks(debounce)
-                        main.postDelayed(debounce, 650)
-                    }
+                    main.postDelayed(debounce, 650)
                 }
             }
             return
