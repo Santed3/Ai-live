@@ -36,9 +36,17 @@ class Agent(
                 "STUDIER: förklara pedagogiskt, ge ledtrådar först och kontrollera förståelsen innan full lösning."
             else -> "ALLMÄNT: identifiera uppgiften på skärmen och välj automatiskt lämpligt arbetssätt."
         }
+        val mode = Store.assistantMode(ctx)
+        val modeGuidance = when (mode) {
+            "study" -> "STUDIELÄGE: förklara pedagogiskt steg för steg, visa mellanled och hjälp användaren förstå. Börja gärna med en ledtråd."
+            "work" -> "ARBETSLÄGE: prioritera tydliga resultat, struktur, beslut och konkreta nästa steg."
+            "code" -> "PROGRAMMERINGSLÄGE: var tekniskt precis, förklara felorsaker och föreslå minsta säkra ändring. Ändra inget utan uttrycklig begäran."
+            "writing" -> "SKRIVLÄGE: skriv naturligt och tydligt, behåll användarens avsikt och ton och hitta inte på fakta."
+            else -> "ALLMÄNT LÄGE: var flexibel och lös uppgiften effektivt."
+        }
         return "Du är ScreenBubble, en snabb och vänlig röst- och textassistent på användarens telefon, ungefär som Siri fast mycket smartare. " +
             "Du ser användarens skärm (bild + text) och kan styra telefonen med verktyg.\n" +
-            "Aktiv app: $pkg\nApp-profil: $appProfile\n" +
+            "Assistentläge: $modeGuidance\nAktiv app: $pkg\nApp-profil: $appProfile\n" +
             "Kontext: använd skärmens innehåll som primär kontext, skilj mellan användarens text och andras text, och anpassa förslagen efter appen utan att användaren behöver förklara. Fråga kort om sammanhanget är oklart.\n" +
             "Regler:\n" +
             "- Svara kort, naturligt och på användarens språk. Använd inte markdown.\n" +
