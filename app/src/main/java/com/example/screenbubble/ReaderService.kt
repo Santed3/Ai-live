@@ -51,6 +51,7 @@ class ReaderService : AccessibilityService() {
     private var sideLp: WindowManager.LayoutParams? = null
     private var barY = 0
     private val smart by lazy { SmartReply(this) }
+    private val activeHelp by lazy { ActiveHelp(this) }
     private var sugView: View? = null
     private var sugLoadingView: View? = null
     private var hintHide = false
@@ -97,6 +98,7 @@ class ReaderService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
         try { smart.onEvent(event) } catch (_: Exception) {}
+        try { activeHelp.onEvent(event) } catch (_: Exception) {}
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val p = event.packageName?.toString() ?: return
             if (p != packageName && p != "com.android.systemui" && !p.contains("inputmethod")) lastPkg = p
@@ -355,6 +357,29 @@ class ReaderService : AccessibilityService() {
             try { wm.addView(v, lp); sugLoadingView = v } catch (_: Exception) { return@post }
             v.translationX = dp(14).toFloat(); v.alpha = 0f
             v.animate().translationX(0f).alpha(1f).setDuration(180).start()
+        }
+    }
+
+    fun showActiveHelp(title: String, detail: String, prompt: String) {
+        if (mode != Mode.BAR || closing) return
+        main.post {
+            if (mode != Mode.BAR || closing) return@post
+            removeSuggestions()
+            val v = SideUi(this).activeHelp(title, detail, {
+                removeSuggestions()
+                openChat(prompt, true)
+            }, { removeSuggestions() })
+            val lp = WindowManager.LayoutParams(
+                min(dp(292), (screenW * 0.86f).toInt()), WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                PixelFormat.TRANSLUCENT
+            ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; x = dp(10); y = barY }
+            try { wm.addView(v, lp) } catch (_: Exception) { return@post }
+            sugView = v
+            v.translationX = dp(18).toFloat(); v.alpha = 0f
+            v.animate().translationX(0f).alpha(1f).setDuration(180).start()
+            main.postDelayed({ if (sugView === v) removeSuggestions() }, 18_000)
         }
     }
 
