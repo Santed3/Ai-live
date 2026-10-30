@@ -287,7 +287,7 @@ async function pollForeground() {
 }
 
 // ------------------------------------------------------------------ windows
-let panel = null, dot = null, answerWin = null, mode = 'bar', answerTimer = null, qaBusy = false;
+let panel = null, dot = null, answerWin = null, settingsWin = null, mode = 'bar', answerTimer = null, qaBusy = false;
 
 let barOff = 0;
 const SIZES = { bar: [22, 96], menu: [390, 680], chat: [410, 650] };
@@ -311,6 +311,24 @@ function createPanel() {
   panel.on('closed', () => app.quit());
   panel.on('blur', () => { if (mode === 'menu') setMode('bar'); });
 }
+function openSettingsWindow() {
+  if (settingsWin && !settingsWin.isDestroyed()) {
+    if (settingsWin.isMinimized()) settingsWin.restore();
+    settingsWin.show(); settingsWin.focus(); return;
+  }
+  settingsWin = new BrowserWindow({
+    width: 820, height: 680, minWidth: 650, minHeight: 560,
+    title: 'ScreenBubble – Inställningar',
+    backgroundColor: '#0b0e16',
+    autoHideMenuBar: true,
+    show: false,
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  settingsWin.loadFile(path.join(__dirname, 'renderer', 'settings.html'));
+  settingsWin.once('ready-to-show', () => { settingsWin.show(); settingsWin.focus(); });
+  settingsWin.on('closed', () => { settingsWin = null; });
+}
+
 function createDot() {
   const wa = screen.getPrimaryDisplay().workArea;
   const s = readJson('dot.json', null);
@@ -722,6 +740,7 @@ ipcMain.handle('memory-get', () => memory());
 ipcMain.handle('memory-set', (_e, list) => { writeJson('memory.json', Array.isArray(list) ? list.map(String).slice(0, 40) : []); return true; });
 ipcMain.handle('memory-auto-get', () => readJson('settings.json', {}).memoryAuto === true);
 ipcMain.handle('memory-auto-set', (_e, on) => { const s = readJson('settings.json', {}); s.memoryAuto = !!on; writeJson('settings.json', s); return !!s.memoryAuto; });
+ipcMain.handle('open-settings', () => { openSettingsWindow(); return true; });
 ipcMain.handle('features-get', () => featureSettings());
 ipcMain.handle('features-set', (_e, next) => {
   const s = readJson('settings.json', {});
