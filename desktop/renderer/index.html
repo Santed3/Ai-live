@@ -145,6 +145,13 @@ header button{width:30px;height:30px;border-radius:10px;display:grid;place-items
 #inrow{margin:0 11px 11px;padding:6px 6px 6px 14px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09);border-radius:19px}
 #modeRow{display:flex;align-items:center;gap:7px;padding:0 13px 7px;color:var(--muted);font-size:10px}
 #assistantMode{max-width:150px;background:rgba(255,255,255,.055);border:1px solid var(--line);border-radius:9px;color:#dfe3f1;padding:5px 8px;font:10px 'Segoe UI',sans-serif;outline:0}
+#attachmentTray{display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 7px}
+#attachmentTray[hidden],#fileInput{display:none}
+.attachment-chip{display:flex;align-items:center;gap:5px;max-width:100%;padding:4px 7px 4px 9px;border-radius:9px;background:rgba(124,92,255,.14);border:1px solid rgba(151,132,255,.22);font-size:10px;color:#ded9ff}
+.attachment-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.attachment-chip button{padding:0 4px;background:transparent;color:#b8acd9}
+#chatDock.drag-over{outline:2px dashed rgba(151,132,255,.65);outline-offset:-8px;border-radius:18px}
+#attach{width:32px;height:32px;border-radius:10px;font-size:17px}
 #inrow:focus-within{border-color:rgba(143,119,255,.75);box-shadow:0 0 0 4px rgba(120,87,255,.12)}
 #inp{font-size:13px;line-height:1.5}#inrow button{width:35px;height:35px}
 #inrow button.p{background:linear-gradient(135deg,#8a6bff,#6241e8);box-shadow:0 4px 14px rgba(100,70,230,.28)}
@@ -318,8 +325,9 @@ button:focus-visible,.tile:focus-visible{outline:2px solid #b2a3ff;outline-offse
     <div id="hhead"><button id="hback" title="Tillbaka">‹</button><input id="hq" placeholder="Sök i alla konversationer…" aria-label="Sök"><button id="hclear" title="Rensa all historik">Rensa</button></div>
     <div id="hlist"></div>
   </div>
+  <div id="attachmentTray" hidden aria-live="polite"></div>
   <div id="modeRow"><label for="assistantMode">AI-läge</label><select id="assistantMode"><option value="general">Allmänt</option><option value="study">Studier</option><option value="work">Arbete</option><option value="code">Programmering</option><option value="writing">Skrivande</option></select></div>
-  <div id="inrow"><textarea id="inp" rows="1" placeholder="Skriv vad du vill ha hjälp med…"></textarea><button id="mic">🎤</button><button id="go" class="p">➤</button></div></div>
+  <div id="inrow"><input id="fileInput" type="file" multiple accept=".txt,.md,.csv,.tsv,.json,.html,.htm,.xml,.log,.js,.ts,.jsx,.tsx,.py,.kt,.java,.css,.scss,.yml,.yaml,.toml,.sql,.sh,.ps1,.ini,.properties,.jpg,.jpeg,.png,.webp"><button id="attach" title="Bifoga filer">＋</button><textarea id="inp" rows="1" placeholder="Skriv vad du vill ha hjälp med…"></textarea><button id="mic">🎤</button><button id="go" class="p">➤</button></div></div>
 </div>
 <script src="lib.js"></script>
 <script src="app.js"></script>
