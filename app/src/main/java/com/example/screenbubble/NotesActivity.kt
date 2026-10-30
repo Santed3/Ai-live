@@ -38,6 +38,7 @@ class NotesActivity : Activity() {
     private var processing = false
     private val main = Handler(Looper.getMainLooper())
     private var noteId = ""
+    private var autoStartDictation = false
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
     private fun rounded(color: Int, radius: Int) = GradientDrawable().apply {
@@ -54,6 +55,7 @@ class NotesActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        autoStartDictation = intent.getStringExtra("note_id").isNullOrBlank()
         noteId = intent.getStringExtra("note_id") ?: ("note_" + System.currentTimeMillis())
         window.statusBarColor = bg
         window.navigationBarColor = bg
@@ -119,7 +121,7 @@ class NotesActivity : Activity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { saveNote() }
             override fun afterTextChanged(s: Editable?) {}
         })
-        startListening()
+        if (autoStartDictation) startListening()
     }
 
     private fun startListening() {
