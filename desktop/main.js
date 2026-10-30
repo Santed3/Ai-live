@@ -107,7 +107,8 @@ async function post(url, body) {
 }
 function content(text, shot) {
   const c = [{ type: 'text', text }];
-  if (shot) c.push({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + shot, detail: 'high' } });
+  const images = Array.isArray(shot) ? shot : (shot ? [shot] : []);
+  for (const image of images) if (image) c.push({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + image, detail: 'high' } });
   return c;
 }
 async function chat(messages, o = {}) {
@@ -693,12 +694,14 @@ function systemPrompt(assistantMode = 'general') {
 function send2(ch, v) { if (panel && !panel.isDestroyed()) panel.webContents.send(ch, v); }
 function status(t) { if (panel && !panel.isDestroyed()) panel.webContents.send('status', t); }
 
-async function runAgent(userText, assistantMode = 'general') {
+async function runAgent(userText, attachments = [], assistantMode = 'general') {
   const messages = [{ role: 'system', content: systemPrompt(assistantMode) }, ...history()];
   const shot0 = await captureScreen(true);
+  const fileText = attachments.filter((x) => x.text).map((x) => '\n\n--- FIL: ' + x.name + ' ---\n' + x.text).join('');
+  const images = attachments.filter((x) => x.image).map((x) => x.image);
   messages.push({
     role: 'user',
-    content: content('Användarens meddelande: ' + userText + '\n\nAktivt fönster: ' + lastExternal.title + ' (' + lastExternal.proc + ')', shot0),
+    content: content('Användarens meddelande: ' + userText + fileText + '\n\nAktivt fönster: ' + lastExternal.title + ' (' + lastExternal.proc + ')', [shot0, ...images]),
   });
   let answer = '';
   for (let step = 0; step < 10; step++) {
@@ -721,7 +724,7 @@ async function runAgent(userText, assistantMode = 'general') {
     if (newShot) messages.push({ role: 'user', content: content('Ny skärmbild efter åtgärden.', newShot) });
   }
   if (!answer) answer = 'Jag hann inte klart. Försök igen eller dela upp uppgiften.';
-  addHistory('user', userText);
+  addHistory('user', (userText + attachments.map((x) => '\n[Bifogad fil: ' + x.name + ']' + (x.text ? '\n' + x.text.slice(0, 900) : '')).join('')).slice(0, 2000));
   addHistory('assistant', answer);
   learn(userText, answer);
   return answer;
@@ -796,14 +799,21 @@ async function fastCommand(t) {
   if (m) return await openApp(m[1].trim());
   return null;
 }
-ipcMain.handle('chat', async (_e, { text, assistantMode }) => {
+ipcMain.handle('chat', async (_e, { text, attachments, assistantMode }) => {
   const mc = Lib.parseMemoryCommand(text, memory());
   if (mc) { if (mc.mem) writeJson('memory.json', mc.mem); return { ok: true, reply: mc.reply }; }
   try { const f = await fastCommand(text); if (f) return { ok: true, reply: f }; } catch (_) {}
   if (busy) return { ok: false, error: 'Jag jobbar fortfarande med förra uppgiften.' };
   if (!apiKey()) return { ok: false, error: 'Ingen API-nyckel. Skriv in den under inställningar.' };
   busy = true;
-  try { return { ok: true, reply: await runAgent(String(text || ''), assistantMode) }; }
+  try {
+    const safeAttachments = Array.isArray(attachments) ? attachments.slice(0, 5).map((x) => ({
+      name: String(x.name || 'Fil').slice(0, 120),
+      text: typeof x.text === 'string' ? x.text.slice(0, 18000) : '',
+      image: typeof x.image === 'string' && x.image.length <= 11000000 ? x.image : ''
+    })) : [];
+    return { ok: true, reply: await runAgent(String(text || ''), safeAttachments, assistantMode) };
+  }
   catch (e) { return { ok: false, error: String(e.message || e) }; }
   finally { busy = false; }
 });
