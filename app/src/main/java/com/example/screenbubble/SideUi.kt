@@ -51,6 +51,46 @@ class SideUi(private val svc: ReaderService) {
         return frame
     }
 
+    /** Branded floating assistant launcher. Drag to reposition; swipe opens menu or chat. */
+    @SuppressLint("ClickableViewAccessibility")
+    fun bubble(lp: WindowManager.LayoutParams, onMove: () -> Unit, onTap: () -> Unit, onSwipe: (String) -> Unit): View {
+        val frame = FrameLayout(svc)
+        val mark = TextView(svc).apply {
+            text = "S"
+            textSize = 17f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFFFFFFF.toInt())
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFA28AFF.toInt(), 0xFF6241E8.toInt())).apply {
+                shape = GradientDrawable.OVAL
+                setStroke(dp(1), 0x88FFFFFF.toInt())
+            }
+            elevation = dp(8).toFloat()
+        }
+        frame.addView(mark, FrameLayout.LayoutParams(dp(42), dp(42), Gravity.CENTER))
+        var sx = 0f; var sy = 0f; var ox = 0; var oy = 0; var moved = false; var swiped = false
+        frame.setOnTouchListener { _, e ->
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { sx = e.rawX; sy = e.rawY; ox = lp.x; oy = lp.y; moved = false; swiped = false }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = e.rawX - sx; val dy = e.rawY - sy
+                    if (!swiped && abs(dx) > dp(42) && abs(dx) > abs(dy) * 1.3f) {
+                        swiped = true
+                        onSwipe(if (dx < 0) "left" else "right")
+                    } else if (!swiped && (abs(dx) > dp(5) || abs(dy) > dp(5))) {
+                        moved = true
+                        lp.x = max(0, ox - dx.toInt())
+                        lp.y = oy + dy.toInt()
+                        onMove()
+                    }
+                }
+                MotionEvent.ACTION_UP -> if (!swiped && !moved) onTap()
+            }
+            true
+        }
+        return frame
+    }
+
     /** Minimal branded floating Smart Reply indicator with animated dots. */
     fun suggestionLoading(): View {
         val row = LinearLayout(svc).apply {
