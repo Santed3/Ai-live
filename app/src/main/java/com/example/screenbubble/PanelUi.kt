@@ -75,6 +75,7 @@ class PanelUi(private val svc: ReaderService) {
     private var speakOn = Store.speak(svc)
     private var convo = false
     private var dictationMode = false
+    private var dictationSelected = false
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
     private var ttsReady = false
@@ -265,7 +266,7 @@ class PanelUi(private val svc: ReaderService) {
             if (id == EditorInfo.IME_ACTION_SEND) { sendFromInput(); true } else false
         }
         row.addView(input, lp(0, -2, weight = 1f))
-        micBtn = pill("🎤") { if (dictationMode) stopDictation() else listen() }
+        micBtn = pill("🎤") { if (dictationSelected) { if (dictationMode) stopDictation() else startDictation() } else listen() }
         row.addView(micBtn, lp(-2, -2, l = 6))
         row.addView(pill("➤", PRIMARY) { sendFromInput() }, lp(-2, -2, l = 6))
         root.addView(row, lp(-1, -2, t = 8))
@@ -486,6 +487,7 @@ class PanelUi(private val svc: ReaderService) {
 
     fun destroy() {
         dictationMode = false
+        dictationSelected = false
         try { recognizer?.destroy() } catch (_: Exception) {}
         recognizer = null
         try { tts?.stop(); tts?.shutdown() } catch (_: Exception) {}
@@ -756,6 +758,7 @@ class PanelUi(private val svc: ReaderService) {
     }
 
     fun startDictation() {
+        dictationSelected = true
         if (svc.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             addMsg(false, "Tillåt mikrofonen i ScreenBubble-inställningarna först.")
             return
@@ -787,7 +790,8 @@ class PanelUi(private val svc: ReaderService) {
         } catch (_: Exception) { fallback }
     }
 
-    private fun listen() {        if (svc.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+    private fun listen() {
+        if (svc.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             addMsg(false, "Tillåt mikrofon: öppna ScreenBubble-appen och tryck på \"Tillåt mikrofon\".")
             return
         }

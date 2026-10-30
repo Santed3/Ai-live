@@ -809,7 +809,8 @@ class ReaderService : AccessibilityService() {
         return if (target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) "Skrev texten." else "Kunde inte skriva i fältet."
     }
 
-    fun typeText(text: String, append: Boolean): String {        val t = inputTarget() ?: return "Hittade inget textfält att skriva i."
+    fun typeText(text: String, append: Boolean): String {
+        val t = inputTarget() ?: return "Hittade inget textfält att skriva i."
         val cur = if (append && !t.isShowingHintText) t.text?.toString().orEmpty() else ""
         val args = Bundle().apply {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, cur + text)
