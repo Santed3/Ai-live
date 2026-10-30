@@ -24,7 +24,7 @@ function renderSmartReplyApps(){
   const small=document.createElement('small');small.textContent='Tillåt Smart Reply i den här appen.';
   copy.append(b,small);
   const sw=document.createElement('input');sw.type='checkbox';sw.className='switch';sw.checked=(smartReplyConfig.apps||[]).includes(key);
-  sw.onchange=async()=>{const set=new Set(smartReplyConfig.apps||[]);if(sw.checked)set.add(key);else set.delete(key);smartReplyConfig=await api.smartReplyAppsSet([...set]);};
+  sw.onchange=async()=>{const set=new Set(smartReplyConfig.apps||[]);if(sw.checked)set.add(key);else set.delete(key);smartReplyConfig=await api.smartReplyAppsSet([...set]);toast();};
   row.append(ico,copy,sw);box.append(row);
  }
 }
