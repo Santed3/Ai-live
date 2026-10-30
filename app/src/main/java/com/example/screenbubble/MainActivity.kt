@@ -218,6 +218,24 @@ class MainActivity : Activity() {
         act.addView(row, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
         act.addView(text("Markera text i valfri app och välj \"Fråga ScreenBubble\" för att få den förklarad.", 12.5f, MUTED).apply { setPadding(0, dp(10), 0, 0) })
 
+        val appearance = card("Assistentens utseende", "Välj hur du vill öppna ScreenBubble ovanpå andra appar.")
+        val display = Store.assistantDisplay(this)
+        val appearanceRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        for ((value, label) in listOf("sidebar" to "Sidopanel", "bubble" to "Flytande", "swipe" to "Svep")) {
+            appearanceRow.addView(button(label, display == value) {
+                Store.setAssistantDisplay(this, value)
+                ReaderService.instance?.setMode(ReaderService.Mode.BAR)
+                render()
+            }, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(5) })
+        }
+        appearance.addView(appearanceRow)
+        val swipeLabel = if (Store.assistantSwipe(this) == "left") "vänster" else "höger"
+        appearance.addView(text("Svep åt $swipeLabel för att öppna menyn. Svep åt andra hållet för att öppna chatten.", 12f, MUTED).apply { setPadding(0, dp(8), 0, dp(4)) })
+        appearance.addView(button("Byt svepriktning", false) {
+            Store.setAssistantSwipe(this, if (Store.assistantSwipe(this) == "left") "right" else "left")
+            render()
+        })
+
         // smart replies
         val sr = card("Smarta svar", "När någon skriver till dig i en chatt får du förslag på svar direkt i sidebaren, skrivna som du skriver.")
         fun toggle(label: String, key: String) {
