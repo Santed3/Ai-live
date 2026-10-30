@@ -337,7 +337,11 @@ async function toggleMic(dictationSegment = false) {
           setStatus('Text infogad. Fortsätter diktera…');
         }
       } catch (e) {
-        setStatus('Dikteringen kunde inte slutföras: ' + String(e.message || e));
+        const message = String(e.message || e);
+        setStatus('Dikteringen kunde inte slutföras: ' + message);
+        if (/401|unauthori[sz]ed|invalid_api_key|incorrect api key/i.test(message)) {
+          dictationMode = false; $('dictate').classList.remove('on'); $('dictate').textContent = '✍️';
+        }
         if (!dictationMode) setTimeout(clearStatus, 3500);
       }
       if (dictationMode) dictationRestart = setTimeout(() => { if (dictationMode && !recording) toggleMic(true); }, 500);
@@ -361,6 +365,8 @@ async function toggleDictation() {
     setStatus('Dikteringen är pausad.'); setTimeout(clearStatus, 2200);
     return;
   }
+  const configured = await api.getSettings();
+  if (!configured.hasKey) { setStatus('Lägg till din OpenAI API-nyckel i inställningarna innan du dikterar.'); api.openSettingsWindow(); setTimeout(clearStatus, 3500); return; }
   dictationMode = true; convo = false; $('convo').classList.remove('on');
   $('dictate').classList.add('on'); $('dictate').textContent = '■';
   setStatus('Diktering aktiv. Tala naturligt, jag infogar texten där markören står.');
@@ -495,6 +501,7 @@ function applyFeatureVisibility() {
   $('convo').hidden = !features.voice;
   $('dictate').hidden = !features.dictation;
   $('speak').hidden = !features.readAloud;
+  if (!features.dictation && dictationMode) toggleDictation();
 }
 function openSettings() {
   $('settingsPanel').classList.add('show'); renderFeatureToggles();
