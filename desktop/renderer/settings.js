@@ -41,7 +41,20 @@ function render(){
  }
  $('readAloud').checked=!!features.readAloud;
 }
+async function loadAppearance(){
+ const cfg=await api.appearanceGet();
+ document.querySelectorAll('input[name="assistantDisplay"]').forEach(x=>{x.checked=x.value===cfg.display});
+ $('assistantSwipe').value=cfg.swipe||'left';
+}
+async function saveAppearance(){
+ const display=document.querySelector('input[name="assistantDisplay"]:checked')?.value||'sidebar';
+ await api.appearanceSet({display,swipe:$('assistantSwipe').value});
+ $('appearanceState').textContent='● Sparas automatiskt';toast();
+}
+document.querySelectorAll('input[name="assistantDisplay"]').forEach(x=>x.onchange=saveAppearance);
+$('assistantSwipe').onchange=saveAppearance;
 (async()=>{
+ await loadAppearance();
  features=await api.featuresGet();render();
  smartReplyConfig=await api.smartReplyAppsGet();renderSmartReplyApps();
  $('readAloud').onchange=()=>saveFeature('readAloud',$('readAloud').checked);
