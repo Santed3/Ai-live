@@ -166,10 +166,11 @@ class MainActivity : Activity() {
         content.addView(head)
         content.addView(text("Din AI-assistent · alltid nära till hands · v$ver", 13f, MUTED).apply { setPadding(0, dp(5), 0, dp(5)) })
         addTabs()
-        content.addView(text("SIDEBAR · AI-ASSISTENT", 10f, ACCENT, true).apply {
-            letterSpacing = 0.14f
-            setPadding(dp(1), dp(12), 0, dp(1))
-        })
+        if (activeTab == "home") addDashboardHero(on, mic, ver)
+        content.addView(text(
+            when (activeTab) { "home" -> "DIN ASSISTENT"; "assistant" -> "ANPASSA ASSISTENTEN"; else -> "DITT INNEHÅLL" },
+            10f, ACCENT, true
+        ).apply { letterSpacing = 0.14f; setPadding(dp(1), dp(12), 0, dp(1)) })
 
         // update
         val nb = newerBuild
@@ -354,11 +355,75 @@ class MainActivity : Activity() {
     }
 
     private fun addTabs() {
-        val nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(12), 0, dp(3)) }
-        for ((id, label) in listOf("home" to "Hem", "assistant" to "Assistent", "personal" to "Personligt")) {
-            nav.addView(button(label, activeTab == id) { activeTab = id; render() }, LinearLayout.LayoutParams(0, dp(44), 1f).apply { rightMargin = dp(6) })
+        val nav = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            background = rounded(0xFF111725.toInt(), 18)
+            setPadding(dp(5), dp(5), dp(5), dp(5))
         }
-        content.addView(nav, LinearLayout.LayoutParams(-1, -2))
+        val items = listOf(
+            Triple("home", "⌂", "Hem"),
+            Triple("assistant", "✦", "Assistent"),
+            Triple("personal", "▤", "Bibliotek")
+        )
+        for ((id, icon, label) in items) {
+            val selected = activeTab == id
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                background = if (selected) rounded(0xFF34295F.toInt(), 14) else rounded(Color.TRANSPARENT, 14)
+                setPadding(dp(5), dp(7), dp(5), dp(7))
+                isClickable = true
+                isFocusable = true
+                contentDescription = label
+                setOnClickListener { activeTab = id; render() }
+            }
+            item.addView(text(icon, 19f, if (selected) 0xFFDAD2FF.toInt() else MUTED, true).apply { gravity = Gravity.CENTER })
+            item.addView(text(label, 11f, if (selected) TEXT else MUTED, selected).apply { gravity = Gravity.CENTER; setPadding(0, dp(1), 0, 0) })
+            nav.addView(item, LinearLayout.LayoutParams(0, dp(58), 1f).apply { rightMargin = dp(4) })
+        }
+        content.addView(nav, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) })
+    }
+
+    private fun addDashboardHero(serviceOn: Boolean, micOn: Boolean, version: String) {
+        val ready = serviceOn && micOn && (!Config.embeddedKey().isEmpty() ||
+            !getSharedPreferences("prefs", MODE_PRIVATE).getString("api_key", "").isNullOrBlank())
+        val hero = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(0xFF30265C.toInt(), 0xFF191F34.toInt(), 0xFF151B29.toInt())
+            ).apply { cornerRadius = dp(22).toFloat(); setStroke(dp(1), 0x44B9A8FF) }
+            setPadding(dp(17), dp(16), dp(17), dp(16))
+        }
+        val top = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        top.addView(text("SCREENBUBBLE · AI-ASSISTENT", 9f, 0xFFC7BBFF.toInt(), true).apply { letterSpacing = .12f }, LinearLayout.LayoutParams(0, -2, 1f))
+        val status = LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            background = rounded(if (ready) 0xFF174538.toInt() else 0xFF49351F.toInt(), 20)
+            setPadding(dp(9), dp(5), dp(9), dp(5))
+        }
+        status.addView(View(this).apply {
+            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(if (ready) ACCENT else 0xFFFFC477.toInt()) }
+        }, LinearLayout.LayoutParams(dp(7), dp(7)).apply { rightMargin = dp(6) })
+        status.addView(text(if (ready) "Redo" else "Kom igång", 10f, if (ready) ACCENT else 0xFFFFD39A.toInt(), true))
+        top.addView(status)
+        hero.addView(top)
+        hero.addView(text("Din arbetsyta, fast smartare.", 21f, TEXT, true).apply { setPadding(0, dp(13), 0, dp(3)) })
+        hero.addView(text(
+            if (ready) "Assistenten är redo när du behöver den. Öppna den direkt eller fortsätt med dina anteckningar."
+            else "Slutför installationen nedan så kan du få hjälp direkt ovanpå dina appar.",
+            12.5f, 0xFFB6BED2.toInt()
+        ).apply { setPadding(0, 0, 0, dp(13)) })
+        val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        actions.addView(button("✦  Öppna assistenten", true) {
+            ReaderService.instance?.setMode(ReaderService.Mode.MENU) ?: toast("Aktivera tillgänglighetstjänsten först")
+        }, LinearLayout.LayoutParams(0, dp(44), 1.25f).apply { rightMargin = dp(7) })
+        actions.addView(button("▤  Anteckningar", false) {
+            startActivity(Intent(this, NotesLibraryActivity::class.java))
+        }, LinearLayout.LayoutParams(0, dp(44), 1f))
+        hero.addView(actions)
+        content.addView(hero, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(15) })
     }
 
     private fun renderOnboarding(prefs: android.content.SharedPreferences) {
