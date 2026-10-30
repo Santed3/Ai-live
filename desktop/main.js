@@ -294,7 +294,8 @@ const SIZES = { bar: [22, 96], menu: [390, 680], chat: [410, 650] };
 function layout(v) {
   const wa = screen.getPrimaryDisplay().workArea;
   let [w, h] = SIZES[v] || SIZES.bar;
-  if (v === 'chat') h = Math.min(h, Math.round(wa.height * 0.7));
+  if (v === 'chat') h = Math.min(h, Math.round(wa.height * 0.78));
+  if (v === 'menu') h = Math.min(h, Math.round(wa.height * 0.84));
   const cy = wa.y + wa.height / 2 + barOff;
   const y = Math.round(Math.min(Math.max(wa.y, cy - h / 2), wa.y + wa.height - h));
   panel.setBounds({ x: wa.x + wa.width - w - (v === 'bar' ? 0 : 8), y, width: w, height: h });
