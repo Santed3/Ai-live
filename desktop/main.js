@@ -401,7 +401,7 @@ async function pollForeground() {
 let panel = null, dot = null, answerWin = null, settingsWin = null, mode = 'bar', answerTimer = null, qaBusy = false;
 
 let barOff = 0;
-const SIZES = { bar: [22, 96], menu: [390, 680], chat: [410, 650] };
+const SIZES = { bar: [22, 96], menu: [430, 740], chat: [410, 650] };
 function layout(v) {
   const wa = screen.getPrimaryDisplay().workArea;
   let [w, h] = SIZES[v] || SIZES.bar;
