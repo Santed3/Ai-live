@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld('api', {
   chips: () => ipcRenderer.invoke('chips'),
   reply: () => ipcRenderer.invoke('reply'),
   transform: (instruction, text) => ipcRenderer.invoke('transform', { instruction, text }),
-  insert: (text, send) => ipcRenderer.invoke('insert', { text, send }),
+  insert: (text, send, replace = false) => ipcRenderer.invoke('insert', { text, send, replace }),
   copy: (text) => ipcRenderer.invoke('copy', text),
   newChat: () => ipcRenderer.invoke('new-chat'),
   setMode: (m) => ipcRenderer.invoke('set-mode', m),
