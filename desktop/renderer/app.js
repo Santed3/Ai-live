@@ -65,6 +65,7 @@ const FEATURE_DEFAULTS = {
 let features = { ...FEATURE_DEFAULTS };
 const FEATURE_META = [
   ['smartReply','💬','Smart Reply','Skriver ett naturligt svar utifrån mejlet eller chatten på skärmen.'],
+  ['activeHelp','✦','Active Help','Upptäcker problem och erbjuder diskret hjälp innan du fastnar.'],
   ['contextualSuggestions','✨','Smarta förslag','Visar relevanta snabbval beroende på vilken app du använder.'],
   ['screenActions','⚡','AI Actions','Hjälper dig utföra uppgifter i flera steg på skärmen.'],
   ['smartTranslate','🌐','Smart Translate','Översätter text direkt i appar och behåller sammanhanget.'],
