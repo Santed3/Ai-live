@@ -342,7 +342,9 @@ function renderFeatureToggles() {
   }
 }
 function applyFeatureVisibility() {
-  for (const id of ['mic','speak','convo']) $(id).hidden = !features.voice;
+  $('mic').hidden = !features.voice;
+  $('convo').hidden = !features.voice;
+  $('speak').hidden = !features.readAloud;
 }
 function openSettings() {
   $('settingsPanel').classList.add('show'); renderFeatureToggles();
