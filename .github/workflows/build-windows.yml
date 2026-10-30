@@ -22,18 +22,6 @@ jobs:
         with:
           node-version: 20
 
-      - name: Lägg in API-nyckeln (valfritt)
-        shell: bash
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          if [ -n "$OPENAI_API_KEY" ]; then
-            sed -i "s|__OPENAI_KEY__|$OPENAI_API_KEY|" desktop/config.json
-            echo "::notice title=Nyckel::Nyckel inbyggd i Windows-appen"
-          else
-            echo "::warning title=Nyckel::Ingen secret satt, appen frågar efter nyckeln"
-          fi
-
       - name: Sätt version
         working-directory: desktop
         shell: bash
