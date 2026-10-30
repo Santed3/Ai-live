@@ -978,6 +978,7 @@ app.whenReady().then(() => {
   globalShortcut.register('Control+Alt+A', () => quickAnswer());
   setInterval(pollForeground, 2500);
   if (featureSettings().selectionAsk) globalShortcut.register('Control+Alt+C', explainSelection);
+  globalShortcut.register('Control+Alt+R', explainRegion);
   makeTray();
   initUpdater();
   setTimeout(() => { appReady = true; }, 1500);
@@ -1024,6 +1025,7 @@ function makeTray() {
       { label: 'Visa sidebar', click: () => setMode('bar') },
       { label: 'Snabbsvar på skärmen', click: () => quickAnswer() },
       { label: 'Förklara markerad text (Ctrl+Alt+C)', click: () => explainSelection() },
+      { label: 'Analysera markerat område (Ctrl+Alt+R)', click: () => explainRegion() },
       { type: 'separator' },
       { label: updateState.state === 'ready' ? 'Starta om och uppdatera' : 'Sök efter uppdatering', click: () => (updateState.state === 'ready' && updater ? updater.quitAndInstall(true, true) : checkUpdate()) },
       { label: 'Starta med Windows', type: 'checkbox', checked: autostart(), click: (i) => setAutostart(i.checked) },
@@ -1045,6 +1047,51 @@ async function explainSelection() {
   setMode('chat');
   setTimeout(() => send2('ask', 'Förklara eller svara kort på den här texten som jag markerade:\n\n' + sel.slice(0, 4000)), 350);
 }
+async function explainRegion() {
+  if (busy) { status('Vänta tills den pågående uppgiften är klar.'); return false; }
+  const oldText = clipboard.readText();
+  const oldImage = clipboard.readImage();
+  clipboard.clear();
+  try { await shell.openExternal('ms-screenclip:'); }
+  catch (e) {
+    if (!oldImage.isEmpty()) clipboard.writeImage(oldImage);
+    else if (oldText) clipboard.writeText(oldText);
+    status('Kunde inte öppna Windows skärmklipp.');
+    return false;
+  }
+  setMode('chat');
+  status('Markera ett område på skärmen. Jag analyserar bilden när du släpper musen.');
+  const deadline = Date.now() + 60000;
+  let selected = null;
+  while (Date.now() < deadline) {
+    await sleep(350);
+    const image = clipboard.readImage();
+    if (!image.isEmpty()) { selected = image; break; }
+  }
+  if (!selected) {
+    if (!oldImage.isEmpty()) clipboard.writeImage(oldImage);
+    else if (oldText) clipboard.writeText(oldText);
+    status('Inget skärmklipp hittades. Försök igen med Ctrl + Alt + R.');
+    return false;
+  }
+  const imageBase64 = selected.toJPEG(88).toString('base64');
+  if (!oldImage.isEmpty()) clipboard.writeImage(oldImage);
+  else if (oldText) clipboard.writeText(oldText);
+  busy = true;
+  try {
+    send2('delta-reset');
+    status('Analyserar det markerade området…');
+    await runAgent('Analysera det markerade området. Förklara vad som är viktigt och hjälp mig med det som syns.', [
+      { name: 'Markerat skärmområde', image: imageBase64, mime: 'image/jpeg' }
+    ], 'general');
+    status('Analysen är klar.');
+  } catch (e) {
+    status('Kunde inte analysera skärmklippet: ' + String(e.message || e));
+  } finally { busy = false; }
+  return true;
+}
+
+ipcMain.handle('capture-region', () => explainRegion());
 ipcMain.handle('autostart-get', () => autostart());
 ipcMain.handle('autostart-set', (_e, on) => setAutostart(on));
 app.on('before-quit', () => writeJson('mode.json', { m: mode === 'hide' ? 'hide' : 'bar' }));
