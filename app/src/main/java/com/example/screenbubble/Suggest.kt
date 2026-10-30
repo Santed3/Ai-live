@@ -4,15 +4,31 @@ data class Chip(val label: String, val prompt: String, val reply: Boolean = fals
 
 /** Context-aware shortcuts based on the foreground app and the visible text. */
 object Suggest {
-    private val mail = listOf(
-        "com.google.android.gm", "com.microsoft.office.outlook", "com.samsung.android.email.provider",
-        "ch.protonmail.android", "com.yahoo.mobile.client.android.mail", "com.fsck.k9"
+    val communicationApps = linkedMapOf(
+        "com.google.android.gm" to "Gmail",
+        "com.microsoft.office.outlook" to "Outlook",
+        "com.samsung.android.email.provider" to "Samsung E-post",
+        "ch.protonmail.android" to "Proton Mail",
+        "com.yahoo.mobile.client.android.mail" to "Yahoo Mail",
+        "com.whatsapp" to "WhatsApp",
+        "com.google.android.apps.messaging" to "Google Messages",
+        "com.samsung.android.messaging" to "Samsung Messages",
+        "org.telegram.messenger" to "Telegram",
+        "com.facebook.orca" to "Messenger",
+        "com.instagram.android" to "Instagram",
+        "com.snapchat.android" to "Snapchat",
+        "com.discord" to "Discord",
+        "com.Slack" to "Slack",
+        "com.microsoft.teams" to "Microsoft Teams",
+        "org.thoughtcrime.securesms" to "Signal",
+        "com.android.mms" to "Meddelanden"
     )
-    private val chat = listOf(
-        "com.whatsapp", "com.google.android.apps.messaging", "com.samsung.android.messaging",
-        "org.telegram.messenger", "com.facebook.orca", "com.instagram.android", "com.snapchat.android",
-        "com.discord", "com.Slack", "com.microsoft.teams", "org.thoughtcrime.securesms", "com.android.mms"
-    )
+    private val mail = setOf("com.google.android.gm", "com.microsoft.office.outlook", "com.samsung.android.email.provider", "ch.protonmail.android", "com.yahoo.mobile.client.android.mail")
+    private val chat = setOf("com.whatsapp", "com.google.android.apps.messaging", "com.samsung.android.messaging", "org.telegram.messenger", "com.facebook.orca", "com.instagram.android", "com.snapchat.android", "com.discord", "com.Slack", "com.microsoft.teams", "org.thoughtcrime.securesms", "com.android.mms")
+    fun isChat(pkg: String) = pkg in chat
+    fun isCommunication(pkg: String) = pkg in mail || pkg in chat
+    fun kind(pkg: String) = if (pkg in mail) "mejl" else "chatt"
+
     private val browsers = listOf(
         "com.android.chrome", "org.mozilla.firefox", "com.sec.android.app.sbrowser",
         "com.microsoft.emmx", "com.brave.browser", "com.opera.browser"
