@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const chat = $('chat'), inp = $('inp');
+const chat = $('chat'), inp = $('inp'), chatDock = $('chatDock');
 let busy = false, speakOn = false, convo = false, statusEl = null, lastSmartReplySignature = '';
 
 // ---------------------------------------------------------------- helpers
@@ -293,6 +293,17 @@ init();
 // ---- sidebar, menu, views
 let preset = null;
 function go(text, auto) { preset = { text, auto }; api.setMode('chat'); }
+$('moreTools').onclick = () => {
+  const open = !$('menu').classList.contains('tools-open');
+  $('menu').classList.toggle('tools-open', open);
+  $('moreTools').setAttribute('aria-expanded', String(open));
+  $('moreTools').textContent = open ? '‹ Tillbaka till chatten' : '… Fler funktioner';
+  if (open) $('featureSearch').focus();
+};
+$('primaryActions').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-prompt]');
+  if (b) send(b.dataset.prompt, false);
+});
 function showWelcome() {
   const d = document.createElement('div'); d.className = 'welcome';
   d.innerHTML = '<div class="big">👋</div><h3>Hej! Vad vill du göra?</h3><p>Jag ser din skärm och kan hjälpa dig direkt.</p><div class="sug"></div><small>Ctrl+Alt+Space meny · Ctrl+Alt+A snabbsvar · Ctrl+Alt+C förklara markering</small>';
@@ -468,6 +479,14 @@ window.addEventListener('keydown', (e) => {
 });
 api.onView((v) => {
   document.body.dataset.v = v;
+  if (v === 'menu') {
+    $('menu').classList.remove('tools-open');
+    $('moreTools').textContent = '… Fler funktioner';
+    $('moreTools').setAttribute('aria-expanded', 'false');
+    $('menuChatSlot').appendChild(chatDock);
+  } else if (v === 'chat') {
+    $('app').appendChild(chatDock);
+  }
   if (v !== 'chat' || !preset) return;
   const p = preset; preset = null;
   if (p.voice) { if (features.voice) setTimeout(() => toggleMic(), 200); return; }
