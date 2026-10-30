@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('api', {
   memorySet: (l) => ipcRenderer.invoke('memory-set', l),
   memoryAutoGet: () => ipcRenderer.invoke('memory-auto-get'),
   memoryAutoSet: (on) => ipcRenderer.invoke('memory-auto-set', on),
+  openSettingsWindow: () => ipcRenderer.invoke('open-settings'),
   featuresGet: () => ipcRenderer.invoke('features-get'),
   featuresSet: (f) => ipcRenderer.invoke('features-set', f),
   updateState: () => ipcRenderer.invoke('update-state'),

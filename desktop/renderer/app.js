@@ -319,7 +319,7 @@ function renderMenu() {
   const add = tileEl('＋', 'Nytt kommando', () => openForm(null)); add.classList.add('add');
   if (!q || 'egna kommandon nytt kommando'.includes(q)) box.appendChild(group('EGNA KOMMANDON', [...mine, add]));
   const sys = [
-    tileEl('⚙️', 'Inställningar', openSettings),
+    tileEl('⚙️', 'Inställningar', () => api.openSettingsWindow()),
     tileEl('🚀', 'Autostart: ' + (autostartOn ? 'på' : 'av'), async () => { autostartOn = await api.autostartSet(!autostartOn); renderMenu(); }),
     tileEl(upd.state === 'ready' ? '🔄' : '⬇️', upd.state === 'ready' ? 'Starta om och uppdatera' : upd.state === 'downloading' ? 'Hämtar…' : upd.state === 'checking' ? 'Söker…' : upd.state === 'latest' ? 'Senaste versionen' : 'Sök uppdatering', () => (upd.state === 'ready' ? api.updateInstall() : api.updateCheck())),
     tileEl('🧠', 'Minneslärande: ' + (memoryAutoOn ? 'på' : 'av'), async () => { memoryAutoOn = await api.memoryAutoSet(!memoryAutoOn); renderMenu(); }),
@@ -348,7 +348,7 @@ function openSettings() {
   $('settingsPanel').classList.add('show'); renderFeatureToggles();
 }
 function closeSettings() { $('settingsPanel').classList.remove('show'); }
-$('settingsOpen').onclick = openSettings;
+$('settingsOpen').onclick = () => api.openSettingsWindow();
 $('settingsBack').onclick = closeSettings;
 $('settingsDone').onclick = closeSettings;
 $('featureSearch').addEventListener('input', renderMenu);
