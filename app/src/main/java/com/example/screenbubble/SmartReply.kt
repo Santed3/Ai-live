@@ -51,6 +51,7 @@ class SmartReply(private val svc: ReaderService) {
                 lastReplyHash = 0
                 lastDraftHash = 0
                 lastShownSignature = ""
+                lastAcceptedDraft = ""
             }
             activePackage = pkg
             if (!allowed(pkg)) {
@@ -165,7 +166,7 @@ class SmartReply(private val svc: ReaderService) {
                     else if (signature != lastShownSignature) {
                         lastShownSignature = signature
                         svc.showSuggestions(result, "Förslag på din text")
-                    }
+                    } else svc.hideSuggestions()
                 }
             } catch (_: Exception) {
                 main.post { svc.hideSuggestions() }
