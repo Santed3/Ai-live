@@ -14,6 +14,7 @@ import android.widget.TextView
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import kotlin.math.abs
+import kotlin.math.max
 
 /** The slim sidebar handle and the quick-command menu. */
 class SideUi(private val svc: ReaderService) {
