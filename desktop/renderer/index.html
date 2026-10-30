@@ -167,6 +167,35 @@ button:focus-visible,.tile:focus-visible{outline:2px solid #a995ff;outline-offse
 /* ScreenBubble Windows — redesigned sidebar system */
 :root{--bg:#0b0e16;--card:#151b29;--text:#f3f5fc;--muted:#8994ad;--accent:#91f2d1;--primary:#8062ff;--line:rgba(220,228,255,.09);--surface:#111725}
 #menu{position:relative;padding:17px 16px 16px;border-radius:25px;background:radial-gradient(ellipse at 92% 0%,rgba(111,85,255,.18),transparent 42%),linear-gradient(155deg,#171d2c 0%,#0b0e16 76%);border:1px solid rgba(214,222,255,.13);box-shadow:0 28px 90px rgba(0,0,0,.56),inset 0 1px rgba(255,255,255,.055);overflow-x:hidden;overflow-y:auto;scrollbar-width:thin}
+ #menu{display:none;flex-direction:column;gap:8px;overflow:hidden}
+ body[data-v=menu] #menu{display:flex}
+ #menu .menu-hero{display:none}
+ #menu .menu-search{display:none;margin:0 0 2px}
+ #menu.tools-open .menu-search{display:flex}
+ #groups{display:none;overflow:auto;min-height:0;padding:0 1px 6px}
+ #menu.tools-open #groups{display:block;flex:1}
+ #menu.tools-open #menuChatSlot{display:none}
+ #primaryActions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+ #primaryActions button{min-width:0;padding:10px 5px;border:1px solid rgba(255,255,255,.075);border-radius:13px;background:rgba(255,255,255,.045);font-size:10.5px;font-weight:650;color:#e9eafa;white-space:nowrap}
+ #primaryActions button:hover{background:rgba(130,102,255,.2);border-color:#8062ff66}
+ #moreBar{display:flex;align-items:center;justify-content:space-between;padding:0 2px}
+ #moreBar button{padding:5px 9px;border-radius:9px;background:transparent;color:#aeb7cc;font-size:10px}
+ #moreBar span{font-size:9px;color:#65708a}
+ #menuChatSlot{display:flex;flex:1;min-height:0}
+ #chatDock{display:flex;flex:1;min-height:0;flex-direction:column}
+ #chatDock #chat{min-height:90px}
+ #menu #inrow{margin:5px 0 0}
+ #menu #chips{padding:1px 0 7px}
+ #menu #chat{padding:6px 4px 8px}
+ #menu #chat .welcome{padding:8px 3px}
+ #menu #chat .welcome .big{display:none}
+ #menu #chat .welcome h3{font-size:15px}
+ #menu #chat .welcome p{font-size:11px;margin-bottom:8px}
+ #menu #chat .welcome .sug{display:flex;flex-wrap:wrap;gap:5px}
+ #menu #chat .welcome .sug button{font-size:10px;padding:7px 9px}
+ #menu #chat .welcome small{display:none}
+ #menu.tools-open #moreTools{color:#d7ccff}
+
 #mhead{display:flex;align-items:center;gap:8px;margin:0 1px 15px}
 #mhead .brand{display:flex;align-items:center;gap:10px;flex:1}
 #mhead .brandmark{width:34px;height:34px;display:grid;place-items:center;border-radius:12px;background:linear-gradient(145deg,#9c83ff,#6241e8);font-size:17px;font-weight:800;color:white;box-shadow:0 6px 20px rgba(112,83,255,.35)}
@@ -245,12 +274,14 @@ button:focus-visible,.tile:focus-visible{outline:2px solid #b2a3ff;outline-offse
 .reply-dots i:nth-child(2){animation-delay:.15s}.reply-dots i:nth-child(3){animation-delay:.3s}
 </style></head>
 <body data-v="bar"><div id="bar" class="view"><div id="pill"></div></div><div id="menu" class="view">
-  <div id="mhead"><div class="brand"><span class="brandmark">S</span><div><h2>ScreenBubble</h2><small>AI SIDEBAR</small></div></div><button id="settingsOpen" class="settings-trigger" title="Inställningar">⚙</button><span id="ver"></span></div>
-  <section class="menu-hero"><div class="hero-copy"><span class="eyebrow">DIN SKÄRMASSISTENT</span><h3>Vad vill du få gjort?</h3><p>Hjälp direkt i appen du redan använder.</p></div><div class="hero-orb">✦</div></section>
-  <div class="menu-search"><span>⌕</span><input id="featureSearch" placeholder="Sök funktioner…" autocomplete="off"></div>
+  <div id="mhead"><div class="brand"><span class="brandmark">S</span><div><h2>ScreenBubble</h2><small>DIN AI-ASSISTENT</small></div></div><button id="settingsOpen" class="settings-trigger" title="Inställningar">⚙</button><span id="ver"></span></div>
+  <div id="primaryActions"><button data-prompt="Föreslå ett passande svar utifrån det som syns på skärmen." data-auto="1">💬 Svara</button><button data-prompt="Förklara det viktigaste som visas på skärmen på ett enkelt sätt." data-auto="1">✦ Förklara</button><button data-prompt="Sammanfatta det viktigaste på skärmen i korta punkter." data-auto="1">▤ Sammanfatta</button></div>
+  <div id="moreBar"><button id="moreTools" aria-expanded="false">… Fler funktioner</button><span>Ctrl + Alt + Space</span></div>
+  <div class="menu-search"><span>⌕</span><input id="featureSearch" placeholder="Sök bland alla funktioner…" autocomplete="off"></div>
   <div class="banner" id="upd-m"></div>
   <div id="groups"></div>
-  <div id="settingsPanel" aria-label="Inställningar"><div class="settings-head"><button id="settingsBack">‹</button><div><b>Inställningar</b><small>Anpassa din AI-sidebar</small></div><span class="settings-spacer"></span><span class="settings-badge">LOKALT</span></div><div class="settings-intro"><b>Välj vad som ska finnas i din sidebar</b><p>Slå på funktionerna du använder. Dina val sparas på den här datorn.</p></div><div id="featureToggles"></div><div class="settings-foot"><span>Du kan ändra detta när som helst.</span><button id="settingsDone" class="p">Klart</button></div></div>
+  <div id="menuChatSlot"></div>
+  <div id="settingsPanel" aria-label="Inställningar"><div class="settings-head"><button id="settingsBack">‹</button><div><b>Inställningar</b><small>Anpassa din AI-assistent</small></div><span class="settings-spacer"></span><span class="settings-badge">LOKALT</span></div><div class="settings-intro"><b>Välj vad som ska finnas i menyn</b><p>Slå på funktionerna du använder. Dina val sparas på den här datorn.</p></div><div id="featureToggles"></div><div class="settings-foot"><span>Du kan ändra detta när som helst.</span><button id="settingsDone" class="p">Klart</button></div></div>
   <div id="cform">
     <div class="fcard">
       <h3 id="ftitle">Nytt snabbkommando</h3>
@@ -271,7 +302,7 @@ button:focus-visible,.tile:focus-visible{outline:2px solid #b2a3ff;outline-offse
   </header>
   <div class="banner" id="upd-c"></div>
   <div id="setup" class="card show"><label>OpenAI API-nyckel krävs</label><input id="key" type="password" placeholder="sk-..."><button id="savekey" class="p">Spara</button></div>
-  <div id="chips"></div>
+  <div id="chatDock"><div id="chips"></div>
   <div id="chat"></div>
   <div id="draftcard" class="card">
     <label>Förslag (redigera fritt)</label>
@@ -286,7 +317,7 @@ button:focus-visible,.tile:focus-visible{outline:2px solid #b2a3ff;outline-offse
     <div id="hhead"><button id="hback" title="Tillbaka">‹</button><input id="hq" placeholder="Sök i alla konversationer…" aria-label="Sök"><button id="hclear" title="Rensa all historik">Rensa</button></div>
     <div id="hlist"></div>
   </div>
-  <div id="inrow"><textarea id="inp" rows="1" placeholder="Fråga eller säg vad jag ska göra…"></textarea><button id="mic">🎤</button><button id="go" class="p">➤</button></div>
+  <div id="inrow"><textarea id="inp" rows="1" placeholder="Skriv vad du vill ha hjälp med…"></textarea><button id="mic">🎤</button><button id="go" class="p">➤</button></div></div>
 </div>
 <script src="lib.js"></script>
 <script src="app.js"></script>
