@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const chat = $('chat'), inp = $('inp'), chatDock = $('chatDock');
 let busy = false, speakOn = false, convo = false, statusEl = null, lastSmartReplySignature = '';
+let pendingAttachments = [];
 
 // ---------------------------------------------------------------- helpers
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -117,17 +118,20 @@ async function refreshChips() {
 }
 
 // ---------------------------------------------------------------- chat
-async function send(text, voice) {
+async function send(text, voice, files = pendingAttachments) {
   text = String(text || '').trim();
-  if (!text || busy) return;
+  if ((!text && !files.length) || busy) return;
   busy = true;
   const assistantMode = $('assistantMode')?.value || 'general';
+  const names = files.map((x) => x.name);
   const w = chat.querySelector('.welcome'); if (w) w.remove();
-  addMsg(true, text);
+  addMsg(true, text + (names.length ? '\n📎 ' + names.join(', ') : ''));
+  pendingAttachments = pendingAttachments.filter((x) => !files.includes(x));
+  renderAttachmentTray();
   live = null; liveText = '';
   showDots();
   try {
-    const r = await api.chat(text, voice, assistantMode);
+    const r = await api.chat(text, voice, assistantMode, files);
     clearStatus(); clearDots();
     if (live && r.ok) { live.innerHTML = md(r.reply); live = null; } else { if (live) { live.remove(); live = null; } addMsg(false, r.ok ? r.reply : 'Fel: ' + r.error); }
     if (r.ok && features.readAloud && (speakOn || voice)) speak(r.reply);
@@ -136,6 +140,41 @@ async function send(text, voice) {
 }
 api.onStatus(setStatus);
 $('go').onclick = () => { const t = inp.value; inp.value = ''; send(t, false); };
+const fileInput = $('fileInput');
+function renderAttachmentTray() {
+  const tray = $('attachmentTray'); tray.textContent = '';
+  tray.hidden = pendingAttachments.length === 0;
+  pendingAttachments.forEach((file, index) => {
+    const chip = document.createElement('span'); chip.className = 'attachment-chip';
+    const label = document.createElement('span'); label.textContent = '📎 ' + file.name;
+    const remove = document.createElement('button'); remove.textContent = '×'; remove.title = 'Ta bort fil';
+    remove.onclick = () => { pendingAttachments.splice(index, 1); renderAttachmentTray(); };
+    chip.append(label, remove); tray.appendChild(chip);
+  });
+}
+async function addFiles(list) {
+  for (const file of Array.from(list || [])) {
+    if (pendingAttachments.length >= 5) { setStatus('Högst fem filer åt gången.'); break; }
+    if (file.size > 8 * 1024 * 1024) { setStatus(file.name + ' är större än 8 MB.'); continue; }
+    const ext = file.name.split('.').pop().toLowerCase();
+    const image = ['jpg','jpeg','png','webp'].includes(ext);
+    const textFile = ['txt','md','csv','tsv','json','html','htm','xml','log','js','ts','jsx','tsx','py','kt','java','css','scss','yml','yaml','toml','sql','sh','ps1','ini','properties'].includes(ext);
+    if (!image && !textFile) { setStatus('Välj en bild eller text-/kodfil.'); continue; }
+    if (image) {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+      pendingAttachments.push({ name: file.name, image: btoa(binary), text: '' });
+    } else pendingAttachments.push({ name: file.name, image: '', text: (await file.text()).slice(0, 18000) });
+    renderAttachmentTray();
+  }
+  fileInput.value = '';
+}
+$('attach').onclick = () => fileInput.click();
+fileInput.onchange = () => addFiles(fileInput.files);
+$('chatDock').addEventListener('dragover', (e) => { e.preventDefault(); $('chatDock').classList.add('drag-over'); });
+$('chatDock').addEventListener('dragleave', (e) => { if (!e.relatedTarget || !$('chatDock').contains(e.relatedTarget)) $('chatDock').classList.remove('drag-over'); });
+$('chatDock').addEventListener('drop', (e) => { e.preventDefault(); $('chatDock').classList.remove('drag-over'); addFiles(e.dataTransfer.files); });
 $('assistantMode').onchange = async () => {
   const labels = { general:'Allmänt', study:'Studier', work:'Arbete', code:'Programmering', writing:'Skrivande' };
   await api.assistantModeSet($('assistantMode').value);
