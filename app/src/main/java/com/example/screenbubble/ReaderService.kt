@@ -378,6 +378,7 @@ class ReaderService : AccessibilityService() {
 
     private fun pickSuggestion(text: String) {
         removeSuggestions()
+        smart.markAccepted(text)
         pool.execute {
             val r = typeText(text, false)
             if (!r.startsWith("Skrev")) main.post { android.widget.Toast.makeText(this, "Tryck i textfältet först", android.widget.Toast.LENGTH_SHORT).show() }
