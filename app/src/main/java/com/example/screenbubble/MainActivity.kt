@@ -246,7 +246,7 @@ class MainActivity : Activity() {
         val n = Store.chatSamples(this).size
         sr.addView(text(
             "Smart Reply läser konversationen och ditt pågående utkast i de appar du valt. Texten skickas till OpenAI när förslag skapas, bara medan sidebaren är synlig. Tryck på ett förslag för att fylla i textfältet – det skickas aldrig automatiskt. " +
-                "Lärande: meddelanden du själv skickar i meddelandeappar sparas bara på din telefon (aldrig lösenordsfält eller känsligt). " +
+                "Lärande: skickade meddelanden sparas lokalt och relevanta stilprov skickas med AI-anropen. Lösenordsfält och känsligt innehåll filtreras bort så långt det kan identifieras. " +
                 if (n > 0) "Hittills inlärda meddelanden: $n." else "Inget inlärt än.",
             12f, MUTED
         ).apply { setPadding(0, dp(6), 0, dp(4)) })
