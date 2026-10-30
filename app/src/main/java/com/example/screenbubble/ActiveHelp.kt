@@ -16,8 +16,45 @@ class ActiveHelp(private val svc: ReaderService) {
     private var lastShownAt = 0L
     private var dismissedUntil = 0L
     private var checks = 0
+    // Keep only coarse workflow stages in memory. Never retain screen text or field values.
+    private var workflowPackage = ""
+    private var lastWorkflowStage = ""
+    private val workflowTrail = ArrayDeque<String>()
 
     private val inspect = Runnable { inspectScreen() }
+
+    private fun workflowStage(screen: String): String {
+        val s = screen.lowercase()
+        return when {
+            listOf("download", "downloading", "nedladd", "hämtar", "hämtning").any { s.contains(it) } -> "nedladdning"
+            listOf("upload", "uploading", "ladda upp", "uppladd", "bifoga fil").any { s.contains(it) } -> "uppladdning"
+            listOf("checkout", "payment", "betalning", "kassa", "order summary", "slutför köp").any { s.contains(it) } -> "köp/betalning"
+            listOf("sign in", "log in", "logga in", "lösenord", "password", "two-factor", "verification code").any { s.contains(it) } -> "inloggning"
+            listOf("search", "sök", "results", "sökresultat", "filter").any { s.contains(it) } -> "sökning"
+            listOf("new message", "compose", "skriv meddelande", "nytt meddelande", "recipient", "mottagare").any { s.contains(it) } -> "meddelande"
+            listOf("submit", "send", "skicka", "submit form", "obligatoriskt fält", "required field").any { s.contains(it) } -> "formulär"
+            listOf("calendar", "kalender", "schedule", "schemalägg", "date", "datum").any { s.contains(it) } -> "planering"
+            listOf("save as", "spara som", "open file", "öppna fil", "choose file", "välj fil").any { s.contains(it) } -> "filhantering"
+            listOf("settings", "inställningar", "preferences", "preferenser").any { s.contains(it) } -> "inställningar"
+            else -> ""
+        }
+    }
+
+    private fun recordWorkflow(pkg: String, screen: String) {
+        if (pkg != workflowPackage) {
+            workflowPackage = pkg
+            lastWorkflowStage = ""
+            workflowTrail.clear()
+        }
+        val stage = workflowStage(screen)
+        if (stage.isBlank() || stage == lastWorkflowStage) return
+        lastWorkflowStage = stage
+        if (workflowTrail.lastOrNull() != stage) workflowTrail.addLast(stage)
+        while (workflowTrail.size > 6) workflowTrail.removeFirst()
+    }
+
+    private fun workflowContext(): String =
+        if (workflowTrail.isEmpty()) "" else workflowTrail.joinToString(" → ")
 
     fun onEvent(event: AccessibilityEvent) {
         if (!Store.flag(svc, "active_help") || !svc.canShowActiveHelp()) return
@@ -36,6 +73,7 @@ class ActiveHelp(private val svc: ReaderService) {
         if (pkg.isBlank() || pkg == svc.packageName || pkg == "com.android.systemui" || pkg.contains("inputmethod")) return
         val screen = svc.readScreenText().take(5000)
         if (screen.isBlank()) return
+        recordWorkflow(pkg, screen)
         val signature = (pkg + "|" + screen.lowercase().replace(Regex("\\s+"), " ").take(1800)).hashCode().toString()
         if (signature == lastScreenSignature) checks++ else { lastScreenSignature = signature; checks = 1 }
         if (System.currentTimeMillis() < dismissedUntil || System.currentTimeMillis() - lastShownAt < 90_000) return
@@ -71,7 +109,10 @@ class ActiveHelp(private val svc: ReaderService) {
         lastShownAt = System.currentTimeMillis()
         val title = if (download) "Nedladdningen verkar ha problem" else "Det verkar ha uppstått ett problem"
         val detail = if (download) "Jag kan undersöka varför filen inte laddas ner och visa hur vi löser det." else "Jag kan undersöka vad som verkar ha fastnat och föreslå nästa steg."
-        val prompt = "Active Help upptäckte ett möjligt problem i appen $pkg. Undersök den aktuella skärmen och förklara kort vad som verkar ha hänt och hur det kan lösas. Gör inga ändringar eller klicka inte på något ännu. Fråga först om jag vill att du tar över och försöker lösa problemet. Om det behövs en åtgärd, förklara vad du tänker göra innan du ber om godkännande."
+        val trail = workflowContext()
+        val prompt = "Active Help upptäckte ett möjligt problem i appen $pkg. Undersök den aktuella skärmen och förklara kort vad som verkar ha hänt och hur det kan lösas. " +
+            (if (trail.isBlank()) "" else "Observerade steg i det här arbetsflödet, i ordning: $trail. Använd dem för att förstå sammanhanget, men anta inte att varje steg lyckades. ") +
+            "Gör inga ändringar eller klicka inte på något ännu. Fråga först om jag vill att du tar över och försöker lösa problemet. Om det behövs en åtgärd, beskriv planen och möjliga konsekvenser innan du ber om godkännande."
         svc.showActiveHelp(title, detail, prompt)
     }
 
