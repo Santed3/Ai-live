@@ -11,6 +11,8 @@ import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import kotlin.math.abs
 
 /** The slim sidebar handle and the quick-command menu. */
@@ -49,37 +51,90 @@ class SideUi(private val svc: ReaderService) {
         return frame
     }
 
-    /** Suggested replies as tappable chips. Tapping types the text into the chat field. */
+    /** Minimal branded floating Smart Reply indicator with animated dots. */
+    fun suggestionLoading(): View {
+        val row = LinearLayout(svc).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = rounded(0xF2141722.toInt(), 24)
+            setPadding(dp(10), dp(7), dp(13), dp(7))
+            elevation = dp(9).toFloat()
+        }
+        row.addView(TextView(svc).apply {
+            text = "S"
+            textSize = 10f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFFFFFFF.toInt())
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF9D86FF.toInt(), 0xFF6345E8.toInt())).apply { shape = GradientDrawable.OVAL }
+        }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { rightMargin = dp(8) })
+        row.addView(TextView(svc).apply {
+            text = "ScreenBubble"
+            textSize = 11.5f
+            setTextColor(0xFFE8EAF4.toInt())
+        })
+        val dots = LinearLayout(svc).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(dp(7), 0, 0, 0) }
+        repeat(3) { i ->
+            val dot = TextView(svc).apply {
+                text = "•"
+                textSize = 14f
+                setTextColor(0xFFAB96FF.toInt())
+            }
+            dots.addView(dot)
+            ObjectAnimator.ofFloat(dot, "translationY", 0f, -dp(3).toFloat(), 0f).apply {
+                duration = 760
+                startDelay = i * 130L
+                repeatCount = ValueAnimator.INFINITE
+                start()
+            }
+        }
+        row.addView(dots)
+        return row
+    }
+
+    /** Tiny reply choices with a ScreenBubble mark; tapping inserts the text into the active field. */
     fun suggestions(list: List<String>, onPick: (String) -> Unit, onClose: () -> Unit): View {
         val card = LinearLayout(svc).apply {
             orientation = LinearLayout.VERTICAL
-            background = rounded(0xF2121316.toInt(), 20)
-            setPadding(dp(10), dp(8), dp(10), dp(10))
-            elevation = dp(8).toFloat()
+            background = rounded(0xF2141722.toInt(), 18)
+            setPadding(dp(10), dp(8), dp(10), dp(9))
+            elevation = dp(9).toFloat()
         }
         val head = LinearLayout(svc).apply { gravity = Gravity.CENTER_VERTICAL }
         head.addView(TextView(svc).apply {
-            this.text = "Förslag"
-            textSize = 11f
-            letterSpacing = 0.06f
-            setTextColor(0xFF7CF5C8.toInt())
+            text = "S"
+            textSize = 9f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFFFFFFF.toInt())
             setTypeface(typeface, android.graphics.Typeface.BOLD)
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF9D86FF.toInt(), 0xFF6345E8.toInt())).apply { shape = GradientDrawable.OVAL }
+        }, LinearLayout.LayoutParams(dp(19), dp(19)).apply { rightMargin = dp(7) })
+        head.addView(TextView(svc).apply {
+            text = "ScreenBubble"
+            textSize = 10.5f
+            setTextColor(0xFFB9C0D3.toInt())
         }, LinearLayout.LayoutParams(0, -2, 1f))
         head.addView(TextView(svc).apply {
-            this.text = "✕"
-            textSize = 14f
-            setTextColor(0xFF8D95AD.toInt())
-            setPadding(dp(8), dp(2), dp(4), dp(2))
+            text = "×"
+            textSize = 17f
+            setTextColor(0xFF8993AA.toInt())
+            setPadding(dp(8), 0, dp(2), 0)
             setOnClickListener { onClose() }
         })
         card.addView(head)
-        for (s in list) {
+        for (s in list.take(3)) {
             card.addView(TextView(svc).apply {
-                this.text = s
-                textSize = 14.5f
+                text = s
+                textSize = 13f
+                maxLines = 3
+                ellipsize = android.text.TextUtils.TruncateAt.END
                 setTextColor(0xFFECEFF8.toInt())
-                background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0x337A58FF, 0x335A3BDC)).apply { cornerRadius = dp(16).toFloat() }
-                setPadding(dp(12), dp(9), dp(12), dp(9))
+                background = GradientDrawable().apply {
+                    setColor(0x1F8C70FF)
+                    cornerRadius = dp(11).toFloat()
+                    setStroke(dp(1), 0x287F68FF)
+                }
+                setPadding(dp(10), dp(8), dp(10), dp(8))
                 setOnClickListener { onPick(s) }
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
         }
