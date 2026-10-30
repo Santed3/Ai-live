@@ -246,10 +246,9 @@ class OpenAiClient(
     }
 
     /** Fast reply suggestions in the user's own style. Returns an empty list when no reply is expected. */
-    fun suggestReplies(screenTail: String, styleBlock: String): List<String> {
-        val system = "Du föreslår svar åt användaren i en chatt. Du får texten på skärmen (uppifrån och ned, den innehåller också appens knappar och rubriker). " +
+    fun suggestReplies(screenTail: String, styleBlock: String, kind: String = "chatt"): List<String> {\n        val system = "Du föreslår svar åt användaren i en $kind. Du får texten på skärmen (uppifrån och ned, den innehåller också appens knappar och rubriker). " +
             "Avgör om det SENASTE meddelandet i konversationen kommer från den andra personen och väntar på svar. " +
-            "Om det senaste meddelandet är användarens eget, om det inte är en konversation eller om inget svar behövs: needs_reply=false. " +
+            "Om det senaste meddelandet är användarens eget, om det inte är en konversation eller om inget svar behövs: needs_reply=false. För mejl ska svaren passa mejlets formalitetsnivå och gärna ha lämplig hälsning när det passar. " +
             "Annars ge exakt 3 korta förslag på svar med olika inriktning, till exempel kort och enkelt, varmare, och med en motfråga. " +
             "Skriv dem EXAKT som användaren skriver, med samma längd, ton, slang, förkortningar, emojis och skiljetecken.$styleBlock\n" +
             "Samma språk som konversationen. Högst 140 tecken per förslag. " +
