@@ -47,6 +47,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        getSharedPreferences("prefs", MODE_PRIVATE).edit().remove("api_key").apply()
         window.statusBarColor = BG
         window.navigationBarColor = BG
         content = LinearLayout(this).apply {
@@ -448,7 +449,7 @@ class MainActivity : Activity() {
                 render()
             }
         }
-        finish.isEnabled = serviceOn && micOn && keyOn
+        finish.isEnabled = serviceOn && micOn
         content.addView(finish, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(8) })
     }
 
