@@ -28,7 +28,6 @@ function clearLegacyApiKey() {
   const settings = readJson('settings.json', {});
   if (Object.prototype.hasOwnProperty.call(settings, 'apiKey')) { delete settings.apiKey; writeJson('settings.json', settings); }
 }
-clearLegacyApiKey();
 const Lib = require('./renderer/lib.js');
 let curConv = null;
 function history() { return readJson('history.json', []); }
@@ -1020,6 +1019,7 @@ ipcMain.on('answer-click', () => {
 
 // ---------------------------------------------------------------- lifecycle
 app.whenReady().then(() => {
+  clearLegacyApiKey();
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(permission === 'media'));
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => permission === 'media');
   createPanel();
