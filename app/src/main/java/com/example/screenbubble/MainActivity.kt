@@ -34,7 +34,6 @@ class MainActivity : Activity() {
     private val PRIMARY = 0xFF7857FF.toInt()
 
     private lateinit var content: LinearLayout
-    private var keyInput: EditText? = null
     private var newerBuild: Long? = null
     private var updateText: String? = null
     private var updating = false
@@ -77,17 +76,7 @@ class MainActivity : Activity() {
         checkUpdate(false)
     }
 
-    override fun onPause() {
-        saveKey()
-        super.onPause()
-    }
-
     // ------------------------------------------------------------------ helpers
-
-    private fun saveKey() {
-        val et = keyInput ?: return
-        getSharedPreferences("prefs", MODE_PRIVATE).edit().putString("api_key", et.text.toString().trim()).apply()
-    }
 
     private fun text(t: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
         this.text = t
@@ -150,7 +139,6 @@ class MainActivity : Activity() {
 
     private fun render() {
         content.removeAllViews()
-        keyInput = null
         val ver = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { "" }
         val on = ReaderService.instance != null
         val mic = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
@@ -188,7 +176,7 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
         }
         step(setup, on, "Slå på tjänsten", "Tillgänglighet → ScreenBubble → På.", "Öppna") {
-            saveKey(); startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
         step(setup, mic, "Tillåt mikrofon", "För röststyrning och samtal.", "Tillåt") {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1)
@@ -197,28 +185,13 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
         }
 
-        if (Config.embeddedKey().isEmpty()) {
-            val k = card("OpenAI API-nyckel", "Krävs för att assistenten ska svara.")
-            val et = EditText(this).apply {
-                hint = "sk-..."
-                setHintTextColor(MUTED)
-                setTextColor(TEXT)
-                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-                background = rounded(0x1FFFFFFF, 12)
-                setPadding(dp(12), dp(10), dp(12), dp(10))
-                setText(prefs.getString("api_key", ""))
-            }
-            keyInput = et
-            k.addView(et)
-        }
-
         // actions
         val act = card("Använd", "Tryck på sidopanelen eller den flytande symbolen för att öppna chatten. Tryck på … för fler funktioner.")
         val row = LinearLayout(this)
-        row.addView(button("Öppna menyn", true) { saveKey(); ReaderService.instance?.setMode(ReaderService.Mode.MENU) ?: toast("Slå på tjänsten först") }, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
+        row.addView(button("Öppna menyn", true) { ReaderService.instance?.setMode(ReaderService.Mode.MENU) ?: toast("Slå på tjänsten först") }, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
         val hidden = ReaderService.instance?.isHidden() == true
         if (hidden) row.addView(button("Tillbaka till sidebar") { ReaderService.instance?.setMode(ReaderService.Mode.BAR) ; render() }, LinearLayout.LayoutParams(0, -2, 1f))
-        else row.addView(button("Hide-läge") { saveKey(); ReaderService.instance?.setMode(ReaderService.Mode.HIDE) ?: toast("Slå på tjänsten först"); render() }, LinearLayout.LayoutParams(0, -2, 1f))
+        else row.addView(button("Hide-läge") { ReaderService.instance?.setMode(ReaderService.Mode.HIDE) ?: toast("Slå på tjänsten först"); render() }, LinearLayout.LayoutParams(0, -2, 1f))
         act.addView(row, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
         act.addView(text("Markera text i valfri app och välj \"Fråga ScreenBubble\" för att få den förklarad.", 12.5f, MUTED).apply { setPadding(0, dp(10), 0, 0) })
 
@@ -386,8 +359,7 @@ class MainActivity : Activity() {
     }
 
     private fun addDashboardHero(serviceOn: Boolean, micOn: Boolean) {
-        val ready = serviceOn && micOn && (!Config.embeddedKey().isEmpty() ||
-            !getSharedPreferences("prefs", MODE_PRIVATE).getString("api_key", "").isNullOrBlank())
+        val ready = serviceOn && micOn
         val hero = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable(
@@ -428,7 +400,6 @@ class MainActivity : Activity() {
 
     private fun renderOnboarding(prefs: android.content.SharedPreferences) {
         content.removeAllViews()
-        keyInput = null
         val logoRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(14), 0, dp(12)) }
         logoRow.addView(text("S", 25f, Color.WHITE, true).apply { gravity = Gravity.CENTER; background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFB9A8FF.toInt(), 0xFF6C47FF.toInt())).apply { shape = GradientDrawable.OVAL } }, LinearLayout.LayoutParams(dp(54), dp(54)).apply { rightMargin = dp(13) })
         val brand = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -451,7 +422,6 @@ class MainActivity : Activity() {
 
         val serviceOn = ReaderService.instance != null
         val micOn = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        val keyOn = !Config.embeddedKey().isEmpty() || !prefs.getString("api_key", "").isNullOrBlank()
         fun setupCard(title: String, detail: String, status: Boolean, action: String, click: () -> Unit) {
             val c = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = rounded(CARD, 17); setPadding(dp(15), dp(13), dp(15), dp(13)) }
             val top = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -467,40 +437,18 @@ class MainActivity : Activity() {
         setupCard("Tillåt begränsade inställningar", "På Android 13 och nyare: öppna appinformationen, tryck på ⋮ och välj Tillåt begränsade inställningar.", serviceOn, "Öppna appinfo") { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
         setupCard("Aktivera tillgänglighet", "Öppna Tillgänglighet → Installerade appar → ScreenBubble och slå på tjänsten. Du kan när som helst stänga av den i Android-inställningarna.", serviceOn, "Öppna tillgänglighet") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
         setupCard("Tillåt mikrofonen", "Behövs för Diktera och röststyrning. Mikrofonen används bara när du startar en röstfunktion.", micOn, "Tillåt mikrofon") { requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 2) }
-
-        if (Config.embeddedKey().isEmpty()) {
-            val keyCard = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = rounded(CARD, 17); setPadding(dp(15), dp(13), dp(15), dp(13)) }
-            val keyHead = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-            keyHead.addView(text(if (keyOn) "✓" else "○", 19f, if (keyOn) ACCENT else MUTED, true), LinearLayout.LayoutParams(dp(30), -2))
-            keyHead.addView(text("Anslut din AI-nyckel", 15f, TEXT, true), LinearLayout.LayoutParams(0, -2, 1f))
-            keyHead.addView(text(if (keyOn) "Klart" else "Behövs", 11f, if (keyOn) ACCENT else MUTED, true))
-            keyCard.addView(keyHead)
-            keyCard.addView(text("ScreenBubble använder din OpenAI API-nyckel för AI-svar och för att finskriva dikteringar. Nyckeln sparas bara lokalt på enheten.", 12.5f, MUTED).apply { setPadding(dp(30), dp(3), 0, dp(8)) })
-            val field = EditText(this).apply { hint = "sk-…"; setHintTextColor(MUTED); setTextColor(TEXT); inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD; background = rounded(0xFF222A3D.toInt(), 12); setPadding(dp(12), dp(11), dp(12), dp(11)); setText(prefs.getString("api_key", "")) }
-            keyInput = field
-            keyCard.addView(field, LinearLayout.LayoutParams(-1, -2).apply { leftMargin = dp(30) })
-            content.addView(keyCard, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(9) })
-        }
+ 
         content.addView(text("Du kan ändra utseende, röst och övriga inställningar när du är klar.", 12f, MUTED).apply { setPadding(dp(2), dp(13), dp(2), dp(7)) })
         val finish = button("Slutför och öppna appen", true) {
-            saveKey()
             val readyService = ReaderService.instance != null
             val readyMic = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-            val readyKey = !Config.embeddedKey().isEmpty() || !prefs.getString("api_key", "").isNullOrBlank()
-            if (!readyService || !readyMic || !readyKey) toast("Slutför stegen ovan först.") else {
+            if (!readyService || !readyMic) toast("Slutför stegen ovan först.") else {
                 prefs.edit().putBoolean("onboarding_complete", true).apply()
                 activeTab = "home"
                 render()
             }
         }
         finish.isEnabled = serviceOn && micOn && keyOn
-        keyInput?.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                finish.isEnabled = serviceOn && micOn && (keyOn || !s.isNullOrBlank())
-            }
-            override fun afterTextChanged(s: android.text.Editable?) {}
-        })
         content.addView(finish, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(8) })
     }
 
