@@ -12,13 +12,23 @@ if (!app.requestSingleInstanceLock()) app.quit();
 function file(name) { return path.join(app.getPath('userData'), name); }
 function readJson(name, def) { try { return JSON.parse(fs.readFileSync(file(name), 'utf8')); } catch { return def; } }
 function writeJson(name, v) { try { fs.mkdirSync(app.getPath('userData'), { recursive: true }); fs.writeFileSync(file(name), JSON.stringify(v)); } catch {} }
-function embeddedKey() {
-  try {
-    const c = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
-    return typeof c.openaiKey === 'string' && c.openaiKey.startsWith('sk-') ? c.openaiKey : '';
-  } catch { return ''; }
+const SUPABASE_URL = 'https://qkyeqaemcrfhtvmeiskg.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_aRSCLGxAGpiXWfdU6TNv9Q_zDRa0j2G';
+function installationId() {
+  const settings = readJson('settings.json', {});
+  if (typeof settings.installationId === 'string' && /^[a-f0-9-]{36}$/i.test(settings.installationId)) return settings.installationId;
+  settings.installationId = require('crypto').randomUUID();
+  delete settings.apiKey;
+  writeJson('settings.json', settings);
+  return settings.installationId;
 }
-function apiKey() { return embeddedKey() || readJson('settings.json', {}).apiKey || ''; }
+function aiUrl(endpoint) { return SUPABASE_URL + '/functions/v1/screenbubble-ai?endpoint=' + endpoint; }
+function aiHeaders(extra = {}) { return { ...extra, apikey: SUPABASE_PUBLISHABLE_KEY, 'x-device-id': installationId() }; }
+function clearLegacyApiKey() {
+  const settings = readJson('settings.json', {});
+  if (Object.prototype.hasOwnProperty.call(settings, 'apiKey')) { delete settings.apiKey; writeJson('settings.json', settings); }
+}
+clearLegacyApiKey();
 const Lib = require('./renderer/lib.js');
 let curConv = null;
 function history() { return readJson('history.json', []); }
@@ -38,7 +48,7 @@ function styleBlock() {
 // Quietly learns lasting facts (people, tone, habits) from an exchange. Never throws.
 async function learn(userText, answer) {
   try {
-    if (readJson('settings.json', {}).memoryAuto !== true || !apiKey() || String(userText).length < 12 || Lib.isSensitive(userText)) return;
+    if (readJson('settings.json', {}).memoryAuto !== true || String(userText).length < 12 || Lib.isSensitive(userText)) return;
     const j = await post('https://api.openai.com/v1/chat/completions', {
       model: 'gpt-4o-mini', max_tokens: 300, temperature: 0, response_format: { type: 'json_object' },
       messages: [
@@ -90,10 +100,10 @@ function smartReplyAllowed(proc, title) {
 }
 
 // ------------------------------------------------------------------- OpenAI
-async function post(url, body) {
-  const r = await fetch(url, {
+async function post(_url, body) {
+  const r = await fetch(aiUrl('chat/completions'), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey() },
+    headers: aiHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(75000),
   });
@@ -127,9 +137,9 @@ async function chat(messages, o = {}) {
 async function chatStream(messages, o, onDelta, onTool) {
   const body = { model: MODEL, messages, max_tokens: o.maxTokens || 900, stream: true };
   if (o.tools) { body.tools = o.tools; body.tool_choice = 'auto'; }
-  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+  const r = await fetch(aiUrl('chat/completions'), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey() },
+    headers: aiHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(90000),
   });
@@ -585,7 +595,6 @@ async function quickAnswer() {
   if (qaBusy) return;
   qaBusy = true;
   try {
-    if (!apiKey()) { showAnswer('!'); return; }
     const shot = await captureScreen(mode === 'chat');
     showAnswer(await askOnce(shot));
   } catch (e) {
@@ -853,7 +862,6 @@ ipcMain.handle('chat', async (_e, { text, attachments, assistantMode }) => {
   if (mc) { if (mc.mem) writeJson('memory.json', mc.mem); return { ok: true, reply: mc.reply }; }
   try { const f = await fastCommand(text); if (f) return { ok: true, reply: f }; } catch (_) {}
   if (busy) return { ok: false, error: 'Jag jobbar fortfarande med förra uppgiften.' };
-  if (!apiKey()) return { ok: false, error: 'Ingen API-nyckel. Skriv in den under inställningar.' };
   busy = true;
   try {
     const safeAttachments = Array.isArray(attachments) ? attachments.slice(0, 5).map((x) => ({
@@ -870,7 +878,6 @@ ipcMain.handle('chat', async (_e, { text, attachments, assistantMode }) => {
 ipcMain.handle('chips', () => ({ title: lastExternal.title, proc: lastExternal.proc, smartReplyAllowed: smartReplyAllowed(lastExternal.proc, lastExternal.title) }));
 ipcMain.handle('reply', async () => {
   try {
-    if (!apiKey()) throw new Error('Ingen API-nyckel');
     if (!smartReplyAllowed(lastExternal.proc, lastExternal.title)) throw new Error('Smart Reply är inte aktiverat för den här appen.');
     const shot = await captureScreen(true);
     const t = await chat([
@@ -972,8 +979,8 @@ ipcMain.on('bar-move', (_e, { y }) => {
 });
 ipcMain.handle('quick', async () => { setMode('bar'); await sleep(150); quickAnswer(); return true; });
 ipcMain.handle('quit', () => { app.quit(); return true; });
-ipcMain.handle('settings-get', () => ({ hasEmbedded: !!embeddedKey(), hasKey: !!apiKey() }));
-ipcMain.handle('settings-set', (_e, s) => { const cur = readJson('settings.json', {}); if (s && typeof s.apiKey === 'string') cur.apiKey = s.apiKey.trim(); writeJson('settings.json', cur); return true; });
+ipcMain.handle('settings-get', () => ({ hasEmbedded: true, hasKey: true }));
+ipcMain.handle('settings-set', () => { clearLegacyApiKey(); return true; });
 ipcMain.handle('stt', async (_e, buf) => {
   try {
     const fd = new FormData();
@@ -981,8 +988,8 @@ ipcMain.handle('stt', async (_e, buf) => {
     fd.append('model', 'gpt-4o-mini-transcribe');
     const lang = (app.getLocale() || '').slice(0, 2);
     if (lang) fd.append('language', lang);
-    const r = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST', headers: { Authorization: 'Bearer ' + apiKey() }, body: fd, signal: AbortSignal.timeout(60000),
+    const r = await fetch(aiUrl('audio/transcriptions'), {
+      method: 'POST', headers: aiHeaders(), body: fd, signal: AbortSignal.timeout(60000),
     });
     const j = await r.json();
     if (!r.ok) throw new Error((j.error && j.error.message) || 'Taligenkänning misslyckades');
