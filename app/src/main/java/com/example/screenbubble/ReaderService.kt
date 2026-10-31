@@ -70,15 +70,12 @@ class ReaderService : AccessibilityService() {
 
     private val answerTimeout = Runnable { finishAnswer() }
 
-    fun apiKey(): String = Config.embeddedKey().ifEmpty {
-        getSharedPreferences("prefs", MODE_PRIVATE).getString("api_key", "").orEmpty()
-    }
-
     // ------------------------------------------------------------ lifecycle
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        getSharedPreferences("prefs", MODE_PRIVATE).edit().remove("api_key").apply()
         closing = false
         dotBusy = false
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
@@ -471,21 +468,15 @@ class ReaderService : AccessibilityService() {
 
     private fun onDotTap(px: Int = dotLp?.x ?: 0, py: Int = dotLp?.y ?: 0) {
         if (dotBusy) return
-        val key = apiKey()
         val x = px
         val y = py
         dotBusy = true
         val id = ++requestId
-        if (key.isEmpty()) {
-            saveError("Ingen API-nyckel. Skriv in den i appen.")
-            showAnswer("!", x, y)
-            return
-        }
         pool.execute {
             try {
                 val (text, shot) = captureScreen()
                 if (text.isBlank() && shot == null) throw RuntimeException("Kunde inte läsa skärmen (skyddad skärm?)")
-                val answer = OpenAiClient(key).askOnce(text, shot)
+                val answer = OpenAiClient(this).askOnce(text, shot)
                 main.post { if (id == requestId && !closing) showAnswer(answer, x, y) }
             } catch (e: Exception) {
                 saveError(e.message ?: "Okänt fel")
