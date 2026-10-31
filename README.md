@@ -18,15 +18,15 @@ Filen är inte kodsignerad (kräver betalt certifikat), så en nedladdad .exe ka
 
 ## Komma igång
 
-Android har en guidad installationsstart med tydliga steg för tillgänglighet, mikrofon och AI-nyckel. När du är klar öppnas appens Hem-, Assistent- och Personligt-flikar.
+Android har en guidad installationsstart med tydliga steg för tillgänglighet och mikrofon. AI ansluts automatiskt via ScreenBubbles tjänst. När du är klar öppnas appens Hem-, Assistent- och Personligt-flikar.
 
 Windows har en separat inställningscentral för utseende, funktioner, appar, genvägar och integritet.
 1. Installera APK-filen (Android 11 eller nyare).
-2. Ange din egen OpenAI API-nyckel i den guidade installationen om ingen nyckel redan finns.
-3. Android 13+: appinfo → ⋮ → "Tillåt begränsade inställningar".
-4. Inställningar → Tillgänglighet → ScreenBubble → På.
-5. Följ installationsguiden och slutför den. Därefter dyker pricken upp. Dra den dit du vill och tryck på den för ett svar.
-6. Välj **Diktera** för att skriva tal direkt i ett aktivt textfält. Om inget textfält är aktivt öppnas anteckningar. Dikteringen tar bort utfyllnadsord och finskriver texten med AI när en API-nyckel finns.
+2. Android 13+: appinfo → ⋮ → "Tillåt begränsade inställningar".
+3. Inställningar → Tillgänglighet → ScreenBubble → På.
+4. Tillåt mikrofonen när Android frågar.
+5. Slutför installationsguiden. Därefter dyker pricken upp. Dra den dit du vill och tryck på den för ett svar.
+6. Välj **Diktera** för att skriva tal direkt i ett aktivt textfält. Om inget textfält är aktivt öppnas anteckningar. Dikteringen finskrivs automatiskt med AI.
 7. Anteckningar sparas lokalt. Öppna **Mina anteckningar** för att söka, fortsätta eller ta bort dem.
 
 ## Hur det funkar
@@ -36,4 +36,4 @@ Windows har en separat inställningscentral för utseende, funktioner, appar, ge
 
 ## Bygget
 Varje push till `main` bygger en APK (GitHub Actions) och lägger den under Releases.
-Av säkerhetsskäl bäddas ingen API-nyckel in i nya byggen. Ange din egen OpenAI API-nyckel i appens inställningar. Äldre nedladdningar kan ha innehållit en inbyggd nyckel; rotera den nyckeln om du har använt den i tidigare publika byggen.
+Android och Windows använder ScreenBubbles gemensamma AI-backend i Supabase. OpenAI-nyckeln ligger endast på servern och finns inte i apparna. Varje installation identifieras separat och tjänsten begränsar onormalt hög eller automatiserad användning. Användaren behöver inte skapa ett OpenAI-konto eller ange en egen API-nyckel.
