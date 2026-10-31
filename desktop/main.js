@@ -49,7 +49,7 @@ function styleBlock() {
 async function learn(userText, answer) {
   try {
     if (readJson('settings.json', {}).memoryAuto !== true || String(userText).length < 12 || Lib.isSensitive(userText)) return;
-    const j = await post('https://api.openai.com/v1/chat/completions', {
+    const j = await post(aiUrl('chat/completions'), {
       model: 'gpt-4o-mini', max_tokens: 300, temperature: 0, response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: 'Du plockar ut VARAKTIGA fakta om användaren ur ett utbyte med en assistent: personer användaren skriver till (namn och relation), önskad ton eller språk per person, vanor och preferenser. Skriv varje fakta som en kort svensk mening. Ta ALDRIG med lösenord, kortnummer, personnummer, hälsa, ekonomi eller annat känsligt, och inget tillfälligt. Svara med JSON {"facts":["..."]}. Inget nytt: {"facts":[]}.' },
@@ -130,7 +130,7 @@ async function chat(messages, o = {}) {
   if (o.tools) { body.tools = o.tools; body.tool_choice = 'auto'; }
   if (o.json) body.response_format = { type: 'json_object' };
   if (o.temperature !== undefined) body.temperature = o.temperature;
-  const j = await post('https://api.openai.com/v1/chat/completions', body);
+  const j = await post(aiUrl('chat/completions'), body);
   return j.choices[0].message;
 }
 // Streaming variant: forwards text deltas while the model talks, accumulates tool calls.
@@ -184,7 +184,7 @@ async function textCompletion(system, user, maxTokens = 700) {
   return (m.content || '').trim();
 }
 async function webSearch(query) {
-  const j = await post('https://api.openai.com/v1/chat/completions', {
+  const j = await post(aiUrl('chat/completions'), {
     model: 'gpt-4o-search-preview',
     web_search_options: {},
     messages: [
