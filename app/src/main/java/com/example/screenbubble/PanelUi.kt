@@ -593,11 +593,7 @@ class PanelUi(private val svc: ReaderService) {
         send(t, false)
     }
 
-    private fun noKey(): Boolean {
-        if (svc.apiKey().isNotEmpty()) return false
-        addMsg(false, "Ingen API-nyckel. Öppna ScreenBubble-appen och skriv in den.")
-        return true
-    }
+    private fun noKey(): Boolean = false
 
     fun send(text: String, voice: Boolean) {
         if (busy || text.isBlank()) return
@@ -609,7 +605,7 @@ class PanelUi(private val svc: ReaderService) {
         svc.pool.execute {
             try {
                 val (st, shot) = svc.captureScreen()
-                val ans = Agent(svc, OpenAiClient(svc.apiKey()), svc, ui).run(text, st, shot)
+                val ans = Agent(svc, OpenAiClient(svc), svc, ui).run(text, st, shot)
                 main.post {
                     clearStatus()
                     val l = live
@@ -650,7 +646,7 @@ class PanelUi(private val svc: ReaderService) {
         svc.pool.execute {
             try {
                 val (st, shot) = svc.captureScreen()
-                val client = OpenAiClient(svc.apiKey())
+                val client = OpenAiClient(svc)
                 val reply = client.text(
                     "Du skriver svar åt användaren. Läs mejlet eller konversationen på skärmen (text + bild) och skriv ett naturligt, bra svar som användaren kan skicka. " +
                         "Matcha språk och ton i konversationen och härma användarens stil om stilprov finns." + Store.styleBlock(svc) +
@@ -680,7 +676,7 @@ class PanelUi(private val svc: ReaderService) {
         setStatus("Skriver om…")
         svc.pool.execute {
             try {
-                val out = OpenAiClient(svc.apiKey()).textSimple(
+                val out = OpenAiClient(svc).textSimple(
                     "Du redigerar text åt användaren. Svara ENDAST med den nya texten, utan inledning eller citattecken.",
                     "Instruktion: $instruction\n\nText:\n$cur", 600
                 )
@@ -780,10 +776,8 @@ class PanelUi(private val svc: ReaderService) {
     private fun polishDictation(raw: String): String {
         val fallback = raw.replace(Regex("(?i)(^|[\\s,])(?:eh+|öh+|öö+h|ee+h|mmm+)(?=[\\s,.;!?]|$)"), "$1")
             .replace(Regex("\\s+"), " ").trim()
-        val key = svc.apiKey()
-        if (key.isBlank()) return fallback
         return try {
-            OpenAiClient(key).textSimple(
+            OpenAiClient(svc).textSimple(
                 "Du är en noggrann redaktör för talad text. Skriv om transkriberingen till naturlig, korrekt text på samma språk. Ta bort utfyllnadsord som eh, öh, öööh, eeeh och onödiga upprepningar. Rätta stavning, grammatik och interpunktion. Behåll talarens betydelse, avsikt, namn, siffror och fakta. Lägg inte till information. Svara endast med färdig text.",
                 raw, 600
             ).trim().ifBlank { fallback }
