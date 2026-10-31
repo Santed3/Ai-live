@@ -117,11 +117,9 @@ class SmartReply(private val svc: ReaderService) {
     private fun refreshProfile(n: Int) {
         if (n < 8 || n - Store.profileMark(svc) < 10) return
         Store.setProfileMark(svc, n)
-        val key = svc.apiKey()
-        if (key.isEmpty()) return
         svc.pool.execute {
             try {
-                val p = OpenAiClient(key, "gpt-4o-mini").styleProfile(Store.chatSamples(svc).takeLast(60))
+                val p = OpenAiClient(svc, "gpt-4o-mini").styleProfile(Store.chatSamples(svc).takeLast(60))
                 if (p.isNotBlank()) Store.setStyleProfile(svc, p)
             } catch (_: Exception) {}
         }
@@ -139,7 +137,7 @@ class SmartReply(private val svc: ReaderService) {
     }
 
     private fun canRun(pkg: String): Boolean =
-        suggestOn() && svc.canShowSuggestions() && allowed(pkg) && svc.apiKey().isNotEmpty()
+        suggestOn() && svc.canShowSuggestions() && allowed(pkg)
 
     private fun generateDraft(draft: String) {
         val currentDraft = draft.trim()
@@ -155,7 +153,7 @@ class SmartReply(private val svc: ReaderService) {
         svc.pool.execute {
             try {
                 val context = svc.readScreenText(skipEditable = true).takeLast(1200)
-                val result = OpenAiClient(svc.apiKey(), "gpt-4o-mini")
+                val result = OpenAiClient(svc, "gpt-4o-mini")
                     .suggestDraft(currentDraft, context, styleBlock(), Suggest.kind(pkg))
                 lastDraftHash = hash
                 lastCall = System.currentTimeMillis()
@@ -180,7 +178,6 @@ class SmartReply(private val svc: ReaderService) {
         val pkg = svc.currentPkg()
         if (!canRun(pkg) || pendingDraft.isNotBlank()) return
         if (inFlight) { main.postDelayed(debounce, 600); return }
-        val key = svc.apiKey()
         val wait = 1200 - (System.currentTimeMillis() - lastCall)
         if (wait > 0) { main.postDelayed(debounce, wait); return }
         inFlight = true
@@ -191,7 +188,7 @@ class SmartReply(private val svc: ReaderService) {
                 val hash = (pkg + "|" + tail).hashCode()
                 if (tail.isBlank() || hash == lastReplyHash) return@execute
                 main.post { svc.showSuggestionLoading() }
-                val list = OpenAiClient(key, "gpt-4o-mini")
+                val list = OpenAiClient(svc, "gpt-4o-mini")
                     .suggestReplies(tail, styleBlock(), Suggest.kind(pkg))
                 lastReplyHash = hash
                 lastCall = System.currentTimeMillis()
