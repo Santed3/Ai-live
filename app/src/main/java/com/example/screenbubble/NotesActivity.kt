@@ -203,10 +203,8 @@ class NotesActivity : Activity() {
     private fun polish(raw: String): String {
         val fallback = raw.replace(Regex("(?i)(^|[\\s,])(?:eh+|öh+|öö+h|ee+h|mmm+)(?=[\\s,.;!?]|$)"), "$1")
             .replace(Regex("\\s+"), " ").trim()
-        val key = Config.embeddedKey().ifEmpty { getSharedPreferences("prefs", MODE_PRIVATE).getString("api_key", "").orEmpty() }
-        if (key.isBlank()) return fallback
         return try {
-            OpenAiClient(key).textSimple(
+            OpenAiClient(this).textSimple(
                 "Du är en noggrann redaktör för talad text. Skriv om transkriberingen till naturlig, korrekt text på samma språk. Ta bort utfyllnadsord som eh, öh, öööh, eeeh och onödiga upprepningar. Rätta stavning, grammatik och interpunktion och dela upp texten i stycken när det passar. Behåll talarens betydelse, avsikt, namn, siffror och fakta. Lägg inte till information. Svara endast med den färdiga texten.",
                 raw, 900
             ).trim().ifBlank { fallback }

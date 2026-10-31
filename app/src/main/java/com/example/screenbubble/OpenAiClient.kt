@@ -1,5 +1,6 @@
 package com.example.screenbubble
 
+import android.content.Context
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -10,7 +11,7 @@ import java.util.concurrent.TimeUnit
 
 /** Minimal OpenAI client (chat, tools, vision, web search). Blocks: call from a background thread. */
 class OpenAiClient(
-    private val apiKey: String,
+    private val context: Context,
     private val model: String = "gpt-4o"
 ) {
     // One shared client so TLS connections are reused: every call after the first is much faster.
@@ -18,8 +19,9 @@ class OpenAiClient(
 
     private fun post(body: JSONObject): JSONObject {
         val request = Request.Builder()
-            .url("https://api.openai.com/v1/chat/completions")
-            .header("Authorization", "Bearer $apiKey")
+            .url(AiBackend.url("chat/completions"))
+            .header("apikey", AiBackend.PUBLISHABLE_KEY)
+            .header("x-device-id", AiBackend.deviceId(context))
             .post(body.toString().toRequestBody("application/json".toMediaType()))
             .build()
         http.newCall(request).execute().use { response ->
@@ -50,8 +52,9 @@ class OpenAiClient(
         val body = JSONObject().put("model", model).put("messages", messages).put("max_tokens", maxTokens).put("stream", true)
         if (tools != null && tools.length() > 0) body.put("tools", tools).put("tool_choice", "auto")
         val request = Request.Builder()
-            .url("https://api.openai.com/v1/chat/completions")
-            .header("Authorization", "Bearer $apiKey")
+            .url(AiBackend.url("chat/completions"))
+            .header("apikey", AiBackend.PUBLISHABLE_KEY)
+            .header("x-device-id", AiBackend.deviceId(context))
             .post(body.toString().toRequestBody("application/json".toMediaType()))
             .build()
         http.newCall(request).execute().use { response ->

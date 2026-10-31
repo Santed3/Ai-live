@@ -365,8 +365,6 @@ async function toggleDictation() {
     setStatus('Dikteringen är pausad.'); setTimeout(clearStatus, 2200);
     return;
   }
-  const configured = await api.getSettings();
-  if (!configured.hasKey) { setStatus('Lägg till din OpenAI API-nyckel i inställningarna innan du dikterar.'); api.openSettingsWindow(); setTimeout(clearStatus, 3500); return; }
   dictationMode = true; convo = false; $('convo').classList.remove('on');
   $('dictate').classList.add('on'); $('dictate').textContent = '■';
   setStatus('Diktering aktiv. Tala naturligt, jag infogar texten där markören står.');
@@ -382,12 +380,9 @@ $('convo').onclick = () => {
 
 // ------------------------------------------------------------------ setup
 async function init() {
-  const s = await api.getSettings();
-  $('setup').style.display = s.hasKey ? 'none' : 'block';
   showWelcome();
   refreshChips();
 }
-$('savekey').onclick = async () => { await api.setSettings({ apiKey: $('key').value }); $('key').value = ''; $('setup').style.display = 'none'; addMsg(false, 'Nyckeln är sparad.'); };
 api.onShown(refreshChips);
 setInterval(() => { if (!busy) refreshChips(); }, 6000);
 init();

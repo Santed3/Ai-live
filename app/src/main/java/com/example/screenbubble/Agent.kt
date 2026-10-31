@@ -136,11 +136,9 @@ class Agent(
     /** Quietly learns lasting facts (people, tone, habits) in the background. Never throws. */
     private fun learn(userText: String, answer: String) {
         if (!Store.flag(ctx, "memory_auto") || userText.length < 12 || Store.isSensitive(userText)) return
-        val key = svc.apiKey()
-        if (key.isEmpty()) return
         svc.pool.execute {
             try {
-                val facts = OpenAiClient(key, "gpt-4o-mini").extractFacts(userText, answer)
+                val facts = OpenAiClient(svc, "gpt-4o-mini").extractFacts(userText, answer)
                 if (facts.isNotEmpty()) Store.mergeMemory(ctx, facts, false)
             } catch (_: Exception) {}
         }
