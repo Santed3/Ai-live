@@ -277,7 +277,7 @@ class MainActivity : Activity() {
         val profiles = card("Appprofiler", "Välj hur ScreenBubble ska anpassa sig automatiskt efter appen du använder.")
         fun profileToggle(label: String, key: String, detail: String) {
             profiles.addView(Switch(this).apply {
-                text = label
+                text = UiText.t(this@MainActivity, label)
                 textSize = 14f
                 setTextColor(TEXT)
                 isChecked = Store.flag(this@MainActivity, key)
