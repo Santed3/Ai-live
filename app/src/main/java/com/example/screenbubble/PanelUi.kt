@@ -177,9 +177,11 @@ class PanelUi(private val svc: ReaderService) {
         // header
         val header = LinearLayout(svc).apply { gravity = Gravity.CENTER_VERTICAL }
         header.addView(iconPill("…") { svc.setMode(ReaderService.Mode.MENU) }, lp(-2, -2, r = 2))
-        header.addView(View(svc).apply {
-            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFB9A8FF.toInt(), 0xFF6C47FF.toInt())).apply { shape = GradientDrawable.OVAL }
-        }, LinearLayout.LayoutParams(dp(9), dp(9)).apply { setMargins(dp(2), 0, dp(7), 0) })
+        header.addView(android.widget.ImageView(svc).apply {
+            setImageResource(R.drawable.ic_launcher)
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            contentDescription = "ScreenBubble"
+        }, LinearLayout.LayoutParams(dp(25), dp(25)).apply { setMargins(dp(2), 0, dp(7), 0) })
         header.addView(TextView(svc).apply {
             text = "ScreenBubble"
             textSize = 15f
