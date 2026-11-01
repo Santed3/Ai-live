@@ -69,7 +69,7 @@ object UiText {
         val lang = language(context)
         if (lang == "sv") return value
         val map = translations[lang] ?: translations["en"].orEmpty()
-        return map[value] ?: translations["en"]?.get(value) ?: value
+        return UiTextExtra.t(lang, value)
     }
 
     fun save(context: Context, language: String) {
