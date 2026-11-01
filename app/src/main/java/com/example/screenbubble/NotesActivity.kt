@@ -47,7 +47,7 @@ class NotesActivity : Activity() {
         setStroke(dp(1), 0x24FFFFFF)
     }
     private fun label(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
-        text = value
+        text = UiText.t(this@NotesActivity, value)
         textSize = size
         setTextColor(color)
         if (bold) setTypeface(typeface, Typeface.BOLD)
