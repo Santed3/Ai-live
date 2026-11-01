@@ -301,10 +301,24 @@ class SideUi(private val svc: ReaderService) {
             )
         )
 
+        val primaryUse = svc.getSharedPreferences("prefs", android.content.Context.MODE_PRIVATE).getString("primary_use", "general") ?: "general"
+        val primaryGroup = if (primaryUse in setOf("study", "writing", "research")) "AI-lägen" else "Svara"
+        val preferredTile = when (primaryUse) {
+            "study" -> "Study Mode"
+            "writing" -> "Writing Mode"
+            "research" -> "Web Research"
+            "work" -> "AI Actions"
+            "communication" -> "Svara på meddelande"
+            else -> ""
+        }
+        groups.sortBy { if (it.first == primaryGroup) 0 else 1 }
+
         val list = LinearLayout(svc).apply { orientation = LinearLayout.VERTICAL }
         val more = LinearLayout(svc).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
         for ((title, tiles) in groups) {
-            val destination = if (title == "Svara") list else more
+            val orderedTiles = if (title == "AI-lägen" && preferredTile.isNotEmpty())
+                tiles.sortedBy { if (it.label == preferredTile) 0 else 1 } else tiles
+            val destination = if (title == primaryGroup) list else more
             destination.addView(TextView(svc).apply {
                 this.text = title.uppercase()
                 textSize = 10.5f
@@ -314,7 +328,7 @@ class SideUi(private val svc: ReaderService) {
                 setPadding(dp(4), dp(10), 0, dp(4))
             })
             val grid = GridLayout(svc).apply { columnCount = 3 }
-            for (t in tiles) {
+            for (t in orderedTiles) {
                 val cell = LinearLayout(svc).apply {
                     orientation = LinearLayout.VERTICAL
                     gravity = Gravity.CENTER
