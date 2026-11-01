@@ -33,7 +33,7 @@ class NotesLibraryActivity : Activity() {
         setColor(color); cornerRadius = dp(radius).toFloat(); setStroke(dp(1), 0x24FFFFFF)
     }
     private fun label(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
-        text = value; textSize = size; setTextColor(color)
+        text = UiText.t(this@NotesLibraryActivity, value); textSize = size; setTextColor(color)
         if (bold) setTypeface(typeface, Typeface.BOLD)
     }
 
