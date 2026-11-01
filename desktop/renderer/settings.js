@@ -37,7 +37,7 @@ function render(){
   const row=document.createElement('label');row.className='feature';
   const ico=document.createElement('span');ico.className='ico';ico.textContent=icon;
   const copy=document.createElement('span');copy.className='copy';
-  const b=document.createElement('b');b.textContent=label;const small=document.createElement('small');small.textContent=desc;copy.append(b,small);
+  const b=document.createElement('b');b.textContent=ScreenBubbleI18n.t(label);const small=document.createElement('small');small.textContent=ScreenBubbleI18n.t(desc);copy.append(b,small);
   const sw=document.createElement('input');sw.type='checkbox';sw.className='switch';sw.checked=!!features[key];sw.onchange=()=>saveFeature(key,sw.checked);
   row.append(ico,copy,sw);box.append(row);
  }
