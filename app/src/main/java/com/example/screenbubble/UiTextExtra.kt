@@ -3,7 +3,7 @@ package com.example.screenbubble
 /** Shared translations for the main Android screens, notes, dictation and assistant panel. */
 object UiTextExtra {
     private val en = mapOf(
-        "Din AI-assistent · alltid nära till hands · v$ver" to "Your AI assistant · always within reach · v$ver",
+        "Din AI-assistent · alltid nära till hands · v\$ver" to "Your AI assistant · always within reach · v\$ver",
         "DITT INNEHÅLL" to "YOUR CONTENT", "Version 1.0.${nb!! - 100} är redo. Din data och inställningar behålls." to "Version 1.0.${nb!! - 100} is ready. Your data and settings will be kept.",
         "Allt viktigt är på." to "Everything important is on.", "Tre steg tar dig hela vägen." to "Three steps are all it takes.",
         "Tillåt begränsade inställningar" to "Allow restricted settings", "Android 13+: ⋮ i appinfo, välj \"Tillåt begränsade inställningar\"." to "Android 13+: tap ⋮ in App info and choose \"Allow restricted settings\".",
@@ -22,7 +22,7 @@ object UiTextExtra {
         "Lär dig hur jag skriver" to "Learn how I write",
         "Välj appar där Smart Reply får läsa sammanhang och föreslå svar eller förbättra ett utkast:" to "Choose apps where Smart Reply can read context and suggest replies or improve a draft:",
         "Rensa det jag lärt mig om min stil" to "Clear what I've learned about my style",
-        "Hittills inlärda meddelanden: $n." to "Messages learned so far: $n.", "Inget inlärt än." to "Nothing learned yet.",
+        "Hittills inlärda meddelanden: \$n." to "Messages learned so far: \$n.", "Inget inlärt än." to "Nothing learned yet.",
         "Välj hur ScreenBubble ska anpassa sig automatiskt efter appen du använder." to "Choose how ScreenBubble should adapt automatically to the app you're using.",
         "E-post och meddelanden" to "Email and messages", "Prioriterar sammanfattningar och naturliga svar i din skrivstil." to "Prioritizes summaries and natural replies in your writing style.",
         "Studier och lärande" to "Study and learning", "Förklarar stegvis och ger ledtrådar innan hela lösningen." to "Explains step by step and gives hints before the full solution.",
@@ -76,7 +76,7 @@ object UiTextExtra {
         "Förklara uppgiften pedagogiskt steg för steg. Ge ledtrådar innan hela lösningen och kontrollera min förståelse." to "Explain the task clearly, step by step. Give hints before the full solution and check my understanding.",
         "Hjälp mig skriva eller förbättra texten på skärmen. Matcha sammanhang och min skrivstil." to "Help me write or improve the text on screen. Match the context and my writing style.",
         "Undersök ämnet på skärmen, jämför tillförlitliga källor och sammanfatta med länkar." to "Research the topic on screen, compare reliable sources and summarize with links.",
-        "Allmänt" to "General", "Aktivt läge: $label" to "Active mode: $label",
+        "Allmänt" to "General", "Aktivt läge: \$label" to "Active mode: \$label",
         "Gör texten kortare men behåll innebörden." to "Make the text shorter while preserving its meaning.",
         "Vänligare" to "Friendlier", "Skriv om i en varmare, vänligare ton." to "Rewrite in a warmer, friendlier tone.",
         "Översätt" to "Translate", "Översätt till engelska. Om texten redan är engelska: översätt till svenska." to "Translate into English. If the text is already English, translate it into Swedish.",
@@ -102,7 +102,7 @@ object UiTextExtra {
         "Kunde inte öppna SMS." to "Couldn't open SMS.", "Mejlutkast öppnat. Användaren trycker själv på skicka." to "Email draft opened. You press Send yourself.",
         "Kunde inte öppna mejl." to "Couldn't open email.", "Öppnade uppringaren." to "Opened the dialler.",
         "Kunde inte öppna uppringaren." to "Couldn't open the dialler.", "Alarm ställt på %02d:%02d." to "Alarm set for %02d:%02d.",
-        "Kunde inte ställa alarm." to "Couldn't set the alarm.", "Timer startad på $seconds sekunder." to "Timer started for $seconds seconds.",
+        "Kunde inte ställa alarm." to "Couldn't set the alarm.", "Timer startad på \$seconds sekunder." to "Timer started for \$seconds seconds.",
         "Kunde inte starta timer." to "Couldn't start the timer.", "Ingen app-skärm att trycka i." to "No app screen to tap.",
         "Textfältet är inte längre aktivt. Starta dikteringen igen." to "The text field is no longer active. Start dictation again.",
         "Diktering är avstängd i lösenordsfält." to "Dictation is disabled in password fields.",
@@ -110,7 +110,7 @@ object UiTextExtra {
         "Hittade inget textfält." to "No text field found.", "Kunde inte trycka Enter." to "Couldn't press Enter.",
         "Hittade ingen skicka-knapp. Tryck själv på skicka." to "Couldn't find a Send button. Press Send yourself.",
         "Inget går att scrolla här." to "There's nothing to scroll here.", "Kunde inte scrolla." to "Couldn't scroll.",
-        "Kunde inte utföra $action." to "Couldn't perform $action."
+        "Kunde inte utföra \$action." to "Couldn't perform \$action."
     )
     private val de = mapOf(
         "Anteckningar" to "Notizen","Diktera fritt. Jag gör texten tydlig." to "Diktiere frei. Ich formuliere den Text klar.",
