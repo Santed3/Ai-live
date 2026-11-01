@@ -22,7 +22,7 @@ class Agent(
     }
 
     private fun systemPrompt(): String {
-        val now = SimpleDateFormat("EEEE d MMMM yyyy HH:mm", Locale("sv", "SE")).format(Date())
+        val now = SimpleDateFormat("EEEE d MMMM yyyy HH:mm", Locale.getDefault()).format(Date())
         val mem = Store.memory(ctx)
         val pkg = svc.currentPkg().lowercase(Locale.ROOT)
         val appProfile = when {
@@ -44,7 +44,7 @@ class Agent(
             "writing" -> "SKRIVLÄGE: skriv naturligt och tydligt, behåll användarens avsikt och ton och hitta inte på fakta."
             else -> "ALLMÄNT LÄGE: var flexibel och lös uppgiften effektivt."
         }
-        return "Du är ScreenBubble, en snabb och vänlig röst- och textassistent på användarens telefon, ungefär som Siri fast mycket smartare. " +
+        return "Du är ScreenBubble, en snabb och vänlig röst- och textassistent på användarens telefon. " +
             "Du ser användarens skärm (bild + text) och kan styra telefonen med verktyg.\n" +
             "Assistentläge: $modeGuidance\nAktiv app: $pkg\nApp-profil: $appProfile\n" +
             "Kontext: använd skärmens innehåll som primär kontext, skilj mellan användarens text och andras text, och anpassa förslagen efter appen utan att användaren behöver förklara. Fråga kort om sammanhanget är oklart.\n" +
