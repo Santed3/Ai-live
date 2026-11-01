@@ -320,7 +320,7 @@ class SideUi(private val svc: ReaderService) {
                 tiles.sortedBy { if (it.label == preferredTile) 0 else 1 } else tiles
             val destination = if (title == primaryGroup) list else more
             destination.addView(TextView(svc).apply {
-                this.text = title.uppercase()
+                this.text = UiText.t(svc, title).uppercase()
                 textSize = 10.5f
                 letterSpacing = 0.08f
                 setTextColor(0xFF8D95AD.toInt())
@@ -351,7 +351,7 @@ class SideUi(private val svc: ReaderService) {
                 }
                 cell.addView(TextView(svc).apply { this.text = t.icon; textSize = 21f; gravity = Gravity.CENTER })
                 cell.addView(TextView(svc).apply {
-                    this.text = t.label; textSize = 11f; gravity = Gravity.CENTER
+                    this.text = UiText.t(svc, t.label); textSize = 11f; gravity = Gravity.CENTER
                     setTextColor(0xFFC9CEDF.toInt()); maxLines = 2
                 })
                 val glp = GridLayout.LayoutParams(GridLayout.spec(GridLayout.UNDEFINED, 1f), GridLayout.spec(GridLayout.UNDEFINED, 1f)).apply {
@@ -362,7 +362,7 @@ class SideUi(private val svc: ReaderService) {
             destination.addView(grid)
         }
         list.addView(TextView(svc).apply {
-            text = "… Fler funktioner"
+            text = UiText.t(svc, "… Fler funktioner")
             textSize = 12f
             setTextColor(0xFFD5CAFF.toInt())
             gravity = Gravity.CENTER
@@ -370,7 +370,7 @@ class SideUi(private val svc: ReaderService) {
             setPadding(dp(12), dp(10), dp(12), dp(10))
             setOnClickListener {
                 more.visibility = if (more.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-                text = if (more.visibility == View.VISIBLE) "‹ Färre funktioner" else "… Fler funktioner"
+                text = UiText.t(svc, if (more.visibility == View.VISIBLE) "‹ Färre funktioner" else "… Fler funktioner")
             }
         }.apply { setPadding(dp(4), dp(10), dp(4), dp(2)) })
         list.addView(more)
