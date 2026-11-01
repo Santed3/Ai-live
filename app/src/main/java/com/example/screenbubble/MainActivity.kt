@@ -148,9 +148,11 @@ class MainActivity : Activity() {
 
         // header
         val head = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        head.addView(View(this).apply {
-            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFB9A8FF.toInt(), 0xFF6C47FF.toInt())).apply { shape = GradientDrawable.OVAL }
-        }, LinearLayout.LayoutParams(dp(14), dp(14)).apply { rightMargin = dp(10) })
+        head.addView(android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.ic_launcher)
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            contentDescription = "ScreenBubble-logotyp"
+        }, LinearLayout.LayoutParams(dp(38), dp(38)).apply { rightMargin = dp(10) })
         head.addView(text("ScreenBubble", 28f, TEXT, true))
         content.addView(head)
         content.addView(text("Din AI-assistent · alltid nära till hands · v$ver", 13f, MUTED).apply { setPadding(0, dp(5), 0, dp(5)) })
