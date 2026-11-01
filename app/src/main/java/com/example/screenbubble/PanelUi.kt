@@ -24,6 +24,8 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.animation.DecelerateInterpolator
 import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.HorizontalScrollView
@@ -99,7 +101,7 @@ class PanelUi(private val svc: ReaderService) {
 
         override fun deltaReset() {
             main.post {
-                live?.let { chat.removeView(it) }
+                live?.let { removeMessageView(it) }
                 live = null
                 liveText.setLength(0)
             }
@@ -177,11 +179,18 @@ class PanelUi(private val svc: ReaderService) {
         // header
         val header = LinearLayout(svc).apply { gravity = Gravity.CENTER_VERTICAL }
         header.addView(iconPill("…") { svc.setMode(ReaderService.Mode.MENU) }, lp(-2, -2, r = 2))
-        header.addView(android.widget.ImageView(svc).apply {
-            setImageResource(R.drawable.ic_launcher)
-            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+        header.addView(TextView(svc).apply {
+            text = "S"
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            setTypeface(typeface, Typeface.BOLD)
             contentDescription = "ScreenBubble"
-        }, LinearLayout.LayoutParams(dp(25), dp(25)).apply { setMargins(dp(2), 0, dp(7), 0) })
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFAA96FF.toInt(), 0xFF6241E8.toInt())).apply {
+                shape = GradientDrawable.OVAL
+                setStroke(dp(1), 0x88FFFFFF.toInt())
+            }
+        }, LinearLayout.LayoutParams(dp(29), dp(29)).apply { setMargins(dp(2), 0, dp(8), 0) })
         header.addView(TextView(svc).apply {
             text = "ScreenBubble"
             textSize = 15f
@@ -538,16 +547,26 @@ class PanelUi(private val svc: ReaderService) {
                 cornerRadii = if (user) floatArrayOf(big, big, big, big, small, small, big, big)
                 else floatArrayOf(big, big, big, big, big, big, small, small)
             }
-            maxWidth = minOf(dp(340), (svc.resources.displayMetrics.widthPixels * 0.78f).toInt())
+            maxWidth = minOf(dp(340), (svc.resources.displayMetrics.widthPixels * 0.76f).toInt())
             alpha = 0f
             translationY = dp(6).toFloat()
         }
-        val p = lp(-2, -2, t = 7)
-        p.gravity = if (user) Gravity.END else Gravity.START
-        chat.addView(tv, p)
+        // A full-width row makes START/END alignment deterministic on every screen size.
+        val row = FrameLayout(svc)
+        val bubbleLp = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            if (user) Gravity.END else Gravity.START
+        ).apply { leftMargin = dp(2); rightMargin = dp(2) }
+        row.addView(tv, bubbleLp)
+        chat.addView(row, lp(-1, -2, t = 7))
         tv.animate().alpha(1f).translationY(0f).setDuration(180).start()
         scrollDown()
         return tv
+    }
+
+    private fun removeMessageView(view: View) {
+        (view.parent as? ViewGroup)?.removeView(view)
     }
 
     private fun setStatus(t: String) {
@@ -619,7 +638,7 @@ class PanelUi(private val svc: ReaderService) {
                     if (speakOn || voice) speak(ans)
                 }
             } catch (e: Exception) {
-                main.post { clearStatus(); live?.let { chat.removeView(it) }; live = null; addMsg(false, "Fel: ${e.message}") }
+                main.post { clearStatus(); live?.let { removeMessageView(it) }; live = null; addMsg(false, "Fel: ${e.message}") }
             } finally {
                 busy = false
             }
