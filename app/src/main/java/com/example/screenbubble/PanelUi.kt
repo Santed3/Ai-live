@@ -129,7 +129,7 @@ class PanelUi(private val svc: ReaderService) {
 
     private fun pill(label: String, bg: Int = 0x26FFFFFF, fg: Int = TEXT, onClick: () -> Unit): TextView =
         TextView(svc).apply {
-            text = label
+            text = UiText.t(svc, label)
             textSize = 13f
             setTextColor(fg)
             gravity = Gravity.CENTER
@@ -298,14 +298,14 @@ class PanelUi(private val svc: ReaderService) {
         }
         box.addView(TextView(svc).apply { text = "👋"; textSize = 28f; gravity = Gravity.CENTER })
         box.addView(TextView(svc).apply {
-            text = "Hej! Vad vill du göra?"
+            text = UiText.t(svc, "Hej! Vad vill du göra?")
             textSize = 16f
             setTextColor(TEXT)
             setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER
         }, lp(-2, -2, t = 2))
         box.addView(TextView(svc).apply {
-            text = "Jag ser din skärm och kan hjälpa dig direkt."
+            text = UiText.t(svc, "Jag ser din skärm och kan hjälpa dig direkt.")
             textSize = 13f
             setTextColor(MUTED)
             gravity = Gravity.CENTER
@@ -337,7 +337,7 @@ class PanelUi(private val svc: ReaderService) {
         histView.visibility = View.GONE
         val top = LinearLayout(svc).apply { gravity = Gravity.CENTER_VERTICAL }
         top.addView(iconPill("‹") { showHistory(false) }, lp(-2, -2, r = 4))
-        histSearch.hint = "Sök i alla konversationer…"
+        histSearch.hint = UiText.t(svc, "Sök i alla konversationer…")
         histSearch.setHintTextColor(MUTED)
         histSearch.setTextColor(TEXT)
         histSearch.textSize = 14f
@@ -358,8 +358,8 @@ class PanelUi(private val svc: ReaderService) {
         clear.setOnClickListener {
             if (!histSure) {
                 histSure = true
-                clear.text = "Säker?"
-                main.postDelayed({ histSure = false; clear.text = "Rensa" }, 3000)
+                clear.text = UiText.t(svc, "Säker?")
+                main.postDelayed({ histSure = false; clear.text = UiText.t(svc, "Rensa") }, 3000)
             } else {
                 histSure = false
                 clear.text = "Rensa"
@@ -565,7 +565,7 @@ class PanelUi(private val svc: ReaderService) {
             chat.addView(row, p)
             reveal(row, 5, 180L)
         }
-        statusText?.text = t
+        statusText?.text = UiText.t(svc, t)
         scrollDown()
     }
 
