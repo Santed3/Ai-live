@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('api', {
   featuresGet: () => ipcRenderer.invoke('features-get'),
   languageGet: () => ipcRenderer.invoke('language-get'),
   languageSet: (value) => ipcRenderer.invoke('language-set', value),
+  onLanguage: (cb) => ipcRenderer.on('language-updated', (_e, value) => cb(value)),
   assistantModeGet: () => ipcRenderer.invoke('assistant-mode-get'),
   assistantModeSet: (mode) => ipcRenderer.invoke('assistant-mode-set', mode),
   featuresSet: (f) => ipcRenderer.invoke('features-set', f),
