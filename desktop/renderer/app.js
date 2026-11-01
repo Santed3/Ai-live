@@ -3,6 +3,7 @@ const chat = $('chat'), inp = $('inp'), chatDock = $('chatDock');
 let busy = false, speakOn = false, convo = false, statusEl = null, lastSmartReplySignature = '';
 let pendingAttachments = [];
 api.languageGet().then((language) => ScreenBubbleI18n.init(language));
+api.onLanguage((language) => ScreenBubbleI18n.set(language));
 
 // ---------------------------------------------------------------- helpers
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
