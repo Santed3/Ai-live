@@ -14,13 +14,15 @@
     const key = aliases[String(value).toLowerCase()] || String(value).toLowerCase().split('-')[0];
     return dictionaries[key] ? key : 'en';
   }
+  const reverse = {};
+  for (const dictionary of Object.values(dictionaries)) for (const [source, translated] of Object.entries(dictionary)) reverse[translated] = source;
   function t(value) {
-    const source = normal(value);
+    const input = normal(value);
+    const source = reverse[input] || input;
     if (!source) return value;
     if (language === 'sv') return value;
     const dict = dictionaries[language] || {};
     if (dict[source]) return dict[source];
-    for (const [sv, translated] of Object.entries(dict)) if (translated === source) return source;
     return value;
   }
   function translateNode(root) {
@@ -55,8 +57,8 @@
     await set(value || 'system');
     const observer = new MutationObserver((records) => {
       for (const record of records) {
-        if (record.type === 'childList') for (const node of record.addedNodes) if (node.nodeType === 1) translateNode(node);
-        else if (record.type === 'characterData') translateNode(record.target.parentElement || document.body);
+        if (record.type === 'childList') { for (const node of record.addedNodes) if (node.nodeType === 1) translateNode(node); }
+      else if (record.type === 'characterData') translateNode(record.target.parentElement || document.body);
       }
     });
     observer.observe(document.body,{subtree:true,childList:true,characterData:true});
