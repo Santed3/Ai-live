@@ -1,18 +1,18 @@
 const $ = (id) => document.getElementById(id);
 const meta = [
- ['smartReply','💬','Smart Reply','Förstår mejl, chattar och utkast. Lär sig av formuleringar du väljer att använda.'],
- ['cleanWriting','✍️','Clean Writing','Rättar stavning och meningsbyggnad direkt i textfältet efter en kort paus. Avstängd från början; skickar texten till AI när den aktiveras.'],
- ['activeHelp','✦','Active Help','Håller koll på synliga fel lokalt och erbjuder hjälp diskret. Skärminnehåll skickas inte till AI förrän du väljer att analysera. Inga åtgärder utan ditt godkännande.'],
- ['contextualSuggestions','✨','Smarta förslag','Visar relevanta snabbval beroende på vilken app du använder.'],
- ['screenActions','⚡','AI Actions','Hjälper dig utföra uppgifter i flera steg på skärmen.'],
- ['smartTranslate','🌐','Smart Translate','Översätter text direkt i appar och behåller sammanhanget.'],
- ['studyMode','🎓','Study Mode','Förklarar frågor och uppgifter steg för steg.'],
- ['writingMode','✍️','Writing Mode','Skriver, förbättrar och anpassar texter efter din ton.'],
- ['webResearch','🔎','Web Research','Söker, jämför källor och sammanfattar ämnen.'],
- ['appProfiles','🧩','App Profiles','Anpassar förslag efter aktiv app och arbetsflöde.'],
- ['selectionAsk','🖱️','Markera och fråga','Markera text och tryck Ctrl + Alt + C för att fråga om den.'],
- ['voice','🎙','Röstassistent','Aktiverar mikrofon och samtal i realtid.'],
- ['dictation','✍️','Diktera','Skriv talad text direkt i det aktiva fältet och finskriv den med AI.'],
+ ['smartReply','💬',ScreenBubbleI18n.t('Smart Reply'),ScreenBubbleI18n.t('Förstår mejl, chattar och utkast. Lär sig av formuleringar du väljer att använda.')],
+ ['cleanWriting','✍️',ScreenBubbleI18n.t('Clean Writing'),ScreenBubbleI18n.t('Rättar stavning och meningsbyggnad direkt i textfältet efter en kort paus. Avstängd från början; skickar texten till AI när den aktiveras.')],
+ ['activeHelp','✦',ScreenBubbleI18n.t('Active Help'),ScreenBubbleI18n.t('Håller koll på synliga fel lokalt och erbjuder hjälp diskret. Skärminnehåll skickas inte till AI förrän du väljer att analysera. Inga åtgärder utan ditt godkännande.')],
+ ['contextualSuggestions','✨',ScreenBubbleI18n.t('Smarta förslag'),ScreenBubbleI18n.t('Visar relevanta snabbval beroende på vilken app du använder.')],
+ ['screenActions','⚡',ScreenBubbleI18n.t('AI Actions'),ScreenBubbleI18n.t('Hjälper dig utföra uppgifter i flera steg på skärmen.')],
+ ['smartTranslate','🌐',ScreenBubbleI18n.t('Smart Translate'),ScreenBubbleI18n.t('Översätter text direkt i appar och behåller sammanhanget.')],
+ ['studyMode','🎓',ScreenBubbleI18n.t('Study Mode'),ScreenBubbleI18n.t('Förklarar frågor och uppgifter steg för steg.')],
+ ['writingMode','✍️',ScreenBubbleI18n.t('Writing Mode'),ScreenBubbleI18n.t('Skriver, förbättrar och anpassar texter efter din ton.')],
+ ['webResearch','🔎',ScreenBubbleI18n.t('Web Research'),ScreenBubbleI18n.t('Söker, jämför källor och sammanfattar ämnen.')],
+ ['appProfiles','🧩',ScreenBubbleI18n.t('App Profiles'),ScreenBubbleI18n.t('Anpassar förslag efter aktiv app och arbetsflöde.')],
+ ['selectionAsk','🖱️',ScreenBubbleI18n.t('Markera och fråga'),ScreenBubbleI18n.t('Markera text och tryck Ctrl + Alt + C för att fråga om den.')],
+ ['voice','🎙',ScreenBubbleI18n.t('Röstassistent'),ScreenBubbleI18n.t('Aktiverar mikrofon och samtal i realtid.')],
+ ['dictation','✍️',ScreenBubbleI18n.t('Diktera'),ScreenBubbleI18n.t('Skriv talad text direkt i det aktiva fältet och finskriv den med AI.')],
 ];
 let features = {}, timer, smartReplyConfig = { apps: [], options: {} };
 function toast(){const t=$('toast');t.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>t.classList.remove('show'),1300)}
