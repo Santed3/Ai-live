@@ -448,7 +448,7 @@ function queueCleanWriting(value, proc, fieldName) {
         '$expected=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + expected + '\'))',
         '$replacement=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + replacement + '\'))',
         '$proc=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + safeProc + '\'))',
-        '$h=[W32]::GetForegroundWindow();$pid=0;[void][W32]::GetWindowThreadProcessId($h,[ref]$pid);$active=(Get-Process -Id $pid -ErrorAction SilentlyContinue).ProcessName.ToLower()',
+        '$h=[W32]::GetForegroundWindow();$procId=0;[void][W32]::GetWindowThreadProcessId($h,[ref]$procId);$active=(Get-Process -Id $procId -ErrorAction SilentlyContinue).ProcessName.ToLower()',
         '$f=[System.Windows.Automation.AutomationElement]::FocusedElement;$pat=$null',
         'if($active -eq $proc -and $f -and -not $f.Current.IsPassword -and $f.Current.IsKeyboardFocusable -and $f.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pat) -and $pat.Current.Value -ceq $expected){$pat.SetValue($replacement);[System.Windows.Forms.SendKeys]::SendWait(\'{END}\');\'replaced\'}'
       ], 7000);
@@ -1008,6 +1008,17 @@ ipcMain.handle('assistant-mode-set', (_e, mode) => {
   settings.assistantMode = allowed.includes(mode) ? mode : 'general';
   writeJson('settings.json', settings);
   return settings.assistantMode;
+});
+ipcMain.handle('primary-use-get', () => readJson('settings.json', {}).primaryUse || null);
+ipcMain.handle('primary-use-set', (_e, value) => {
+  const allowed = ['communication','study','writing','research','work','general'];
+  const use = allowed.includes(value) ? value : 'general';
+  const saved = readJson('settings.json', {});
+  saved.primaryUse = use;
+  saved.assistantMode = ({ study:'study', writing:'writing', work:'work', communication:'general', research:'general', general:'general' })[use];
+  writeJson('settings.json', saved);
+  send2('primary-use-updated', use);
+  return use;
 });
 ipcMain.handle('features-get', () => featureSettings());
 ipcMain.handle('appearance-get', () => assistantAppearance());
