@@ -66,6 +66,10 @@ async function saveAppearance(){
 document.querySelectorAll('input[name="assistantDisplay"]').forEach(x=>x.onchange=saveAppearance);
 $('assistantSwipe').onchange=saveAppearance;
 (async()=>{
+ const savedLanguage = await api.languageGet();
+ await ScreenBubbleI18n.init(savedLanguage);
+ $('uiLanguage').value = savedLanguage;
+ $('uiLanguage').onchange = async () => { const value = await api.languageSet($('uiLanguage').value); await ScreenBubbleI18n.set(value); };
  await loadAppearance();
  $('featureSearch').addEventListener('input',filterFeatures);
  document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('featureSearch').focus();}});
