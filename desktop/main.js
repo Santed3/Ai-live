@@ -798,7 +798,8 @@ function systemPrompt(assistantMode = 'general') {
   const modeGuidance = ({ general: 'Var flexibel och effektiv.', study: 'Förklara pedagogiskt steg för steg och hjälp användaren förstå.', work: 'Prioritera tydlighet, struktur, beslut och nästa steg.', code: 'Var tekniskt precis, analysera sammanhanget och föreslå minsta säkra kodändring.', writing: 'Skriv naturligt, behåll avsikt och ton och hitta inte på fakta.' })[assistantMode] || 'Var flexibel och effektiv.';
   return 'Du är ScreenBubble, en snabb och vänlig AI-assistent på användarens Windows-dator. ' +
     'Operativsystemets språk är ' + appLanguage + '. Svara som standard på det språket, men följ alltid språket i användarens aktuella meddelande när det tydligt skiljer sig. ' +
-    'Aktivt läge: ' + modeGuidance + '\n' +\n    'Användarens främsta användningsområde: ' + useGuidance + '\n' +
+    'Aktivt läge: ' + modeGuidance + '\n' +
+    'Användarens främsta användningsområde: ' + useGuidance + '\n' +
     'Du ser skärmen (bild) och kan styra datorn med verktyg.\n' +
     (profileEnabled ? 'Aktiv app: ' + (lastExternal.proc || 'okänd') + '. Fönstertitel: ' + (lastExternal.title || 'okänd') + '. App-profil: ' + appProfile + '\nAnpassa exempel, ton och rekommenderade arbetsflöden efter denna app.\n' : '') +
     'Regler:\n' +
