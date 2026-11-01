@@ -4,7 +4,6 @@ package com.example.screenbubble
 object UiTextExtra {
     private val en = mapOf(
         "Din AI-assistent · alltid nära till hands · v\$ver" to "Your AI assistant · always within reach · v\$ver",
-        "DITT INNEHÅLL" to "YOUR CONTENT", "Version 1.0.${nb!! - 100} är redo. Din data och inställningar behålls." to "Version 1.0.${nb!! - 100} is ready. Your data and settings will be kept.",
         "Allt viktigt är på." to "Everything important is on.", "Tre steg tar dig hela vägen." to "Three steps are all it takes.",
         "Tillåt begränsade inställningar" to "Allow restricted settings", "Android 13+: ⋮ i appinfo, välj \"Tillåt begränsade inställningar\"." to "Android 13+: tap ⋮ in App info and choose \"Allow restricted settings\".",
         "Slå på tjänsten" to "Enable the service", "Tillgänglighet → ScreenBubble → På." to "Accessibility → ScreenBubble → On.",
