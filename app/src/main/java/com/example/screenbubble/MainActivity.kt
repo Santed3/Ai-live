@@ -80,7 +80,7 @@ class MainActivity : Activity() {
     // ------------------------------------------------------------------ helpers
 
     private fun text(t: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
-        this.text = t
+        this.text = UiText.t(this@MainActivity, t)
         textSize = size
         setTextColor(color)
         if (bold) setTypeface(typeface, Typeface.BOLD)
@@ -99,7 +99,7 @@ class MainActivity : Activity() {
     }
 
     private fun button(label: String, primary: Boolean = false, onClick: () -> Unit) = Button(this).apply {
-        this.text = label
+        this.text = UiText.t(this@MainActivity, label)
         isAllCaps = false
         textSize = 13.5f
         setTextColor(if (primary) Color.WHITE else TEXT)
@@ -112,7 +112,7 @@ class MainActivity : Activity() {
     }
 
     private fun small(label: String, onClick: () -> Unit) = TextView(this).apply {
-        this.text = label
+        this.text = UiText.t(this@MainActivity, label)
         textSize = 14f
         setTextColor(MUTED)
         gravity = Gravity.CENTER
@@ -216,11 +216,28 @@ class MainActivity : Activity() {
             render()
         })
 
+
+        // Language selection
+        val language = card("Språk", "Välj språk för menyer, inställningar och meddelanden.")
+        language.addView(button(UiText.languageLabel(UiText.language(this)), false) {
+            val codes = arrayOf("system", "sv", "en", "de", "es", "fr", "no", "da", "fi")
+            val labels = codes.map { UiText.languageLabel(it) }.toTypedArray()
+            val current = codes.indexOf(UiText.language(this)).coerceAtLeast(0)
+            AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle(UiText.t(this, "Välj språk"))
+                .setSingleChoiceItems(labels, current) { dialog, which ->
+                    UiText.save(this, codes[which])
+                    dialog.dismiss()
+                    ReaderService.instance?.setMode(ReaderService.Mode.BAR)
+                    render()
+                }.setNegativeButton(UiText.t(this, "Avbryt"), null).show()
+        })
+
         // smart replies
         val sr = card("Smarta svar", "När någon skriver till dig i en chatt får du förslag på svar direkt i sidebaren, skrivna som du skriver.")
         fun toggle(label: String, key: String) {
             sr.addView(Switch(this).apply {
-                text = label
+                text = UiText.t(this@MainActivity, label)
                 textSize = 14f
                 setTextColor(TEXT)
                 isChecked = Store.flag(this@MainActivity, key)
@@ -297,7 +314,7 @@ class MainActivity : Activity() {
         val mem = Store.memory(this)
         val mc = card("Minne", if (mem.isEmpty()) "Du bestämmer vad ScreenBubble ska komma ihåg. Du kan granska och radera sparade uppgifter här." else "Det här har jag lärt mig om dig:")
         mc.addView(Switch(this).apply {
-            text = "Lär av våra samtal automatiskt"
+            text = UiText.t(this@MainActivity, "Lär av våra samtal automatiskt")
             textSize = 14f
             setTextColor(TEXT)
             isChecked = Store.flag(this@MainActivity, "memory_auto")
@@ -327,7 +344,7 @@ class MainActivity : Activity() {
     }
 
     private fun shouldShowCard(title: String?): Boolean = when (activeTab) {
-        "home" -> title in setOf("Ny version finns", "Uppdatering", "Kom igång", "Använd", "Senaste fel", "Så funkar det")
+        "home" -> title in setOf("Ny version finns", "Uppdatering", "Kom igång", "Använd", "Språk", "Senaste fel", "Så funkar det")
         "assistant" -> title in setOf("Assistentens utseende", "Smarta svar", "Appprofiler")
         else -> title in setOf("Egna snabbkommandon", "Anteckningar", "Minne")
     }
@@ -482,20 +499,20 @@ class MainActivity : Activity() {
         content.addView(finish, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(8) })
     }
 
-    private fun toast(t: String) = Toast.makeText(this, t, Toast.LENGTH_SHORT).show()
+    private fun toast(t: String) = Toast.makeText(this, UiText.t(this, t), Toast.LENGTH_SHORT).show()
 
     // ------------------------------------------------------------------ custom command dialog
 
     private fun commandDialog(c: Store.Cmd?) {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
-        val emoji = EditText(this).apply { hint = "Emoji (valfri)"; setText(c?.emoji ?: ""); filters = arrayOf(android.text.InputFilter.LengthFilter(4)) }
-        val name = EditText(this).apply { hint = "Namn, t.ex. Svara artigt"; setText(c?.name ?: ""); filters = arrayOf(android.text.InputFilter.LengthFilter(30)) }
+        val emoji = EditText(this).apply { hint = UiText.t(this@MainActivity, "Emoji (valfri)"); setText(c?.emoji ?: ""); filters = arrayOf(android.text.InputFilter.LengthFilter(4)) }
+        val name = EditText(this).apply { hint = UiText.t(this@MainActivity, "Namn, t.ex. Svara artigt"); setText(c?.name ?: ""); filters = arrayOf(android.text.InputFilter.LengthFilter(30)) }
         val prompt = EditText(this).apply {
-            hint = "Instruktion, t.ex. Skriv ett artigt svar på svenska till meddelandet på skärmen."
+            hint = UiText.t(this@MainActivity, "Instruktion, t.ex. Skriv ett artigt svar på svenska till meddelandet på skärmen.")
             setText(c?.prompt ?: ""); minLines = 3
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
         }
-        val screen = CheckBox(this).apply { text = "Använd skärmen"; isChecked = c?.screen ?: true }
+        val screen = CheckBox(this).apply { text = UiText.t(this@MainActivity, "Använd skärmen"); isChecked = c?.screen ?: true }
         box.addView(emoji); box.addView(name); box.addView(prompt); box.addView(screen)
         AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
             .setTitle(if (c == null) "Nytt snabbkommando" else "Redigera snabbkommando")
