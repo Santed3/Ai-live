@@ -796,6 +796,17 @@ class ReaderService : AccessibilityService() {
         return if (f != null && f.isEditable) f else findEditable(root)
     }
 
+    /** Replaces text only if the same safe, focused editable field still contains the exact draft. */
+    fun replaceFocusedTextIfUnchanged(expected: String, replacement: String): Boolean {
+        val root = appRoot() ?: return false
+        val target = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return false
+        if (!target.isEditable || target.isPassword || !target.isFocused || !target.isVisibleToUser) return false
+        val current = if (target.isShowingHintText) "" else target.text?.toString().orEmpty()
+        if (current != expected || replacement.isBlank() || replacement == expected) return false
+        val args = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, replacement) }
+        return target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+    }
+
     fun insertDictatedText(text: String): String {
         val target = inputTarget() ?: return "Textfältet är inte längre aktivt. Starta dikteringen igen."
         if (target.isPassword) return "Diktering är avstängd i lösenordsfält."

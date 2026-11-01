@@ -12,6 +12,10 @@ class SmartReply(private val svc: ReaderService) {
     private val main = Handler(Looper.getMainLooper())
     private val debounce = Runnable { generateReply() }
     private val draftDebounce = Runnable { generateDraft(pendingDraft) }
+    @Volatile private var pendingCleanText = ""
+    @Volatile private var cleanInFlight = false
+    private var lastCleanHash = 0
+    private val cleanDebounce = Runnable { correctDraft(pendingCleanText) }
 
     @Volatile private var inFlight = false
     @Volatile private var pendingDraft = ""
@@ -64,6 +68,21 @@ class SmartReply(private val svc: ReaderService) {
                 lastShownSignature = ""
             }
         }
+        if (e.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED && Store.flag(svc, "clean_writing")) {
+            val source = e.source
+            if (source != null && source.isEditable && !source.isPassword && source.isFocused && source.isVisibleToUser) {
+                val value = source.text?.toString().orEmpty()
+                if (safeForCleanWriting(value, pkg)) {
+                    pendingCleanText = value
+                    main.removeCallbacks(cleanDebounce)
+                    main.postDelayed(cleanDebounce, 1250)
+                } else {
+                    pendingCleanText = ""
+                    main.removeCallbacks(cleanDebounce)
+                }
+            }
+        }
+
         if (!allowed(pkg)) return
 
         if (e.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
@@ -96,6 +115,35 @@ class SmartReply(private val svc: ReaderService) {
              e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)) {
             main.removeCallbacks(debounce)
             main.postDelayed(debounce, 550)
+        }
+    }
+
+    private fun safeForCleanWriting(value: String, pkg: String): Boolean {
+        val t = value.trim()
+        if (t.length !in 8..500 || t.contains('\n') || t.contains('\r')) return false
+        if (pkg.contains("keyboard") || pkg.contains("inputmethod") || pkg == svc.packageName) return false
+        if (Regex("(?i)(password|lösenord|bankid|personnummer|kortnummer|cvv|one.time.code|verification code|api[_ -]?key)").containsMatchIn(t)) return false
+        if (Regex("(?i)(https?://|www\\.|@\\w+\\.)").containsMatchIn(t)) return false
+        if (t.count { it in "{}[]<>;=_" } > 5) return false
+        return true
+    }
+
+    private fun correctDraft(draft: String) {
+        val original = draft.trim()
+        if (!Store.flag(svc, "clean_writing") || !safeForCleanWriting(original, svc.currentPkg()) || cleanInFlight) return
+        val hash = (svc.currentPkg() + "|" + original).hashCode()
+        if (hash == lastCleanHash) return
+        cleanInFlight = true
+        svc.pool.execute {
+            try {
+                val corrected = OpenAiClient(svc, "gpt-4o-mini").cleanWriting(original, styleBlock())
+                if (corrected.isNotBlank() && corrected != original && corrected.length <= original.length + 80 &&
+                    Store.flag(svc, "clean_writing") && pendingCleanText.trim() == original) {
+                    main.post { svc.replaceFocusedTextIfUnchanged(original, corrected) }
+                }
+                lastCleanHash = hash
+            } catch (_: Exception) {
+            } finally { cleanInFlight = false }
         }
     }
 

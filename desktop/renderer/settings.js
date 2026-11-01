@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const meta = [
  ['smartReply','💬','Smart Reply','Förstår mejl, chattar och utkast. Lär sig av formuleringar du väljer att använda.'],
+ ['cleanWriting','✍️','Clean Writing','Rättar stavning och meningsbyggnad direkt i textfältet efter en kort paus. Avstängd från början; skickar texten till AI när den aktiveras.'],
  ['activeHelp','✦','Active Help','Håller koll på synliga fel lokalt och erbjuder hjälp diskret. Skärminnehåll skickas inte till AI förrän du väljer att analysera. Inga åtgärder utan ditt godkännande.'],
  ['contextualSuggestions','✨','Smarta förslag','Visar relevanta snabbval beroende på vilken app du använder.'],
  ['screenActions','⚡','AI Actions','Hjälper dig utföra uppgifter i flera steg på skärmen.'],

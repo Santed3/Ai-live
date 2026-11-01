@@ -61,7 +61,7 @@ async function learn(userText, answer) {
 }
 function commands() { return readJson('commands.json', []).map(Lib.sanitizeCommand).filter(Boolean); }
 const FEATURE_DEFAULTS = {
-  smartReply: true, activeHelp: true, proactiveSearch: false, contextualSuggestions: true, screenActions: true,
+  smartReply: true, activeHelp: true, proactiveSearch: false, cleanWriting: false, contextualSuggestions: true, screenActions: true,
   smartTranslate: true, studyMode: true, writingMode: true,
   webResearch: true, appProfiles: true, selectionAsk: true, voice: true, dictation: true, readAloud: true,
 };
@@ -416,6 +416,46 @@ function queueProactiveSearch(value, proc, title, controlName) {
   }, 1700);
 }
 let autoDraftTimer = null, lastObservedDraft = '', lastAutoDraftSuggestion = '', autoDraftBusy = false, autoDraftSuppressedUntil = 0;
+let cleanWritingTimer = null, cleanWritingBusy = false, lastCleanWritingSignature = '';
+function queueCleanWriting(value, proc, fieldName) {
+  const text = String(value || '').trim();
+  const p = String(proc || '').toLowerCase(), field = String(fieldName || '').toLowerCase();
+  const excludedApps = ['code','devenv','idea','studio','cursor','windsurf','terminal','powershell','cmd'];
+  const sensitiveField = /(password|lösenord|search|sök|address|url|omnibox|api key|token|verification|bankid)/i.test(field);
+  const sensitiveText = /(password|lösenord|bankid|personnummer|kortnummer|cvv|one.time.code|verification code|api[_ -]?key)/i.test(text);
+  const looksLikeCode = /[{}<>;=]{3,}|^\s*(const|let|var|function|class|import|export|SELECT|INSERT|UPDATE|FROM)\b/im.test(text);
+  if (!featureSettings().cleanWriting || !text || text.length < 8 || text.length > 500 || /[\r\n]/.test(text) || sensitiveField || sensitiveText || looksLikeCode || /https?:\/\//i.test(text) || excludedApps.some(x => p.includes(x)) || p === 'screenbubble' || p === 'electron') {
+    clearTimeout(cleanWritingTimer); cleanWritingTimer = null; lastCleanWritingSignature = ''; return;
+  }
+  const signature = p + '|' + text;
+  if (signature === lastCleanWritingSignature || cleanWritingBusy) return;
+  clearTimeout(cleanWritingTimer);
+  cleanWritingTimer = setTimeout(async () => {
+    if (!featureSettings().cleanWriting || cleanWritingBusy) return;
+    cleanWritingBusy = true; lastCleanWritingSignature = signature;
+    try {
+      const result = await post(aiUrl('chat/completions'), { model: 'gpt-4o-mini', max_tokens: 220, temperature: 0.1, messages: [
+        { role: 'system', content: 'Du är Clean Writing. Korrigera endast tydliga stavfel, grammatik, böjningar, särskrivningar och meningsbyggnad. Behåll betydelse, fakta, namn, siffror, språk, ton, slang och personlig stil. Skriv inte om korrekt text. Lägg aldrig till information. Om texten redan är korrekt, returnera den exakt oförändrad. Svara ENDAST med korrigerad text, inga citattecken eller förklaringar. ' + styleBlock() },
+        { role: 'user', content: text }
+      ] });
+      const corrected = String(result.choices?.[0]?.message?.content || '').trim();
+      if (!corrected || corrected === text || corrected.length > text.length + 80 || !featureSettings().cleanWriting) return;
+      const expected = Buffer.from(text, 'utf8').toString('base64');
+      const replacement = Buffer.from(corrected, 'utf8').toString('base64');
+      const safeProc = Buffer.from(p, 'utf8').toString('base64');
+      await ps([
+        'Add-Type -AssemblyName UIAutomationClient',
+        '$expected=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + expected + '\'))',
+        '$replacement=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + replacement + '\'))',
+        '$proc=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + safeProc + '\'))',
+        '$h=[W32]::GetForegroundWindow();$procId=0;[void][W32]::GetWindowThreadProcessId($h,[ref]$procId);$active=(Get-Process -Id $procId -ErrorAction SilentlyContinue).ProcessName.ToLower()',
+        '$f=[System.Windows.Automation.AutomationElement]::FocusedElement;$pat=$null',
+        'if($active -eq $proc -and $f -and -not $f.Current.IsPassword -and $f.Current.IsKeyboardFocusable -and $f.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pat) -and $pat.Current.Value -ceq $expected){$pat.SetValue($replacement);[System.Windows.Forms.SendKeys]::SendWait(\'{END}\');\'replaced\'}'
+      ], 7000);
+    } catch (_) {
+    } finally { cleanWritingBusy = false; }
+  }, 1250);
+}
 function queueSmartDraft(draft, proc, title) {
   const value = String(draft || '').trim();
   const signature = String(proc || '') + '|' + value;
@@ -470,6 +510,7 @@ async function pollForeground() {
       if (proc && proc !== 'screenbubble' && proc !== 'electron') {
         lastExternal = { title, proc };
         queueSmartDraft(focusedText, proc, title);
+        queueCleanWriting(focusedText, proc, focusedName);
         queueProactiveSearch(focusedText, proc, title, focusedName);
         inspectForActiveHelp(title, proc, visibleText);
       }
@@ -738,8 +779,11 @@ const TOOLS = [
 ];
 
 function systemPrompt(assistantMode = 'general') {
-  const now = new Date().toLocaleString('sv-SE');
+  const appLanguage = app.getLocale() || 'en-US';
+  const now = new Date().toLocaleString(appLanguage);
   const mem = memory();
+  const primaryUse = readJson('settings.json', {}).primaryUse || 'general';
+  const useGuidance = ({ communication:'Prioritera mejl, meddelanden och naturliga svar i användarens skrivstil.', study:'Prioritera pedagogiska förklaringar, ledtrådar och steg-för-steg-lärande.', writing:'Prioritera korrekt, naturligt skrivande, redigering och dokument.', research:'Prioritera webbsökning, källkritik, jämförelser och sammanfattningar.', work:'Prioritera produktivitet, planering, arbetsflöden och tydliga resultat.', general:'Balansera hjälpen efter den aktuella uppgiften.' })[primaryUse] || 'Balansera hjälpen efter den aktuella uppgiften.';
   const proc = String(lastExternal.proc || '').toLowerCase();
   const title = String(lastExternal.title || '');
   const lowTitle = title.toLowerCase();
@@ -752,8 +796,10 @@ function systemPrompt(assistantMode = 'general') {
     'ALLMÄNT: identifiera uppgiftstypen på skärmen och välj det mest användbara arbetssättet.';
   const profileEnabled = featureSettings().appProfiles;
   const modeGuidance = ({ general: 'Var flexibel och effektiv.', study: 'Förklara pedagogiskt steg för steg och hjälp användaren förstå.', work: 'Prioritera tydlighet, struktur, beslut och nästa steg.', code: 'Var tekniskt precis, analysera sammanhanget och föreslå minsta säkra kodändring.', writing: 'Skriv naturligt, behåll avsikt och ton och hitta inte på fakta.' })[assistantMode] || 'Var flexibel och effektiv.';
-  return 'Du är ScreenBubble, en snabb och vänlig assistent på användarens Windows-dator, ungefär som Siri fast mycket smartare. ' +
+  return 'Du är ScreenBubble, en snabb och vänlig AI-assistent på användarens Windows-dator. ' +
+    'Operativsystemets språk är ' + appLanguage + '. Svara som standard på det språket, men följ alltid språket i användarens aktuella meddelande när det tydligt skiljer sig. ' +
     'Aktivt läge: ' + modeGuidance + '\n' +
+    'Användarens främsta användningsområde: ' + useGuidance + '\n' +
     'Du ser skärmen (bild) och kan styra datorn med verktyg.\n' +
     (profileEnabled ? 'Aktiv app: ' + (lastExternal.proc || 'okänd') + '. Fönstertitel: ' + (lastExternal.title || 'okänd') + '. App-profil: ' + appProfile + '\nAnpassa exempel, ton och rekommenderade arbetsflöden efter denna app.\n' : '') +
     'Regler:\n' +
@@ -965,6 +1011,17 @@ ipcMain.handle('assistant-mode-set', (_e, mode) => {
   settings.assistantMode = allowed.includes(mode) ? mode : 'general';
   writeJson('settings.json', settings);
   return settings.assistantMode;
+});
+ipcMain.handle('primary-use-get', () => readJson('settings.json', {}).primaryUse || null);
+ipcMain.handle('primary-use-set', (_e, value) => {
+  const allowed = ['communication','study','writing','research','work','general'];
+  const use = allowed.includes(value) ? value : 'general';
+  const saved = readJson('settings.json', {});
+  saved.primaryUse = use;
+  saved.assistantMode = ({ study:'study', writing:'writing', work:'work', communication:'general', research:'general', general:'general' })[use];
+  writeJson('settings.json', saved);
+  send2('primary-use-updated', use);
+  return use;
 });
 ipcMain.handle('features-get', () => featureSettings());
 ipcMain.handle('appearance-get', () => assistantAppearance());

@@ -283,6 +283,16 @@ class OpenAiClient(
         return listOf(result.take(500))
     }
 
+    /** Fast, conservative spelling and grammar correction for the opt-in Clean Writing feature. */
+    fun cleanWriting(text: String, style: String = ""): String {
+        val system = "Du är Clean Writing, en mycket snabb korrekturläsare. Rätta endast tydliga stavfel, grammatik, böjningar, särskrivningar och meningsbyggnad. " +
+            "Behåll exakt betydelse, fakta, namn, siffror, språk, ton, slang och användarens personliga stil. Skriv inte om korrekt text i onödan. " +
+            "Lägg aldrig till innehåll, förklaringar eller citattecken. Om texten redan är korrekt, returnera den exakt oförändrad. " +
+            "Returnera ENDAST den korrigerade texten. $style"
+        val result = textSimple(system, text, 220).trim()
+        return if (result.isBlank() || result.length > text.length + 80) text else result
+    }
+
     /** Summarises how the user writes, from samples of their own sent messages. */
     fun styleProfile(samples: List<String>): String {
         val messages = JSONArray()
