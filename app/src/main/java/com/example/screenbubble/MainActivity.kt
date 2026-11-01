@@ -231,6 +231,8 @@ class MainActivity : Activity() {
         toggle("Active Help – proaktiv hjälp", "active_help")
         sr.addView(text("ScreenBubble granskar synlig skärmtext lokalt efter vanliga fel och fastnade steg. Inget skickas till AI förrän du trycker på förslaget. Den frågar alltid innan den tar över.", 12f, MUTED).apply { setPadding(0, dp(0), 0, dp(6)) })
         toggle("Föreslå svar och förbättra utkast", "smart_suggest")
+        toggle("Clean Writing – rätta text automatiskt", "clean_writing")
+        sr.addView(text("När funktionen är på rättar ScreenBubble stavning och meningsbyggnad automatiskt efter en kort paus. Den är avstängd från början, ändrar aldrig lösenordsfält och skickar aldrig text.", 12f, MUTED).apply { setPadding(0, dp(0), 0, dp(6)) })
         toggle("Lär dig hur jag skriver", "learn_style")
         sr.addView(text("Välj appar där Smart Reply får läsa sammanhang och föreslå svar eller förbättra ett utkast:", 12f, MUTED).apply { setPadding(0, dp(8), 0, dp(4)) })
         for ((pkg, appName) in Suggest.communicationApps) {
@@ -422,6 +424,31 @@ class MainActivity : Activity() {
         illustration.addView(phone, LinearLayout.LayoutParams(dp(230), -2))
         hero.addView(illustration, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(5) })
         content.addView(hero, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+
+        val usage = card("Vad kommer du använda ScreenBubble mest till?", "Jag anpassar AI-läget och vilka verktyg som prioriteras. Du kan ändra allt senare.")
+        val currentProfile = prefs.getString("primary_use", "general") ?: "general"
+        val choices = listOf(
+            Triple("communication", "Meddelanden & mejl", "Smart Reply och naturliga formuleringar"),
+            Triple("study", "Studier", "Pedagogiska förklaringar och steg-för-steg"),
+            Triple("writing", "Skrivande", "Text, korrektur och dokument"),
+            Triple("research", "Sökning & research", "Webbsökning, källor och sammanfattningar"),
+            Triple("work", "Arbete & produktivitet", "Planering, appar och arbetsflöden"),
+            Triple("general", "Lite av allt", "En balanserad assistent")
+        )
+        for ((key, label, detail) in choices) {
+            usage.addView(button((if (currentProfile == key) "✓  " else "") + label + "\\n" + detail, currentProfile == key) {
+                prefs.edit().putString("primary_use", key)
+                    .putBoolean("profile_communication", key == "communication")
+                    .putBoolean("profile_study", key == "study")
+                    .putBoolean("profile_writing", key == "writing")
+                    .putBoolean("profile_research", key == "research").apply()
+                Store.setAssistantMode(this, when (key) {
+                    "study" -> "study"; "writing" -> "writing"; "work" -> "work"; else -> "general"
+                })
+                renderOnboarding(prefs)
+            }.apply { textSize = 12.5f; minHeight = dp(52); gravity = Gravity.CENTER_VERTICAL })
+        }
+        content.addView(usage)
 
         val serviceOn = ReaderService.instance != null
         val micOn = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
