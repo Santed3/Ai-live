@@ -171,7 +171,7 @@ class PanelUi(private val svc: ReaderService) {
             cornerRadius = dp(22).toFloat()
             setStroke(dp(1), 0x24FFFFFF)
         }
-        root.setPadding(dp(11), dp(9), dp(11), dp(9))
+        root.setPadding(dp(14), dp(12), dp(14), dp(12))
         root.elevation = dp(10).toFloat()
 
         // header
@@ -206,8 +206,11 @@ class PanelUi(private val svc: ReaderService) {
 
         // chat
         chat.orientation = LinearLayout.VERTICAL
+        chat.setPadding(0, 0, 0, dp(14))
+        scroll.isFillViewport = true
+        scroll.clipToPadding = false
         scroll.addView(chat)
-        root.addView(scroll, lp(-1, 0, t = 8, weight = 1f))
+        root.addView(scroll, lp(-1, 0, t = 10, weight = 1f))
 
         // draft card (smart reply)
         draftCard.orientation = LinearLayout.VERTICAL
@@ -259,6 +262,7 @@ class PanelUi(private val svc: ReaderService) {
         input.setHintTextColor(MUTED)
         input.setTextColor(TEXT)
         input.textSize = 15f
+        input.minHeight = dp(46)
         input.maxLines = 3
         input.background = rounded(0x26FFFFFF, 18)
         input.setPadding(dp(14), dp(10), dp(14), dp(10))
@@ -534,7 +538,7 @@ class PanelUi(private val svc: ReaderService) {
                 cornerRadii = if (user) floatArrayOf(big, big, big, big, small, small, big, big)
                 else floatArrayOf(big, big, big, big, big, big, small, small)
             }
-            maxWidth = dp(250)
+            maxWidth = minOf(dp(340), (svc.resources.displayMetrics.widthPixels * 0.78f).toInt())
             alpha = 0f
             translationY = dp(6).toFloat()
         }
