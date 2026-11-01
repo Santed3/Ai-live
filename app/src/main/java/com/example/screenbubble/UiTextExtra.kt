@@ -166,8 +166,30 @@ object UiTextExtra {
         "Rensa" to "Tyhjennä","Säker?" to "Oletko varma?","Ja, gör det" to "Kyllä, tee se","Nej" to "Ei",
         "Språk" to "Kieli","Välj språk" to "Valitse kieli","Följ enhetens språk" to "Käytä laitteen kieltä"
     )
+
+    private val menu = mapOf(
+        "Chatt" to "Chat", "Svara på frågan" to "Answer the question", "Svara på meddelande" to "Reply to message",
+        "Lös uppgiften" to "Solve the task", "Verktyg" to "Tools", "Egna kommandon" to "Custom commands",
+        "System" to "System", "Nytt kommando" to "New command", "Uppdatera" to "Update",
+        "Minimera" to "Minimize", "Stäng" to "Close", "Svara" to "Reply", "Fler funktioner" to "More features",
+        "Färre funktioner" to "Fewer features", "Förslag: " to "Suggestions: ", "på" to "on", "av" to "off",
+        "Öppna menyn" to "Open menu", "Flytande" to "Floating", "Sidopanel" to "Sidebar",
+        "Studier och lärande" to "Study and learning", "Skrivande och dokument" to "Writing and documents",
+        "Webb och research" to "Web and research", "E-post och meddelanden" to "Email and messages"
+    )
+    private val deMenu = mapOf("Chatt" to "Chat","Svara på frågan" to "Frage beantworten","Svara på meddelande" to "Auf Nachricht antworten","Lös uppgiften" to "Aufgabe lösen","Verktyg" to "Werkzeuge","Egna kommandon" to "Eigene Befehle","Nytt kommando" to "Neuer Befehl","Uppdatera" to "Aktualisieren","Minimera" to "Minimieren","Stäng" to "Schließen","Fler funktioner" to "Weitere Funktionen","Färre funktioner" to "Weniger Funktionen","på" to "an","av" to "aus","Studier och lärande" to "Lernen","Skrivande och dokument" to "Schreiben und Dokumente","Webb och research" to "Web und Recherche","E-post och meddelanden" to "E-Mail und Nachrichten")
+    private val esMenu = mapOf("Chatt" to "Chat","Svara på frågan" to "Responder a la pregunta","Svara på meddelande" to "Responder al mensaje","Lös uppgiften" to "Resolver la tarea","Verktyg" to "Herramientas","Egna kommandon" to "Comandos personalizados","Nytt kommando" to "Nuevo comando","Uppdatera" to "Actualizar","Minimera" to "Minimizar","Stäng" to "Cerrar","Fler funktioner" to "Más funciones","Färre funktioner" to "Menos funciones","på" to "activado","av" to "desactivado","Studier och lärande" to "Estudio y aprendizaje","Skrivande och dokument" to "Escritura y documentos","Webb och research" to "Web e investigación","E-post och meddelanden" to "Correo y mensajes")
+    private val frMenu = mapOf("Chatt" to "Discussion","Svara på frågan" to "Répondre à la question","Svara på meddelande" to "Répondre au message","Lös uppgiften" to "Résoudre la tâche","Verktyg" to "Outils","Egna kommandon" to "Commandes personnalisées","Nytt kommando" to "Nouvelle commande","Uppdatera" to "Mettre à jour","Minimera" to "Réduire","Stäng" to "Fermer","Fler funktioner" to "Plus de fonctions","Färre funktioner" to "Moins de fonctions","på" to "activé","av" to "désactivé","Studier och lärande" to "Études et apprentissage","Skrivande och dokument" to "Rédaction et documents","Webb och research" to "Web et recherche","E-post och meddelanden" to "E-mails et messages")
+    private val noMenu = mapOf("Chatt" to "Chat","Svara på frågan" to "Svar på spørsmålet","Svara på meddelande" to "Svar på melding","Lös uppgiften" to "Løs oppgaven","Verktyg" to "Verktøy","Egna kommandon" to "Egne kommandoer","Nytt kommando" to "Ny kommando","Uppdatera" to "Oppdater","Minimera" to "Minimer","Stäng" to "Lukk","Fler funktioner" to "Flere funksjoner","Färre funktioner" to "Færre funksjoner","på" to "på","av" to "av","Studier och lärande" to "Studier og læring","Skrivande och dokument" to "Skriving og dokumenter","Webb och research" to "Nett og research","E-post och meddelanden" to "E-post og meldinger")
+    private val daMenu = mapOf("Chatt" to "Chat","Svara på frågan" to "Besvar spørgsmålet","Svara på meddelande" to "Besvar besked","Lös uppgiften" to "Løs opgaven","Verktyg" to "Værktøjer","Egna kommandon" to "Egne kommandoer","Nytt kommando" to "Ny kommando","Uppdatera" to "Opdater","Minimera" to "Minimer","Stäng" to "Luk","Fler funktioner" to "Flere funktioner","Färre funktioner" to "Færre funktioner","på" to "til","av" to "fra","Studier och lärande" to "Studier og læring","Skrivande och dokument" to "Skrivning og dokumenter","Webb och research" to "Web og research","E-post och meddelanden" to "E-mail og beskeder")
+    private val fiMenu = mapOf("Chatt" to "Keskustelu","Svara på frågan" to "Vastaa kysymykseen","Svara på meddelande" to "Vastaa viestiin","Lös uppgiften" to "Ratkaise tehtävä","Verktyg" to "Työkalut","Egna kommandon" to "Omat komennot","Nytt kommando" to "Uusi komento","Uppdatera" to "Päivitä","Minimera" to "Pienennä","Stäng" to "Sulje","Fler funktioner" to "Lisää toimintoja","Färre funktioner" to "Vähemmän toimintoja","på" to "käytössä","av" to "pois käytöstä","Studier och lärande" to "Opiskelu ja oppiminen","Skrivande och dokument" to "Kirjoittaminen ja asiakirjat","Webb och research" to "Verkko ja tiedonhaku","E-post och meddelanden" to "Sähköposti ja viestit")
+
     fun t(language: String, value: String): String {
+        val local = when (language) { "de" -> deMenu[value]; "es" -> esMenu[value]; "fr" -> frMenu[value]; "no" -> noMenu[value]; "da" -> daMenu[value]; "fi" -> fiMenu[value]; else -> null }
+        if (local != null) return local
         if (language == "sv") return value
+        if (language != "en" && menu[value] != null) return menu[value]!!
+
         return when (language) { "de" -> de[value]; "es" -> es[value]; "fr" -> fr[value]; "no" -> no[value]; "da" -> da[value]; "fi" -> fi[value]; else -> null } ?: en[value] ?: value
     }
 }
