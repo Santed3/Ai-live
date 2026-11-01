@@ -396,9 +396,9 @@ function queueProactiveSearch(value, proc, title, controlName) {
   const browser = ['chrome','msedge','firefox','brave','opera','vivaldi'].includes(String(proc || '').toLowerCase());
   const field = String(controlName || '').toLowerCase();
   const isSearchField = /(search|sök|address and search bar|omnibox|url)/i.test(field);
-  const query = String(value || '').replace(/\\s+/g, ' ').trim();
+  const query = String(value || '').replace(/\s+/g, ' ').trim();
   if (!featureSettings().proactiveSearch || !browser || !isSearchField || query.length < 6 || query.length > 150 ||
-      /^(https?:\\/\\/|www\\.)/i.test(query) || /password|lösenord|bankid|personnummer|card number|cvv/i.test(query)) {
+      /^(https?:\/\/|www\.)/i.test(query) || /password|lösenord|bankid|personnummer|card number|cvv/i.test(query)) {
     clearTimeout(proactiveSearchTimer); proactiveSearchTimer = null; return;
   }
   if (query === lastProactiveSearch || Date.now() - lastProactiveSearchAt < 90000) return;
@@ -410,7 +410,7 @@ function queueProactiveSearch(value, proc, title, controlName) {
       const answer = await webSearch(query);
       if (!answer || !featureSettings().proactiveSearch || mode === 'chat' || !panel || panel.isFocused()) return;
       activeHelpPrompt = 'Fördjupa sökningen om: ' + query + '. Ge mer detaljer, kontrollera källorna och svara med tydliga länkar.';
-      showAnswer('SVAR DIREKT\\n' + answer.slice(0, 760) + '\\n\\nTryck för mer hjälp', 18000);
+      showAnswer('SVAR DIREKT\n' + answer.slice(0, 760) + '\n\nTryck för mer hjälp', 18000);
     } catch (_) {
     } finally { proactiveSearchBusy = false; }
   }, 1700);
