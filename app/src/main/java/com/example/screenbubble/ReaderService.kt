@@ -586,20 +586,11 @@ class ReaderService : AccessibilityService() {
         return sb.toString().take(8000)
     }
 
-    /** Screen text and a silent screenshot, with the panel made transparent while capturing. */
+    /** Capture context without hiding and re-showing the chat overlay on every request. */
     fun captureScreen(): Pair<String, String?> {
-        val v = panel?.root
-        if (v != null) {
-            main.post { v.alpha = 0f }
-            Thread.sleep(120)
-        }
-        try {
-            val text = readScreenText()
-            val shot = takeShot()
-            return Pair(text, shot)
-        } finally {
-            if (v != null) main.post { v.alpha = 1f }
-        }
+        val text = readScreenText()
+        val shot = takeShot()
+        return Pair(text, shot)
     }
 
     private fun takeShot(): String? {
