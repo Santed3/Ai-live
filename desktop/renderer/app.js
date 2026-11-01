@@ -418,7 +418,7 @@ function showWelcome() {
     for (const [key,label] of options) {
       const b = document.createElement('button'); b.textContent = label;
       b.style.cssText = 'display:block;width:100%;margin:4px 0;text-align:left;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.055);border:1px solid var(--line);color:var(--text);font-size:11px';
-      b.onclick = async () => { await api.primaryUseSet(key); chat.textContent = ''; showWelcome(); };
+      b.onclick = async () => { await api.primaryUseSet(key); window.primaryUse = key; renderMenu(); chat.textContent = ''; showWelcome(); };
       section.appendChild(b);
     }
     d.appendChild(section);
