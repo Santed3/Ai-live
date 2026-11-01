@@ -1029,9 +1029,10 @@ ipcMain.handle('language-set', (_e, value) => {
   const s = readJson('settings.json', {});
   s.uiLanguage = allowed.includes(value) ? value : 'system';
   writeJson('settings.json', s);
+  send2('language-updated', s.uiLanguage);
   return s.uiLanguage;
 });
-ipcMain.handle('features-get', () => featureSettings());
+ipcMain.handle('features-get, () => featureSettings());
 ipcMain.handle('appearance-get', () => assistantAppearance());
 ipcMain.handle('appearance-set', (_e, next) => {
   const saved = readJson('settings.json', {});
