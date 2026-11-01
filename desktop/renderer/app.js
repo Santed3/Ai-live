@@ -405,6 +405,25 @@ $('primaryActions').addEventListener('click', (e) => {
 function showWelcome() {
   const d = document.createElement('div'); d.className = 'welcome';
   d.innerHTML = '<div class="big">👋</div><h3>Hej! Vad vill du göra?</h3><p>Jag ser din skärm och kan hjälpa dig direkt.</p><div class="sug"></div><small>Ctrl+Alt+Space meny · Ctrl+Alt+A snabbsvar · Ctrl+Alt+C förklara markering</small>';
+  api.primaryUseGet().then((saved) => {
+    if (saved || !chat.contains(d)) return;
+    const section = document.createElement('div');
+    section.style.cssText = 'margin:14px auto 0;max-width:340px;text-align:left';
+    const heading = document.createElement('p'); heading.textContent = 'Vad kommer du använda ScreenBubble mest till?';
+    heading.style.cssText = 'font-size:12px;color:var(--muted);margin:0 0 7px';
+    section.appendChild(heading);
+    const options = [
+      ['communication','Meddelanden & mejl'],['study','Studier'],['writing','Skrivande'],['research','Sökning & research'],['work','Arbete & produktivitet'],['general','Lite av allt']
+    ];
+    for (const [key,label] of options) {
+      const b = document.createElement('button'); b.textContent = label;
+      b.style.cssText = 'display:block;width:100%;margin:4px 0;text-align:left;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.055);border:1px solid var(--line);color:var(--text);font-size:11px';
+      b.onclick = async () => { await api.primaryUseSet(key); chat.textContent = ''; showWelcome(); };
+      section.appendChild(b);
+    }
+    d.appendChild(section);
+  });
+
   for (const [l, t] of [['✅ Svara på frågan på skärmen', 'Svara på frågan som syns på skärmen. Ge svaret tydligt.'], ['📄 Sammanfatta det jag tittar på', 'Sammanfatta det som syns på skärmen kort.'], ['🔎 Googla något', null]]) {
     const b = document.createElement('button'); b.textContent = l;
     b.onclick = () => (t ? send(t, false) : (inp.value = 'google ', inp.focus()));
@@ -451,11 +470,16 @@ function group(title, tiles) {
   tiles.forEach((x) => g.appendChild(x));
   wrap.append(t, g); return wrap;
 }
+const PROFILE_PRIORITY = {
+  communication: ['Smart Reply'], study: ['Study Mode'], writing: ['Writing Mode'],
+  research: ['Web Research'], work: ['AI Actions'], general: []
+};
 function renderMenu() {
   const box = $('groups'); box.textContent = '';
   const q = ($('featureSearch')?.value || '').trim().toLowerCase();
   for (const [title, items] of BUILTIN) {
-    const visible = items.filter((x) => (!x[3] || features[x[3]]) && (!q || x[1].toLowerCase().includes(q)));
+    const priority = PROFILE_PRIORITY[window.primaryUse || 'general'] || [];
+    const visible = items.filter((x) => (!x[3] || features[x[3]]) && (!q || x[1].toLowerCase().includes(q))).sort((a,b) => { const ai=priority.indexOf(a[1]), bi=priority.indexOf(b[1]); return (ai<0?99:ai)-(bi<0?99:bi); });
     if (visible.length) box.appendChild(group(title, visible.map(([i, l, fn]) => tileEl(i, l, fn))));
   }
   const mine = cmds.filter((c) => !q || c.name.toLowerCase().includes(q)).map((c) => {
