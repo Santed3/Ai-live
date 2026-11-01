@@ -279,7 +279,7 @@ class PanelUi(private val svc: ReaderService) {
 
     private fun iconPill(label: String, onClick: () -> Unit): TextView =
         TextView(svc).apply {
-            text = label
+            text = UiText.t(svc, label)
             textSize = 15f
             setTextColor(MUTED)
             gravity = Gravity.CENTER
