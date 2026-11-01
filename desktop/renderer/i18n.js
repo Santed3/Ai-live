@@ -23,6 +23,7 @@
     if (language === 'sv') return value;
     const dict = dictionaries[language] || {};
     if (dict[source]) return dict[source];
+    if (dictionaries.en[source]) return dictionaries.en[source];
     return value;
   }
   function translateNode(root) {
