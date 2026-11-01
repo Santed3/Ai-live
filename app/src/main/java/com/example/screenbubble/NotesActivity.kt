@@ -126,11 +126,11 @@ class NotesActivity : Activity() {
 
     private fun startListening() {
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            status.text = "Mikrofonbehörighet saknas. Tillåt mikrofonen i ScreenBubble-inställningarna."
+            status.text = UiText.t(this@NotesActivity, "Mikrofonbehörighet saknas. Tillåt mikrofonen i ScreenBubble-inställningarna.")
             return
         }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            status.text = "Taligenkänning finns inte på den här enheten."
+            status.text = UiText.t(this@NotesActivity, "Taligenkänning finns inte på den här enheten.")
             return
         }
         try {
@@ -139,8 +139,8 @@ class NotesActivity : Activity() {
                 r.setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
                         listening = true
-                        status.text = "Lyssnar… Du kan prata naturligt."
-                        dictationButton.text = "■  Stoppa diktering"
+                        status.text = UiText.t(this@NotesActivity, "Lyssnar… Du kan prata naturligt.")
+                        dictationButton.text = UiText.t(this@NotesActivity, "■  Stoppa diktering")
                     }
                     override fun onBeginningOfSpeech() {}
                     override fun onRmsChanged(rmsdB: Float) {}
@@ -158,7 +158,7 @@ class NotesActivity : Activity() {
                             return
                         }
                         processing = true
-                        status.text = "Finskriver texten med AI…"
+                        status.text = UiText.t(this@NotesActivity, "Finskriver texten med AI…")
                         Thread {
                             val polished = polish(raw)
                             main.post {
@@ -167,7 +167,7 @@ class NotesActivity : Activity() {
                                     editor.append(prefix + polished)
                                     editor.setSelection(editor.text.length)
                                     saveNote()
-                                    status.text = "Texten är klar. Fortsätt prata när du vill."
+                                    status.text = UiText.t(this@NotesActivity, "Texten är klar. Fortsätt prata när du vill.")
                                 }
                                 processing = false
                                 if (listening) main.postDelayed({ startListening() }, 350)
@@ -188,7 +188,7 @@ class NotesActivity : Activity() {
             }
         } catch (_: Exception) {
             listening = false
-            status.text = "Kunde inte starta mikrofonen. Försök igen."
+            status.text = UiText.t(this@NotesActivity, "Kunde inte starta mikrofonen. Försök igen.")
         }
     }
 
@@ -196,8 +196,8 @@ class NotesActivity : Activity() {
         listening = false
         try { recognizer?.stopListening() } catch (_: Exception) {}
         try { recognizer?.cancel() } catch (_: Exception) {}
-        dictationButton.text = "●  Starta diktering"
-        status.text = "Dikteringen är pausad. Texten sparas automatiskt."
+        dictationButton.text = UiText.t(this@NotesActivity, "●  Starta diktering")
+        status.text = UiText.t(this@NotesActivity, "Dikteringen är pausad. Texten sparas automatiskt.")
     }
 
     private fun polish(raw: String): String {
