@@ -120,7 +120,7 @@ class SmartReply(private val svc: ReaderService) {
 
     private fun safeForCleanWriting(value: String, pkg: String): Boolean {
         val t = value.trim()
-        if (t.length !in 8..500 || t.contains('\\n') || t.contains('\\r')) return false
+        if (t.length !in 8..500 || t.contains('\n') || t.contains('\r')) return false
         if (pkg.contains("keyboard") || pkg.contains("inputmethod") || pkg == svc.packageName) return false
         if (Regex("(?i)(password|lösenord|bankid|personnummer|kortnummer|cvv|one.time.code|verification code|api[_ -]?key)").containsMatchIn(t)) return false
         if (Regex("(?i)(https?://|www\\.|@\\w+\\.)").containsMatchIn(t)) return false
