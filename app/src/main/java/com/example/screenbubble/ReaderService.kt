@@ -254,8 +254,10 @@ class ReaderService : AccessibilityService() {
     private fun showPanel() {
         if (panel != null) return
         val p = PanelUi(this)
-        val w = min(dp(320), (screenW * 0.86f).toInt())
-        val h = min(dp(400), (screenH * 0.46f).toInt())
+        // The chat is the primary workspace: use almost the full available screen
+        // instead of the old 46% height that forced users to keep scrolling the panel.
+        val w = min(dp(420), (screenW * 0.94f).toInt())
+        val h = (screenH - dp(32)).coerceAtLeast(dp(420)).coerceAtMost((screenH * 0.92f).toInt())
         val lp = WindowManager.LayoutParams(
             w, h,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
