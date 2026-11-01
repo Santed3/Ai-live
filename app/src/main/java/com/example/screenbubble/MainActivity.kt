@@ -436,7 +436,7 @@ class MainActivity : Activity() {
             Triple("general", "Lite av allt", "En balanserad assistent")
         )
         for ((key, label, detail) in choices) {
-            usage.addView(button((if (currentProfile == key) "✓  " else "") + label + "\\n" + detail, currentProfile == key) {
+            usage.addView(button((if (currentProfile == key) "✓  " else "") + label + "\n" + detail, currentProfile == key) {
                 prefs.edit().putString("primary_use", key)
                     .putBoolean("profile_communication", key == "communication")
                     .putBoolean("profile_study", key == "study")
