@@ -477,7 +477,10 @@ const PROFILE_PRIORITY = {
 function renderMenu() {
   const box = $('groups'); box.textContent = '';
   const q = ($('featureSearch')?.value || '').trim().toLowerCase();
-  for (const [title, items] of BUILTIN) {
+  const groupPriority = { communication:['DIREKT HJÄLP','AI-VERKTYG'], study:['AI-VERKTYG','DIREKT HJÄLP'], writing:['AI-VERKTYG','DIREKT HJÄLP'], research:['AI-VERKTYG','DIREKT HJÄLP'], work:['DIREKT HJÄLP','AI-VERKTYG'], general:[] };
+  const preferredGroups = groupPriority[window.primaryUse || 'general'] || [];
+  const orderedGroups = [...BUILTIN].sort((a,b) => { const ai=preferredGroups.indexOf(a[0]), bi=preferredGroups.indexOf(b[0]); return (ai<0?99:ai)-(bi<0?99:bi); });
+  for (const [title, items] of orderedGroups) {
     const priority = PROFILE_PRIORITY[window.primaryUse || 'general'] || [];
     const visible = items.filter((x) => (!x[3] || features[x[3]]) && (!q || x[1].toLowerCase().includes(q))).sort((a,b) => { const ai=priority.indexOf(a[1]), bi=priority.indexOf(b[1]); return (ai<0?99:ai)-(bi<0?99:bi); });
     if (visible.length) box.appendChild(group(title, visible.map(([i, l, fn]) => tileEl(i, l, fn))));
