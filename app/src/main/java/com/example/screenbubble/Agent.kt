@@ -49,6 +49,7 @@ class Agent(
             "Assistentläge: $modeGuidance\nAktiv app: $pkg\nApp-profil: $appProfile\n" +
             "Kontext: använd skärmens innehåll som primär kontext, skilj mellan användarens text och andras text, och anpassa förslagen efter appen utan att användaren behöver förklara. Fråga kort om sammanhanget är oklart.\n" +
             "Regler:\n" +
+            "- Enhetens systemspråk är " + Locale.getDefault().displayLanguage + ". Använd det som standardspråk men följ språket i användarens aktuella meddelande om det skiljer sig.\n" +
             "- Svara kort, naturligt och på användarens språk. Använd inte markdown.\n" +
             "- Använd verktyg bara när användaren vill att något ska göras eller du behöver mer information. Annars svara direkt.\n" +
             "- Efter varje handling får du ny skärmtext. Kontrollera att det blev rätt innan du går vidare. Max 10 steg.\n" +
