@@ -1023,6 +1023,14 @@ ipcMain.handle('primary-use-set', (_e, value) => {
   send2('primary-use-updated', use);
   return use;
 });
+ipcMain.handle('language-get', () => readJson('settings.json', {}).uiLanguage || 'system');
+ipcMain.handle('language-set', (_e, value) => {
+  const allowed = ['system','sv','en','de','es','fr','no','da','fi'];
+  const s = readJson('settings.json', {});
+  s.uiLanguage = allowed.includes(value) ? value : 'system';
+  writeJson('settings.json', s);
+  return s.uiLanguage;
+});
 ipcMain.handle('features-get', () => featureSettings());
 ipcMain.handle('appearance-get', () => assistantAppearance());
 ipcMain.handle('appearance-set', (_e, next) => {
