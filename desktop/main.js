@@ -1110,7 +1110,7 @@ app.whenReady().then(() => {
   panel.webContents.once('did-finish-load', () => setMode(readJson('mode.json', { m: 'bar' }).m === 'hide' ? 'hide' : 'bar'));
   globalShortcut.register('Control+Alt+Space', () => setMode(mode === 'bar' ? 'menu' : mode === 'hide' ? 'bar' : 'bar'));
   globalShortcut.register('Control+Alt+A', () => quickAnswer());
-  setInterval(pollForeground, 2500);
+  setInterval(pollForeground, 1500);
   if (featureSettings().selectionAsk) globalShortcut.register('Control+Alt+C', explainSelection);
   globalShortcut.register('Control+Alt+R', explainRegion);
   makeTray();
