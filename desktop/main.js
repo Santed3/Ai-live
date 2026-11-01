@@ -61,7 +61,7 @@ async function learn(userText, answer) {
 }
 function commands() { return readJson('commands.json', []).map(Lib.sanitizeCommand).filter(Boolean); }
 const FEATURE_DEFAULTS = {
-  smartReply: true, activeHelp: true, contextualSuggestions: true, screenActions: true,
+  smartReply: true, activeHelp: true, proactiveSearch: false, contextualSuggestions: true, screenActions: true,
   smartTranslate: true, studyMode: true, writingMode: true,
   webResearch: true, appProfiles: true, selectionAsk: true, voice: true, dictation: true, readAloud: true,
 };
@@ -391,6 +391,30 @@ function inspectForActiveHelp(title, proc, snapshot) {
   showAnswer('Active Help\n' + headline + '\nTryck här för att analysera', 12000);
 }
 let lastActiveHelpPromptSignature = '';
+let proactiveSearchTimer = null, lastProactiveSearch = '', lastProactiveSearchAt = 0, proactiveSearchBusy = false;
+function queueProactiveSearch(value, proc, title, controlName) {
+  const browser = ['chrome','msedge','firefox','brave','opera','vivaldi'].includes(String(proc || '').toLowerCase());
+  const field = String(controlName || '').toLowerCase();
+  const isSearchField = /(search|sök|address and search bar|omnibox|url)/i.test(field);
+  const query = String(value || '').replace(/\\s+/g, ' ').trim();
+  if (!featureSettings().proactiveSearch || !browser || !isSearchField || query.length < 6 || query.length > 150 ||
+      /^(https?:\\/\\/|www\\.)/i.test(query) || /password|lösenord|bankid|personnummer|card number|cvv/i.test(query)) {
+    clearTimeout(proactiveSearchTimer); proactiveSearchTimer = null; return;
+  }
+  if (query === lastProactiveSearch || Date.now() - lastProactiveSearchAt < 90000) return;
+  clearTimeout(proactiveSearchTimer);
+  proactiveSearchTimer = setTimeout(async () => {
+    if (proactiveSearchBusy || !featureSettings().proactiveSearch || query === lastProactiveSearch) return;
+    proactiveSearchBusy = true; lastProactiveSearch = query; lastProactiveSearchAt = Date.now();
+    try {
+      const answer = await webSearch(query);
+      if (!answer || !featureSettings().proactiveSearch || mode === 'chat' || !panel || panel.isFocused()) return;
+      activeHelpPrompt = 'Fördjupa sökningen om: ' + query + '. Ge mer detaljer, kontrollera källorna och svara med tydliga länkar.';
+      showAnswer('SVAR DIREKT\\n' + answer.slice(0, 760) + '\\n\\nTryck för mer hjälp', 18000);
+    } catch (_) {
+    } finally { proactiveSearchBusy = false; }
+  }, 1700);
+}
 let autoDraftTimer = null, lastObservedDraft = '', lastAutoDraftSuggestion = '', autoDraftBusy = false, autoDraftSuppressedUntil = 0;
 function queueSmartDraft(draft, proc, title) {
   const value = String(draft || '').trim();
@@ -435,17 +459,18 @@ async function pollForeground() {
   const r = await ps([...WIN32,
     '$h=[W32]::GetForegroundWindow(); $sb=New-Object System.Text.StringBuilder 512; [void][W32]::GetWindowText($h,$sb,512)',
     '$p=0; [void][W32]::GetWindowThreadProcessId($h,[ref]$p); $n=(Get-Process -Id $p -ErrorAction SilentlyContinue).ProcessName',
-    '$v=""; $f=""; try { Add-Type -AssemblyName UIAutomationClient -ErrorAction Stop; $focused=[System.Windows.Automation.AutomationElement]::FocusedElement; $pat=$null; if($focused -and -not $focused.Current.IsPassword -and $focused.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pat)){ $f=$pat.Current.Value } elseif($focused -and -not $focused.Current.IsPassword -and $focused.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern,[ref]$pat)){ $f=$pat.DocumentRange.GetText(1200) }; $root=[System.Windows.Automation.AutomationElement]::FromHandle($h); $items=$root.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition); $parts=New-Object System.Collections.Generic.List[string]; $i=0; foreach($x in $items){ if($i -ge 120 -or $parts.Count -ge 100){break}; $i++; try { if($x.Current.IsPassword -or $x.Current.IsOffscreen){continue}; $z=$x.Current.Name; if($z -and $z.Trim()){ $parts.Add($z.Trim()) }; $pat=$null; if($x.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pat)){ $z=$pat.Current.Value; if($z -and $z.Trim()){ $parts.Add($z.Trim()) } } } catch {} }; $v=$parts -join " | "; if($v.Length -gt 6000){$v=$v.Substring(0,6000)} } catch {}',
-    '$et=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($sb.ToString())); $ef=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($f)); $ev=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($v)); $et + "|" + $n + "|" + $ef + "|" + $ev'], 9000);
+    '$v=""; $f=""; $fn=""; try { Add-Type -AssemblyName UIAutomationClient -ErrorAction Stop; $focused=[System.Windows.Automation.AutomationElement]::FocusedElement; $pat=$null; if($focused){$fn=$focused.Current.Name}; if($focused -and -not $focused.Current.IsPassword -and $focused.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pat)){ $f=$pat.Current.Value } elseif($focused -and -not $focused.Current.IsPassword -and $focused.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern,[ref]$pat)){ $f=$pat.DocumentRange.GetText(1200) }; $root=[System.Windows.Automation.AutomationElement]::FromHandle($h); $items=$root.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition); $parts=New-Object System.Collections.Generic.List[string]; $i=0; foreach($x in $items){ if($i -ge 120 -or $parts.Count -ge 100){break}; $i++; try { if($x.Current.IsPassword -or $x.Current.IsOffscreen){continue}; $z=$x.Current.Name; if($z -and $z.Trim()){ $parts.Add($z.Trim()) }; $pat=$null; if($x.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pat)){ $z=$pat.Current.Value; if($z -and $z.Trim()){ $parts.Add($z.Trim()) } } } catch {} }; $v=$parts -join " | "; if($v.Length -gt 6000){$v=$v.Substring(0,6000)} } catch {}',
+    '$et=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($sb.ToString())); $en=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($fn)); $ef=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($f)); $ev=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($v)); $et + "|" + $n + "|" + $en + "|" + $ef + "|" + $ev'], 9000);
   if (r.ok && r.out.includes('|')) {
     const parts = r.out.trim().split('|');
-    if (parts.length >= 4) {
+    if (parts.length >= 5) {
       const decode = (v) => { try { return Buffer.from(v, 'base64').toString('utf8'); } catch { return ''; } };
       const title = decode(parts[0]), proc = parts[1].toLowerCase();
-      const focusedText = decode(parts[2]), visibleText = decode(parts.slice(3).join('|'));
+      const focusedName = decode(parts[2]), focusedText = decode(parts[3]), visibleText = decode(parts.slice(4).join('|'));
       if (proc && proc !== 'screenbubble' && proc !== 'electron') {
         lastExternal = { title, proc };
         queueSmartDraft(focusedText, proc, title);
+        queueProactiveSearch(focusedText, proc, title, focusedName);
         inspectForActiveHelp(title, proc, visibleText);
       }
     }
