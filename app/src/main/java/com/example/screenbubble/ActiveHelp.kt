@@ -56,6 +56,23 @@ class ActiveHelp(private val svc: ReaderService) {
     private fun workflowContext(): String =
         if (workflowTrail.isEmpty()) "" else workflowTrail.joinToString(" → ")
 
+    private var lastSearchPrompt = ""
+    private fun browserSearchQuery(pkg: String, screen: String): String? {
+        val browser = listOf("chrome", "firefox", "browser", "brave", "edge").any { pkg.contains(it) }
+        if (!browser) return null
+        val marker = Regex("(?i)(search google or type a url|search or type url|sök eller skriv webbadress|sök på google|search query|sökfråga)")
+        if (!marker.containsMatchIn(screen)) return null
+        val lines = screen.lines().map { it.trim() }.filter { it.length in 5..150 }
+        val query = lines.lastOrNull { line ->
+            !marker.containsMatchIn(line) &&
+                !line.matches(Regex("(?i)(google|search|sök|images|bilder|news|nyheter|maps|kartor)")) &&
+                !line.startsWith("http", true)
+        } ?: return null
+        if (query.length < 6 || query.length > 120) return null
+        if (Regex("(?i)(password|lösenord|bankid|personnummer|cvv|card number)").containsMatchIn(query)) return null
+        return query
+    }
+
     fun onEvent(event: AccessibilityEvent) {
         if (!Store.flag(svc, "active_help") || !svc.canShowActiveHelp()) return
         val pkg = event.packageName?.toString().orEmpty()
@@ -78,6 +95,19 @@ class ActiveHelp(private val svc: ReaderService) {
         if (signature == lastScreenSignature) checks++ else { lastScreenSignature = signature; checks = 1 }
         if (System.currentTimeMillis() < dismissedUntil || System.currentTimeMillis() - lastShownAt < 90_000) return
         val normalized = screen.lowercase()
+        val searchQuery = browserSearchQuery(pkg, screen)
+        if (searchQuery != null && searchQuery != lastSearchPrompt &&
+            System.currentTimeMillis() - lastShownAt > 30_000) {
+            lastSearchPrompt = searchQuery
+            lastShownSignature = signature
+            lastShownAt = System.currentTimeMillis()
+            svc.showActiveHelp(
+                "Vill du ha svaret direkt?",
+                "Jag kan söka upp frågan och sammanfatta svaret innan du öppnar resultaten.",
+                "Sök på webben efter: $searchQuery. Ge ett kort, korrekt svar på svenska och ange de viktigaste källorna med länkar. Kontrollera att källorna stöder svaret. Öppna inga länkar och utför inga andra åtgärder."
+            )
+            return
+        }
         val download = Regex("(download|downloading|nedladd|hämtar|hämtning)").containsMatchIn(normalized)
         val strongFailure = listOf(
             "download failed", "couldn't download", "could not download", "failed to download",
