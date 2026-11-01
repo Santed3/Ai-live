@@ -87,7 +87,7 @@ class ReaderService : AccessibilityService() {
         pool.execute {
             val n = Updater.checkIfDue(this)
             if (n != null) main.post {
-                android.widget.Toast.makeText(this, "Ny version av ScreenBubble finns. Öppna appen för att uppdatera.", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(this, UiText.t(this, "Ny version av ScreenBubble finns. Öppna appen för att uppdatera."), android.widget.Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -455,7 +455,7 @@ class ReaderService : AccessibilityService() {
         smart.markAccepted(text)
         pool.execute {
             val r = typeText(text, false)
-            if (!r.startsWith("Skrev")) main.post { android.widget.Toast.makeText(this, "Tryck i textfältet först", android.widget.Toast.LENGTH_SHORT).show() }
+            if (!r.startsWith("Skrev")) main.post { android.widget.Toast.makeText(this, UiText.t(this, "Tryck i textfältet först"), android.widget.Toast.LENGTH_SHORT).show() }
         }
     }
 
