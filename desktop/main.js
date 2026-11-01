@@ -1032,7 +1032,7 @@ ipcMain.handle('language-set', (_e, value) => {
   send2('language-updated', s.uiLanguage);
   return s.uiLanguage;
 });
-ipcMain.handle('features-get, () => featureSettings());
+ipcMain.handle('features-get', () => featureSettings());
 ipcMain.handle('appearance-get', () => assistantAppearance());
 ipcMain.handle('appearance-set', (_e, next) => {
   const saved = readJson('settings.json', {});
